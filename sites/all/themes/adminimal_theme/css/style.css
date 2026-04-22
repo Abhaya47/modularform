@@ -32,7 +32,9 @@ body.adminimal-theme *::-moz-focus-inner {
 
 /**/
 
-/* NAVBAR CONTAINER */
+/* =========================================
+   TOP NAVIGATION BAR
+   ========================================= */
 .top-navbar {
   display: flex;
   align-items: center;
@@ -41,55 +43,136 @@ body.adminimal-theme *::-moz-focus-inner {
   padding: 0 20px;
   height: 55px;
   color: #fff;
+  font-family: inherit; /* Inherits your site's font */
+  position: relative; /* Context for mobile dropdown */
 }
 
-/* LEFT */
-.nav-logo img {
-  height: 35px;
-}
-
-/* CENTER MENU */
-.nav-center ul {
+/* Universally strip list styling from all nav lists to remove dots */
+.top-navbar ul {
   list-style: none;
-  display: flex;
   margin: 0;
   padding: 0;
+}
+
+/* =========================================
+   LEFT: LOGO
+   ========================================= */
+.nav-logo img {
+  height: 35px;
+  display: block; /* Removes baseline ghost spacing */
+}
+
+/* =========================================
+   CENTER: MAIN MENU
+   ========================================= */
+.nav-center ul {
+  display: flex;
+  gap: 8px; /* Slightly increased for better touch targets */
 }
 
 .nav-center li {
   position: relative;
 }
 
+/* Standard Links */
 .nav-center a {
   display: block;
-  padding: 18px 15px;
+  padding: 10px 16px;
   color: #fff;
   text-decoration: none;
+  border-radius: 8px;
+  transition: background 0.2s ease, transform 0.2s ease;
 }
 
+/* Hover & Active States */
 .nav-center a:hover {
   background: #3a3d42;
+  color: #fff; /* Ensures text stays bright */
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); /* Subtle inner glow to define the shape */
 }
 
-/* DROPDOWN */
+.nav-center a:active {
+  transform: scale(0.97);
+}
+
+/* Keyboard Accessibility */
+.nav-center a:focus-visible {
+  outline: 2px solid #ff6b6b;
+  outline-offset: 2px;
+}
+
+/* =========================================
+   CENTER: DROPDOWN
+   ========================================= */
 .nav-center li ul {
   position: absolute;
-  top: 100%;
+  top: 100%; /* flush with the bottom of the nav bar */
   left: 0;
   background: #3a3d42;
   display: none;
-  min-width: 180px;
+  min-width: 200px;
+  border-radius: 8px;
+  padding: 8px 0;
+  margin-top: 5px; /* Visual space */
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3); /* Softer, deeper shadow */
+  z-index: 1000; /* Prevents hiding behind page content */
 }
 
+/* "Hover Bridge": Creates an invisible bridge so the menu doesn't close when crossing the margin gap */
+.nav-center li ul::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 0;
+  width: 100%;
+  height: 5px;
+}
+
+/* Target the specific classes you identified */
+.item-list ul li,
+li.leaf,
+ul.menu li,
+.nav-center ul li {
+  list-style: none !important;
+  list-style-image: none !important;
+  background-image: none !important; /* Some frameworks use images as dots */
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+}
+
+/* Ensure the containers are also reset */
+.item-list ul,
+ul.menu {
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Show Dropdown */
 .nav-center li:hover > ul {
   display: block;
+  animation: dropdownFade 0.2s ease-out forwards;
 }
 
+/* Dropdown Links */
 .nav-center li ul li a {
-  padding: 10px 15px;
+  padding: 10px 16px;
+  border-radius: 4px; /* Slight round inside the menu */
+  margin: 0 8px; /* Gives links "breathing room" inside the box */
+  color: #cbd3d9; /* Slightly dimmed text for non-hovered items */
+  transition: all 0.2s ease;
 }
 
-/* RIGHT */
+/* Dropdown Hover */
+.nav-center li ul li a:hover {
+  background: #4f545c; /* Slightly lighter than the dropdown bg */
+  color: #ffffff; /* Pops the text to pure white on hover */
+  padding-left: 20px; /* Subtle "slide" effect for better UX feedback */
+}
+
+/* =========================================
+   RIGHT SIDE & LOGOUT
+   ========================================= */
 .nav-right {
   display: flex;
   align-items: center;
@@ -99,17 +182,51 @@ body.adminimal-theme *::-moz-focus-inner {
 .nav-logout {
   color: #ff6b6b;
   text-decoration: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
 }
 
-/* HAMBURGER */
+.nav-logout:hover {
+  background: rgba(255, 107, 107, 0.15);
+}
+
+.nav-logout:focus-visible {
+  outline: 2px solid #ff6b6b;
+  outline-offset: 2px;
+}
+
+/* =========================================
+   HAMBURGER TOGGLE
+   ========================================= */
 .nav-toggle {
   display: none;
   font-size: 24px;
   cursor: pointer;
+  background: none;
+  border: none;
+  color: #fff;
+  padding: 5px;
 }
 
+/* =========================================
+   ANIMATIONS
+   ========================================= */
+@keyframes dropdownFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
-/*making it responsive*/
+/* =========================================
+   RESPONSIVE (MOBILE)
+   ========================================= */
 @media (max-width: 768px) {
 
   .nav-center {
@@ -119,26 +236,47 @@ body.adminimal-theme *::-moz-focus-inner {
     left: 0;
     width: 100%;
     background: #2c2f33;
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    z-index: 1000;
+    overflow: hidden; /* Keeps borders tidy */
   }
 
   .nav-center ul {
     flex-direction: column;
+    padding: 15px;
+    gap: 4px;
   }
 
+  .nav-center a {
+    padding: 12px 16px;
+  }
+
+  /* Reset dropdown positioning for mobile */
   .nav-center li ul {
     position: relative;
+    top: 0;
+    background: rgba(0, 0, 0, 0.15); /* Inset feel */
+    box-shadow: none;
+    padding: 5px 0;
+    margin: 5px 0 0 0;
+    border-radius: 6px;
+  }
+
+  .nav-center li ul::before {
+    display: none; /* Remove hover bridge on mobile */
   }
 
   .nav-toggle {
     display: block;
   }
 
+  /* Applied via JS when hamburger is clicked */
   .nav-center.active {
     display: block;
+    animation: dropdownFade 0.25s ease forwards;
   }
-
 }
-
 
 /**/
 
