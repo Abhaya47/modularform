@@ -1,0 +1,283 @@
+<?php
+
+
+/**
+ * Implements hook_custom_theme().
+ */
+function modularform_custom_theme()
+{
+  global $user;
+
+//  if (isset($user->roles) && in_array('admin', $user->roles)) {
+    return 'adminimal';
+//  }
+}
+
+function modularform_menu() {
+  $items = array();
+
+  $items['forms/manage'] = array(
+    'title' => 'Manage Forms',
+    'page callback' => 'form_list_page',
+    'access arguments' => array('access content'),
+    'access callback' => 'form_view_page',
+    'menu_name' => 'main-menu',
+  );
+
+  $items['forms/create'] = array(
+    'title' => 'Create Form',
+    'page callback' => 'modularform_create_form',
+    'access arguments' => array('access content'),
+    'access callback' => 'form_create_access',
+
+    'menu_name' => 'main-menu',
+  );
+
+  $items['landing'] = array(
+    'title' => 'Landing Page',
+    'page callback' => 'modularform_landing_page',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+    'theme callback' => 'modularform_landing_theme',
+  );
+
+
+  return $items;
+}
+
+function form_create_access($id)
+{
+  global $user;
+  if (isset($user->roles) && in_array('admin', $user->roles)) {
+   return TRUE;
+ }
+ return FALSE;
+}
+
+function form_view_page(){
+
+  global $user;
+  if (isset($user->roles) && in_array('admin', $user->roles)) {
+    return TRUE;
+  }
+  return FALSE;
+}
+
+//landing page
+function modularform_init() {
+  global $user;
+
+  // Allow login page + landing page to avoid redirect loop
+  $current_path = current_path();
+
+  $allowed = array('user/login', 'user/register', 'landing');
+
+  if ($user->uid == 0 && !in_array($current_path, $allowed)) {
+    drupal_goto('landing');
+  }
+}
+
+
+function modularform_landing_page() {
+  return array(
+    '#theme' => 'modularform_landing',
+    '#attached' => array(
+      'css' => array(drupal_get_path('module', 'modularform') . '/css/landing.css'),
+    ),
+  );
+}
+
+
+/**
+ * Implements hook_entity_info().
+ */
+function modularform_entity_info() {
+  $info = array();
+
+  // 1. Form Entity
+  $info['modularform_form'] = array(
+    'label' => t('Modular Form'),
+    'base table' => 'forms',
+    'entity class' => 'Entity',
+    'controller class' => 'EntityAPIController',
+    'fieldable' => TRUE,
+    'entity keys' => array(
+      'id' => 'id',
+      'label' => 'title', // Uses the 'title' column from your schema
+    ),
+    'bundles' => array(
+      'modularform_form' => array(
+        'label' => t('Modular Form'),
+        // Optional: define UI path for managing fields if needed
+        // 'admin' => array('path' => 'admin/structure/modularforms'),
+      ),
+    ),
+    'module' => 'modularform',
+  );
+
+  // 2. Section Entity
+  $info['modularform_section'] = array(
+    'label' => t('Form Section'),
+    'base table' => 'sections',
+    'entity class' => 'Entity',
+    'controller class' => 'EntityAPIController',
+    'fieldable' => TRUE,
+    'entity keys' => array(
+      'id' => 'id',
+      'label' => 'name',
+    ),
+    'bundles' => array(
+      'modularform_section' => array(
+        'label' => t('Form Section'),
+      ),
+    ),
+    'module' => 'modularform',
+  );
+
+  // 3. Question Entity
+  $info['modularform_question'] = array(
+    'label' => t('Form Question'),
+    'base table' => 'questions',
+    'entity class' => 'Entity',
+    'controller class' => 'EntityAPIController',
+    'fieldable' => TRUE,
+    'entity keys' => array(
+      'id' => 'id',
+      'label' => 'label',
+    ),
+    'bundles' => array(
+      'modularform_question' => array(
+        'label' => t('Form Question'),
+      ),
+    ),
+    'module' => 'modularform',
+  );
+
+
+  // 4. Question Option Entity
+  $info['modularform_option'] = array(
+    'label' => t('Question Option'),
+    'base table' => 'question_options',
+    'entity class' => 'Entity',
+    'controller class' => 'EntityAPIController',
+    'fieldable' => FALSE, // Usually options don't need custom fields attached
+    'entity keys' => array(
+      'id' => 'id',
+      'label' => 'option',
+    ),
+    'bundles' => array(
+      'modularform_option' => array(
+        'label' => t('Question Option'),
+      ),
+    ),
+    'module' => 'modularform',
+  );
+
+  // 5. Response Entity (The submission container)
+
+  $info['modularform_response'] = array(
+    'label' => t('Form Response'),
+    'base table' => 'responses',
+    'entity class' => 'Entity',
+    'controller class' => 'EntityAPIController',
+    'fieldable' => TRUE,
+    'entity keys' => array(
+      'id' => 'id',
+      // Responses don't have a clear title, so we leave 'label' out.
+      // You can implement hook_entity_property_info() to generate a dynamic label later.
+    ),
+    'bundles' => array(
+      'modularform_response' => array(
+        'label' => t('Form Response'),
+      ),
+    ),
+    'module' => 'modularform',
+  );
+
+  // 6. Answer Entity (The individual piece of data)
+  $info['modularform_answer'] = array(
+    'label' => t('Form Answer'),
+    'base table' => 'answers',
+    'entity class' => 'Entity',
+    'controller class' => 'EntityAPIController',
+    'fieldable' => FALSE, // Data is in your custom EAV tables, not Field API
+    'entity keys' => array(
+      'id' => 'id',
+    ),
+    'bundles' => array(
+      'modularform_answer' => array(
+        'label' => t('Form Answer'),
+      ),
+    ),
+    'module' => 'modularform',
+  );
+
+  return $info;
+}
+
+
+function form_list_page() {
+  return array(
+    '#theme' => 'survey_portal',
+    '#content' => array(
+      '#markup' => '<h2>This is the list of surveys</h2>',
+    ),
+  );
+}
+
+function modularform_create_form() {
+  return array(
+    '#theme' => 'survey_portal',
+    '#content' => array(
+      '#markup' => '<h2>This is where you create forms</h2>',
+    ),
+  );
+}
+
+
+/**
+ * Implements hook_theme().
+ */
+
+function modularform_theme() {
+  return array(
+    'modularform_landing' => array(
+      'variables' => array('message' => NULL),
+      'template' => 'modularform-landing',
+    ),
+  );
+}
+//function modularform_theme() {
+//
+//  return array(
+//    'survey_portal' => array(
+//      'template' => 'survey-portal-base',
+//      'path' => drupal_get_path('module', 'modularform') . '/templates',
+//      'variables' => array('content' => NULL, 'sidebar_links' => array()),
+//    ),
+//  );
+//}
+//
+///**
+// * Implements template_preprocess_survey_portal().
+// */
+//function modularform_preprocess_survey_portal(&$vars) {
+//  global $user;
+//
+//  // Check for 'administrator' role
+//  if (in_array('admin', $user->roles)) {
+//    // This maps to: templates/survey-portal-base--admin.tpl.php
+//    $vars['theme_hook_suggestions'][] = 'survey_portal__admin';
+//
+//    $vars['sidebar_links'] = array(
+//      l(t('Create Form'), 'admin/survey/create'),
+//      l(t('Edit Forms'), 'admin/survey/manage'),
+//      l(t('View Submissions'), 'admin/survey/results'),
+//      l(t('Analytics'), 'admin/survey/analytics'),
+//    );
+//  }
+//  else {
+//    // This maps to: templates/survey-portal-base--public.tpl.php
+//    $vars['theme_hook_suggestions'][] = 'survey_portal__public';
+//  }
+//}
