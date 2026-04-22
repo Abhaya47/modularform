@@ -1,0 +1,28 @@
+/* Admin Split Layout */
+.survey-admin-container {
+  display: flex;
+  gap: 20px;
+}
+.survey-sidebar {
+  width: 250px;
+  background: #f4f4f4;
+  padding: 15px;
+  border-right: 1px solid #ddd;
+}
+.survey-content {
+  flex-grow: 1;
+  padding: 15px;
+}
+
+/* Public Centered Layout */
+.survey-public-container {
+  max-width: 800px;
+  margin: 40px auto;
+  padding: 20px;
+}
+.survey-card {
+  background: #fff;
+  border: 1px solid #ccc;
+  padding: 30px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}

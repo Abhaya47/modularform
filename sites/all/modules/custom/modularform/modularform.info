@@ -1,0 +1,6 @@
+name = modularform
+description = Provides a dynamic modular form builder.
+core = 7.x
+package = Custom
+
+stylesheets[all][] = css/landing.css
