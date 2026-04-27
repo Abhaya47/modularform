@@ -1,283 +1,782 @@
 <?php
 
-
 /**
  * Implements hook_custom_theme().
  */
-function modularform_custom_theme()
-{
+function modularform_custom_theme() {
   global $user;
 
-//  if (isset($user->roles) && in_array('admin', $user->roles)) {
-    return 'adminimal';
-//  }
+  //  if (isset($user->roles) && in_array('admin', $user->roles)) {
+  return 'adminimal';
+  //  }
 }
 
 function modularform_menu() {
-  $items = array();
+  $items = [];
 
-  $items['forms/manage'] = array(
-    'title' => 'Manage Forms',
-    'page callback' => 'form_list_page',
-    'access arguments' => array('access content'),
+  $items['forms/manage'] = [
+    'title' => 'Dashboard',
+    'page callback' => 'form_dashboard_page',
+    'access arguments' => ['view forms'],
+    // here for hook_permission. Uses the permission
     'access callback' => 'form_view_page',
     'menu_name' => 'main-menu',
-  );
+  ];
 
-  $items['forms/create'] = array(
+  $items['forms/create'] = [
     'title' => 'Create Form',
-    'page callback' => 'modularform_create_form',
-    'access arguments' => array('access content'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['modularform_create_form'],
+    'access arguments' => ['access content'],
     'access callback' => 'form_create_access',
+  ];
 
-    'menu_name' => 'main-menu',
-  );
+  $items['forms/%/builder'] = [
+    'title' => 'Create Form',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['modularform_builder_form', 1],
+    'access arguments' => ['access content'],
+    'access callback' => 'form_create_access',
+  ];
 
-  $items['landing'] = array(
-    'title' => 'Landing Page',
-    'page callback' => 'modularform_landing_page',
-    'access callback' => TRUE,
-    'type' => MENU_CALLBACK,
-    'theme callback' => 'modularform_landing_theme',
-  );
+  //  $items['forms/edit'] = array(
+  //    'title' => 'Edit Form',
+  //    'page callback' => 'modularform_edit_form',
+  //    'access arguments' => array('access content'),
+  //    'access callback' => 'form_edit_access',
+  //  );
 
+  //  $items['forms/delete'] = array(
+  //    'title' => 'Edit Form',
+  //    'page callback' => 'modularform_edit_form',
+  //    'access arguments' => array('access content'),
+  //    'access callback' => 'form_edit_access',
+  //  );
 
+  //  $items['landing'] = array(
+  //    'title' => 'Landing Page',
+  //    'page callback' => 'modularform_landing_page',
+  //    'access callback' => TRUE,
+  //    'type' => MENU_CALLBACK,
+  //    'theme callback' => 'modularform_landing_theme',
+  //  );
   return $items;
 }
 
-function form_create_access($id)
-{
-  global $user;
-  if (isset($user->roles) && in_array('admin', $user->roles)) {
-   return TRUE;
- }
- return FALSE;
+/**
+ * Implements hook_permission().
+ */
+function modularform_permission() {
+  return [
+    'view forms' => [
+      'title' => t('View forms'),
+      'description' => t('Allow users to see the list of managed forms.'),
+    ],
+    'create forms' => [
+      'title' => t('Create forms'),
+      'description' => t('Allow users to create new forms.'),
+    ],
+    'edit forms' => [
+      'title' => t('Edit forms'),
+      'description' => t('Allow users to edit existing forms.'),
+    ],
+    'delete forms' => [
+      'title' => t('Delete forms'),
+      'description' => t('Allow users to delete forms.'),
+    ],
+  ];
 }
 
-function form_view_page(){
-
+function form_view_page() {
   global $user;
+  if (isset($user->roles) && in_array('administrator', $user->roles)) {
+    return TRUE;
+  }
   if (isset($user->roles) && in_array('admin', $user->roles)) {
     return TRUE;
   }
   return FALSE;
 }
 
-//landing page
-function modularform_init() {
+function form_create_access() {
   global $user;
-
-  // Allow login page + landing page to avoid redirect loop
-  $current_path = current_path();
-
-  $allowed = array('user/login', 'user/register', 'landing');
-
-  if ($user->uid == 0 && !in_array($current_path, $allowed)) {
-    drupal_goto('landing');
+  if (isset($user->roles) && in_array('administrator', $user->roles)) {
+    return TRUE;
   }
+  if (isset($user->roles) && in_array('admin', $user->roles)) {
+    return TRUE;
+  }
+  return FALSE;
 }
-
-
-function modularform_landing_page() {
-  return array(
-    '#theme' => 'modularform_landing',
-    '#attached' => array(
-      'css' => array(drupal_get_path('module', 'modularform') . '/css/landing.css'),
-    ),
-  );
-}
-
 
 /**
  * Implements hook_entity_info().
  */
 function modularform_entity_info() {
-  $info = array();
+  $info = [];
 
   // 1. Form Entity
-  $info['modularform_form'] = array(
+  $info['modularform_form'] = [
     'label' => t('Modular Form'),
-    'base table' => 'forms',
+    'base table' => 'modularform_forms', // Fixed: was 'forms'
     'entity class' => 'Entity',
     'controller class' => 'EntityAPIController',
     'fieldable' => TRUE,
-    'entity keys' => array(
+    'entity keys' => [
       'id' => 'id',
-      'label' => 'title', // Uses the 'title' column from your schema
-    ),
-    'bundles' => array(
-      'modularform_form' => array(
+      'label' => 'title',
+    ],
+    'bundles' => [
+      'modularform_form' => [
         'label' => t('Modular Form'),
-        // Optional: define UI path for managing fields if needed
-        // 'admin' => array('path' => 'admin/structure/modularforms'),
-      ),
-    ),
+      ],
+    ],
     'module' => 'modularform',
-  );
+  ];
 
   // 2. Section Entity
-  $info['modularform_section'] = array(
+  $info['modularform_section'] = [
     'label' => t('Form Section'),
-    'base table' => 'sections',
+    'base table' => 'modularform_sections', // Fixed: was 'sections'
     'entity class' => 'Entity',
     'controller class' => 'EntityAPIController',
     'fieldable' => TRUE,
-    'entity keys' => array(
+    'entity keys' => [
       'id' => 'id',
       'label' => 'name',
-    ),
-    'bundles' => array(
-      'modularform_section' => array(
+    ],
+    'bundles' => [
+      'modularform_section' => [
         'label' => t('Form Section'),
-      ),
-    ),
+      ],
+    ],
     'module' => 'modularform',
-  );
+  ];
 
   // 3. Question Entity
-  $info['modularform_question'] = array(
+  $info['modularform_question'] = [
     'label' => t('Form Question'),
-    'base table' => 'questions',
+    'base table' => 'modularform_questions', // Fixed: was 'questions'
     'entity class' => 'Entity',
     'controller class' => 'EntityAPIController',
     'fieldable' => TRUE,
-    'entity keys' => array(
+    'entity keys' => [
       'id' => 'id',
       'label' => 'label',
-    ),
-    'bundles' => array(
-      'modularform_question' => array(
+    ],
+    'bundles' => [
+      'modularform_question' => [
         'label' => t('Form Question'),
-      ),
-    ),
+      ],
+    ],
     'module' => 'modularform',
-  );
-
+  ];
 
   // 4. Question Option Entity
-  $info['modularform_option'] = array(
+  $info['modularform_option'] = [
     'label' => t('Question Option'),
-    'base table' => 'question_options',
+    'base table' => 'modularform_question_options',
+    // Fixed: was 'question_options'
     'entity class' => 'Entity',
     'controller class' => 'EntityAPIController',
-    'fieldable' => FALSE, // Usually options don't need custom fields attached
-    'entity keys' => array(
+    'fieldable' => FALSE,
+    'entity keys' => [
       'id' => 'id',
       'label' => 'option',
-    ),
-    'bundles' => array(
-      'modularform_option' => array(
+    ],
+    'bundles' => [
+      'modularform_option' => [
         'label' => t('Question Option'),
-      ),
-    ),
+      ],
+    ],
     'module' => 'modularform',
-  );
+  ];
 
-  // 5. Response Entity (The submission container)
-
-  $info['modularform_response'] = array(
+  // 5. Response Entity
+  $info['modularform_response'] = [
     'label' => t('Form Response'),
-    'base table' => 'responses',
+    'base table' => 'modularform_responses', // Fixed: was 'responses'
     'entity class' => 'Entity',
     'controller class' => 'EntityAPIController',
     'fieldable' => TRUE,
-    'entity keys' => array(
+    'entity keys' => [
       'id' => 'id',
-      // Responses don't have a clear title, so we leave 'label' out.
-      // You can implement hook_entity_property_info() to generate a dynamic label later.
-    ),
-    'bundles' => array(
-      'modularform_response' => array(
+    ],
+    'bundles' => [
+      'modularform_response' => [
         'label' => t('Form Response'),
-      ),
-    ),
+      ],
+    ],
     'module' => 'modularform',
-  );
+  ];
 
-  // 6. Answer Entity (The individual piece of data)
-  $info['modularform_answer'] = array(
+  // 6. Answer Entity
+  $info['modularform_answer'] = [
     'label' => t('Form Answer'),
-    'base table' => 'answers',
+    'base table' => 'modularform_answers', // Fixed: was 'answers'
     'entity class' => 'Entity',
     'controller class' => 'EntityAPIController',
-    'fieldable' => FALSE, // Data is in your custom EAV tables, not Field API
-    'entity keys' => array(
+    'fieldable' => FALSE,
+    'entity keys' => [
       'id' => 'id',
-    ),
-    'bundles' => array(
-      'modularform_answer' => array(
+    ],
+    'bundles' => [
+      'modularform_answer' => [
         'label' => t('Form Answer'),
-      ),
-    ),
+      ],
+    ],
     'module' => 'modularform',
-  );
+  ];
 
   return $info;
 }
 
+// view page
+function form_dashboard_page() {
+  // Define the table header
+  $header = [t('Name'), t('Owner'), t(''), t('Date'), t('Operations')];
 
-function form_list_page() {
-  return array(
-    '#theme' => 'survey_portal',
-    '#content' => array(
-      '#markup' => '<h2>This is the list of surveys</h2>',
-    ),
-  );
+  // Define the rows with some dummy operations links
+  $rows = [
+    ['Customer Feedback', 'Me', 'Apr 15 2026', l(t('Edit'), 'node/1/edit')],
+    ['Employee Survey', 'Me', 'Apr 16 2026', l(t('Edit'), 'node/2/edit')],
+  ];
+
+  return [
+    '#theme' => 'dashboard',
+    '#header' => $header,
+    '#rows' => $rows,
+    '#attached' => [
+      'css' => [drupal_get_path('module', 'modularform') . '/css/dashboard.css'],
+    ],
+  ];
 }
 
-function modularform_create_form() {
-  return array(
-    '#theme' => 'survey_portal',
-    '#content' => array(
-      '#markup' => '<h2>This is where you create forms</h2>',
-    ),
-  );
+// create page
+function modularform_create_form($form, &$form_state, $id = NULL) {
+  if ($id) {
+    $modular_form = modularform_load($id);
+  }
+  else {
+    $modular_form = NULL;
+  }
+  $form['id'] = [
+    '#type' => 'hidden',
+    '#default_value' => $modular_form ? $modular_form['id'] : '',
+  ];
+
+  $form['title'] = [
+    '#type' => 'textfield',
+    '#title' => t('Title'),
+    '#required' => TRUE,
+    '#default_value' => $modular_form ? $modular_form['title'] : 'Untitled form',
+  ];
+
+  $form['description'] = [
+    '#type' => 'textfield',
+    '#title' => t('Description'),
+    '#required' => FALSE,
+    '#default_value' => $modular_form ? $modular_form['description'] : '',
+  ];
+
+  $radio_options = [
+    '0' => t('Drafted'),
+    '1' => t('Published'),
+  ];
+
+  $form['status'] = [
+    '#type' => 'radios',
+    '#title' => t('Status'),
+    '#options' => $radio_options,
+    '#description' => t('Use one of the options below.'),
+    '#required' => TRUE,
+    '#default_value' => $modular_form ? $modular_form['status'] : 0,
+  ];
+
+  $form['closes_at'] = [
+    '#type' => 'date',
+    '#title' => t('Closes at'),
+    '#required' => TRUE,
+    '#default_value' => $modular_form ? $modular_form['closes_at'] : '',
+  ];
+
+  $form['submit'] = [
+    '#type' => 'submit',
+    '#value' => t('Start Building'),
+    '#weight' => 20,
+  ];
+
+  $form['#theme'] = ['modularform_initial_template'];
+  $form['#attached']['css'][] = drupal_get_path('module', 'modularform') . '/css/modularform-initial.css';
+
+  return $form;
 }
 
+//modularform_create_form submit
+function modularform_create_form_submit($form, &$form_state) {
+  $values = $form_state['values'];
+  $lang = 'und';
+  $id = $values['id'];
+
+  $controller = entity_get_controller('modularform_form');
+  if (!empty($id)) {
+    $entity = $controller->load($id);
+  }
+  else {
+    $entity = $controller->create(['type' => 'organization']);
+  }
+  $entity->title = $values['title'];
+  $entity->description = $values['description'];
+  $entity->status = $values['status'];
+  $entity->closes_at = $values['closes_at'];
+  $entity->slug = modularform_generate_random_slug($values['title']);
+  global $user;
+
+  $entity->created_by = $user->uid;
+
+  $now = (new DateTime('now', new DateTimeZone('UTC')))->getTimestamp();
+  $entity->created_at = $now;
+  $entity->updated_at = $now;
+  $entity->save();
+  $message = !empty($id) ? 'Form %title updated.' : 'Form %title saved in draft.';
+  drupal_set_message(t($message, ['%name' => $entity->name]));
+  drupal_goto("forms/{$entity->slug}/builder");
+}
+
+/**
+ * Generates a unique, URL-friendly slug from a title.
+ */
+function modularform_generate_random_slug($title) {
+  $slug = preg_replace('/[^a-z0-9]+/', '_', strtolower($title));
+  $slug = trim($slug, '_');
+
+  // Generate a short 4-character random hex string
+  $random_suffix = substr(md5(uniqid(mt_rand(), TRUE)), 0, 4);
+  $final_slug = $slug . '_' . $random_suffix;
+
+  // Check if slug exists
+  if (_modularform_slug_exists($final_slug)) {
+    return modularform_generate_random_slug($title);
+  }
+
+  return $final_slug;
+}
+
+/**
+ * Internal helper to check the database for an existing slug.
+ */
+function _modularform_slug_exists($slug) {
+  //  returns 1 if slug exists using the :slug placeholder for security.
+  return db_query("SELECT 1 FROM {modularform_forms} WHERE slug = :slug", [':slug' => $slug])->fetchField();
+}
+
+// create survey
+//data is stored in flat array bt form is in tree i.e. nested
+function modularform_builder_form($form, &$form_state) {
+  $form['#tree'] = TRUE;
+//  elements_container → $sec_id → $q_id → question_type structure of storage
+
+  if (empty($form_state['storage']['elements'])) {
+    $first_sec_id = 'sec' . uniqid();
+    $form_state['storage']['elements'][$first_sec_id] = [
+      'type' => 'section',
+      'title' => 'Section 1',
+      'weight' => 0,
+      'parent' => NULL,
+    ];
+  }
+
+  $form['elements_container'] = [
+    '#type' => 'container',
+    '#attributes' => ['id' => ['modular-form-wrapper']],
+  ];
+
+  // form order structuring.
+  $elements = $form_state['storage']['elements'];
+
+  // Sync any question_type changes from form values into storage
+  foreach ($elements as $id => $el) {
+    if ($el['type'] == 'question') {
+      $sec_id_lookup = $el['parent'];
+      $submitted_type = $form_state['values']['elements_container'][$sec_id_lookup][$id]['question_type'] ?? NULL;
+      if ($submitted_type) {
+        $form_state['storage']['elements'][$id]['question_type'] = $submitted_type;
+        $elements[$id]['question_type'] = $submitted_type; // keep local copy in sync
+      }
+    }
+  }
+
+// -------------------
+  //  form rendering
+//  ----------------
+
+  $sections = array_filter($elements, fn($el) => $el['type'] == 'section');
+  $questions = array_filter($elements, fn($el) => $el['type'] == 'question');
+  $options = array_filter($elements, fn($el) => $el['type'] == 'option');
+
+  $section_keys = array_keys($sections);
+  //for each section key value type
+  foreach ($sections as $sec_id => $sec_el) {
+    // Section wrapper - AJAX target for "Add Question"
+    $form['elements_container'][$sec_id] = [
+      '#type' => 'container',
+      '#attributes' => [
+        'id' => 'section-wrapper-' . $sec_id,
+        'class' => ['depth-section'],
+      ],
+    ];
+
+    $form['elements_container'][$sec_id]['title'] = [
+      '#type' => 'textfield',
+      '#title' => t('Section Title'),
+    ];
+
+    $form['elements_container'][$sec_id]['add_q'] = [
+      '#type' => 'submit',
+      '#value' => t('+ Add Question'),
+      '#name' => 'add_q_' . $sec_id,
+      '#submit' => ['modularform_add_element_submit'],
+      '#ajax' => [
+        'callback' => 'modularform_ajax_section_callback',
+        'wrapper' => 'section-wrapper-' . $sec_id,
+        // ← only redraws this section
+      ],
+    ];
+
+    //section delete button
+    if ($sec_id !== $section_keys[0]) {
+      $form['elements_container'][$sec_id]['delete'] = [
+        '#type' => 'submit',
+        '#value' => t('Delete Section'),
+        '#name' => 'delete_' . $sec_id,
+        '#submit' => ['modularform_delete_element_submit'],
+        '#ajax' => [
+          'callback' => 'modularform_ajax_top_callback',
+          'wrapper'  => 'modular-form-wrapper',
+        ],
+        '#limit_validation_errors' => [],
+      ];
+    }
+
+    // Questions belonging to this section
+    $section_questions = array_filter($questions, fn($el) => $el['parent'] == $sec_id);
+
+    foreach ($section_questions as $q_id => $q_el) {
+      // Question wrapper - AJAX target for "Add Option" and "Delete Option"
+      $form['elements_container'][$sec_id][$q_id] = [
+        '#type' => 'container',
+        '#attributes' => [
+          'id' => 'question-wrapper-' . $q_id,
+          'class' => ['depth-question'],
+        ],
+      ];
+
+      $form['elements_container'][$sec_id][$q_id]['question_text'] = [
+        '#type' => 'textfield',
+        '#title' => t('Question'),
+      ];
+
+      $form['elements_container'][$sec_id][$q_id]['question_type'] = [
+        '#type' => 'select',
+        '#title' => t('Question Type'),
+        '#options' => [
+          'text' => t('Short Answer'),
+          'textarea' => t('Paragraph'),
+          'radio' => t('Multiple Choice'),
+          'boolean' => t('Yes/No'),
+          'checkbox' => t('Checkbox'),
+        ],
+        '#default_value' => $q_el['question_type'] ?? 'text',
+        '#ajax' => [
+          'callback' => 'modularform_ajax_question_callback',
+          'wrapper' => 'question-wrapper-' . $q_id,
+          'event' => 'change',
+        ],
+      ];
+
+      $form['elements_container'][$sec_id][$q_id]['delete'] = [
+        '#type' => 'submit',
+        '#value' => t('Delete Question'),
+        '#name' => 'delete_' . $q_id,
+        '#submit' => ['modularform_delete_element_submit'],
+        '#ajax' => [
+          'callback' => 'modularform_ajax_section_callback',  // redraws the section
+          'wrapper'  => 'section-wrapper-' . $sec_id,
+        ],
+        '#limit_validation_errors' => [],
+      ];
+
+
+
+      $q_type = $q_el['question_type'] ?? 'text';
+
+      switch ($q_type) {
+        case 'text':
+          // just a label — the answer will be a single line textfield
+          $form['elements_container'][$sec_id][$q_id]['preview'] = [
+            '#markup' => '<p class="field-preview">Short answer text field</p>',
+          ];
+          break;
+
+        case 'textarea':
+          $form['elements_container'][$sec_id][$q_id]['preview'] = [
+            '#markup' => '<p class="field-preview">Long answer text area</p>',
+          ];
+          break;
+
+        case 'boolean':
+          $form['elements_container'][$sec_id][$q_id]['preview'] = [
+            '#markup' => '<p class="field-preview">Yes / No</p>',
+          ];
+          break;
+
+        case 'radio':
+        case 'checkbox':
+          // Show Add Option button and existing options only for these types
+          $form['elements_container'][$sec_id][$q_id]['add_opt'] = [
+            '#type' => 'submit',
+            '#value' => t('+ Add Option'),
+            '#name' => 'add_opt_' . $q_id,
+            '#submit' => ['modularform_add_element_submit'],
+            '#ajax' => [
+              'callback' => 'modularform_ajax_question_callback',
+              'wrapper' => 'question-wrapper-' . $q_id,
+            ],
+          ];
+
+          $question_options = array_filter($options, fn($el) => $el['parent'] == $q_id);
+
+          foreach ($question_options as $o_id => $o_el) {
+            $form['elements_container'][$sec_id][$q_id][$o_id] = [
+              '#type' => 'container',
+              '#attributes' => ['class' => ['depth-option']],
+            ];
+            $form['elements_container'][$sec_id][$q_id][$o_id]['option_label'] = [
+              '#type' => 'textfield',
+              '#title' => t('Option'),
+            ];
+            $form['elements_container'][$sec_id][$q_id][$o_id]['delete'] = [
+              '#type' => 'submit',
+              '#value' => t('Delete'),
+              '#name' => 'delete_' . $o_id,
+              '#submit' => ['modularform_delete_element_submit'],
+              '#ajax' => [
+                'callback' => 'modularform_ajax_question_callback',
+                'wrapper' => 'question-wrapper-' . $q_id,
+              ],
+              '#limit_validation_errors' => [],
+            ];
+          }
+          break;
+      }
+    }
+  }
+  $form['elements_container']['add_section'] = [
+    '#type' => 'submit',
+    '#value' => t('+ Add Section'),
+    '#name' => 'add_section',
+    '#submit' => ['modularform_add_element_submit'],
+    '#ajax' => [
+      'callback' => 'modularform_ajax_top_callback',
+      'wrapper' => 'modular-form-wrapper',
+    ],
+  ];
+
+  $form['elements_container']['add_element'] = [
+    '#type' => 'submit',
+    '#value' => t('Create the survey'),
+  ];
+
+  return $form;
+}
+
+function modularform_question_type_submit($form, &$form_state) {
+  $trigger = $form_state['triggering_element']['#name'];
+  $q_id = str_replace('qtype_', '', $trigger);
+  $value = $form_state['triggering_element']['#value'];
+
+  $form_state['storage']['elements'][$q_id]['question_type'] = $value;
+  $form_state['rebuild'] = TRUE;
+}
+
+function modularform_add_element_submit($form, &$form_state) {
+  $trigger = $form_state['triggering_element']['#name'];
+  $new_id = uniqid('item_');
+  if ($trigger === 'add_section') {
+    $sec_count = count(array_filter(
+      $form_state['storage']['elements'],
+      fn($el) => $el['type'] == 'section'
+    ));
+    $form_state['storage']['elements'][$new_id] = [
+      'type' => 'section',
+      'title' => 'Section ' . ($sec_count + 1),
+      'weight' => count($form_state['storage']['elements']),
+      'parent' => NULL,
+    ];
+  }
+  elseif (strpos($trigger, 'add_q_') === 0) {
+    // Adding a Question to a Section
+    $parent_id = str_replace('add_q_', '', $trigger);
+    $form_state['storage']['elements'][$new_id] = [
+      'type' => 'question',
+      'parent' => $parent_id,
+      'weight' => count($form_state['storage']['elements']),
+    ];
+  }
+  elseif (strpos($trigger, 'add_opt_') === 0) {
+    // Adding an Option to a Question
+    $parent_id = str_replace('add_opt_', '', $trigger);
+    $form_state['storage']['elements'][$new_id] = [
+      'type' => 'option',
+      'parent' => $parent_id,
+      'weight' => count($form_state['storage']['elements']),
+    ];
+  }
+
+  $form_state['rebuild'] = TRUE;
+}
+
+//deletion case
+function modularform_delete_element_submit($form, &$form_state) {
+  $trigger = $form_state['triggering_element']['#name'];
+  $target_id = str_replace('delete_', '', $trigger);
+  $elements = &$form_state['storage']['elements'];
+
+  // ✅ Save parent info BEFORE unset
+  $form_state['storage']['last_deleted'] = [
+    'id' => $target_id,
+    'type' => $elements[$target_id]['type'],
+    'parent' => $elements[$target_id]['parent'],
+  ];
+
+  $ids_to_remove = modularform_collect_descendants($target_id, $elements);
+  $ids_to_remove[] = $target_id;
+
+  foreach ($ids_to_remove as $id) {
+    unset($elements[$id]);
+  }
+
+  $form_state['rebuild'] = TRUE;
+}
+
+//if you delete a question it's options must go too
+/**
+ * Recursively finds all descendant IDs of a given element.
+ */
+function modularform_collect_descendants($parent_id, $elements) {
+  $descendants = [];
+  foreach ($elements as $id => $el) {
+    if ($el['parent'] === $parent_id) {
+      $descendants[] = $id;
+      // Recurse to catch grandchildren (e.g. options under a question)
+      $descendants = array_merge(
+        $descendants,
+        modularform_collect_descendants($id, $elements)
+      );
+    }
+  }
+  return $descendants;
+}
+
+function modularform_ajax_top_callback($form, $form_state) {
+  return $form['elements_container'];
+}
+
+function modularform_ajax_section_callback($form, $form_state) {
+  $trigger = $form_state['triggering_element']['#name'];
+
+  if (strpos($trigger, 'add_q_') === 0) {
+    $sec_id = str_replace('add_q_', '', $trigger);
+  }
+  else {
+    $target = modularform_get_delete_target($form_state); // ← no $elements arg
+    $sec_id = $target['sec_id'];
+  }
+
+  return $form['elements_container'][$sec_id];
+}
+
+function modularform_ajax_question_callback($form, $form_state) {
+  $trigger = $form_state['triggering_element']['#name'];
+  $parents = $form_state['triggering_element']['#parents'];
+  $elements = $form_state['storage']['elements'];
+
+  if (strpos($trigger, 'add_opt_') === 0) {
+    $q_id = str_replace('add_opt_', '', $trigger);
+  }
+  elseif (strpos($trigger, 'delete_') === 0) {
+    $target = modularform_get_delete_target($form_state);
+    $q_id = $target['q_id'];
+  }
+  else {
+    $q_id = $parents[2];
+  }
+
+  $sec_id = $elements[$q_id]['parent'];
+  return $form['elements_container'][$sec_id][$q_id];
+}
+
+/**
+ * Returns the form element path needed to rebuild after a delete.
+ *
+ * @param string $deleted_id
+ *   The ID of the element being deleted.
+ * @param array $elements
+ *   The flat storage array from $form_state['storage']['elements'].
+ *
+ * @return array
+ *   ['type' => 'section'|'question', 'sec_id' => ..., 'q_id' => ...]
+ */
+function modularform_get_delete_target($form_state) {
+  $last = $form_state['storage']['last_deleted'];
+
+  if ($last['type'] == 'question') {
+    return [
+      'type' => 'section',
+      'sec_id' => $last['parent'],
+    ];
+  }
+
+  if ($last['type'] == 'option') {
+    $q_id = $last['parent'];
+    return [
+      'type' => 'question',
+      'q_id' => $q_id,
+      'sec_id' => $form_state['storage']['elements'][$q_id]['parent'],
+    ];
+  }
+}
+
+// The final save handler
+function modularform_builder_form_submit($form, &$form_state) {
+  $values   = $form_state['values']['elements_container'];
+  $elements = $form_state['storage']['elements'];
+
+  $sections  = array_filter($elements, fn($el) => $el['type'] == 'section');
+  $questions = array_filter($elements, fn($el) => $el['type'] == 'question');
+  $options   = array_filter($elements, fn($el) => $el['type'] == 'option');
+  var_dump($form_state['values']);
+  die();
+}
 
 /**
  * Implements hook_theme().
  */
-
 function modularform_theme() {
-  return array(
-    'modularform_landing' => array(
-      'variables' => array('message' => NULL),
-      'template' => 'modularform-landing',
-    ),
-  );
+  return [
+    'dashboard' => [
+      'variables' => [
+        'header' => NULL,
+        'rows' => NULL,
+      ],
+      'template' => 'modularform-dashboard',
+      'path' => drupal_get_path('module', 'modularform') . '/templates',
+    ],
+    'modularform_initial_template' => [
+      'render element' => 'form',
+      'template' => 'modularform-initial',
+      'path' => drupal_get_path('module', 'modularform') . '/templates',
+    ],
+  ];
 }
-//function modularform_theme() {
-//
-//  return array(
-//    'survey_portal' => array(
-//      'template' => 'survey-portal-base',
-//      'path' => drupal_get_path('module', 'modularform') . '/templates',
-//      'variables' => array('content' => NULL, 'sidebar_links' => array()),
-//    ),
-//  );
-//}
-//
-///**
-// * Implements template_preprocess_survey_portal().
-// */
-//function modularform_preprocess_survey_portal(&$vars) {
-//  global $user;
-//
-//  // Check for 'administrator' role
-//  if (in_array('admin', $user->roles)) {
-//    // This maps to: templates/survey-portal-base--admin.tpl.php
-//    $vars['theme_hook_suggestions'][] = 'survey_portal__admin';
-//
-//    $vars['sidebar_links'] = array(
-//      l(t('Create Form'), 'admin/survey/create'),
-//      l(t('Edit Forms'), 'admin/survey/manage'),
-//      l(t('View Submissions'), 'admin/survey/results'),
-//      l(t('Analytics'), 'admin/survey/analytics'),
-//    );
-//  }
-//  else {
-//    // This maps to: templates/survey-portal-base--public.tpl.php
-//    $vars['theme_hook_suggestions'][] = 'survey_portal__public';
-//  }
-//}
+

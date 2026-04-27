@@ -1,0 +1,312 @@
+/* ============================================================
+   dashboard.css — Google Forms-style dashboard
+   Module: modularform
+   ============================================================ */
+
+/* ── Page wrapper ── */
+.gform-wrapper {
+  min-height: 100vh;
+  padding: 28px 20px 64px;
+  font-family: 'Google Sans', Roboto, Arial, sans-serif;
+  box-sizing: border-box;
+}
+
+.gform-container {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+/* ── Header ── */
+.gform-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+  padding: 0 2px;
+}
+
+.gform-header-icon {
+  width: 32px;
+  height: 32px;
+  background: #673ab7;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.gform-header-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.gform-title {
+  font-size: 20px;
+  font-weight: 400;
+  color: #202124;
+  margin: 0;
+  letter-spacing: .01em;
+}
+
+/* ── Section labels ── */
+.gform-section-label {
+  font-size: 13px;
+  color: #5f6368;
+  font-weight: 500;
+  letter-spacing: .02em;
+  margin-bottom: 12px;
+  padding: 0 2px;
+}
+
+/* ── Thumbnail card grid ── */
+.gform-thumb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
+  gap: 14px;
+  margin-bottom: 32px;
+}
+
+.gform-thumb {
+  background: #fff;
+  border-radius: 4px;
+  border: 1px solid #e0e0e0;
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+}
+
+.gform-thumb:hover {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.13);
+}
+
+.gform-thumb-preview {
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.gform-thumb-meta {
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.gform-thumb-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.gform-thumb-name {
+  font-size: 13px;
+  color: #202124;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gform-thumb-date {
+  font-size: 11px;
+  color: #9aa0a6;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gform-thumb-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.1s;
+  color: #5f6368;
+  padding: 0;
+}
+
+.gform-thumb-btn:hover {
+  background: #f1f3f4;
+}
+
+.gform-thumb-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ── Table card ── */
+.gform-card {
+  background: #fff;
+  border-radius: 4px;
+  border: 1px solid #e0e0e0;
+  overflow: hidden;
+  margin-bottom: 32px;
+}
+
+/* ── Table toolbar ── */
+.gform-table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid #f1f3f4;
+}
+
+.gform-table-count {
+  font-size: 14px;
+  font-weight: 500;
+  color: #202124;
+}
+
+/* ── Table wrapper ── */
+.gform-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Table ── */
+.gform-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  min-width: 480px;
+}
+
+.gform-table thead th:nth-child(1) { width: 40%; }
+.gform-table thead th:nth-child(2) { width: 18%; }
+.gform-table thead th:nth-child(3) { width: 22%; }
+.gform-table thead th:nth-child(4) { width: 20%; }
+
+/* ── Header row ── */
+.gform-table thead th {
+  font-size: 11px;
+  font-weight: 600;
+  color: #5f6368;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 10px 18px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+  background: #fff;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* ── Body rows ── */
+.gform-table tbody tr {
+  border-bottom: 1px solid #f1f3f4;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.gform-table tbody tr:hover {
+  background: #f8f5ff;
+}
+
+.gform-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+/* ── Cells ── */
+.gform-table tbody td {
+  padding: 11px 18px;
+  font-size: 13px;
+  color: #3c4043;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* ── Name cell ── */
+.gform-td-name {
+  color: #202124 !important;
+}
+
+.gform-name-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.gform-form-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  background: #673ab7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.gform-form-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.gform-name-text {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Operations cell ── */
+.gform-td-ops {
+  white-space: nowrap;
+}
+
+.gform-td-ops a {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #673ab7;
+  text-decoration: none;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid #d1b8f5;
+  background: #f3e5f5;
+  transition: background 0.12s, border-color 0.12s;
+  margin-right: 4px;
+}
+
+.gform-td-ops a:hover {
+  background: #e8d5f5;
+  border-color: #b399e8;
+}
+
+/* ── Empty state ── */
+.gform-empty-row td {
+  text-align: center;
+  padding: 40px 18px;
+  color: #9aa0a6;
+  font-size: 14px;
+  font-style: italic;
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .gform-wrapper {
+    padding: 16px 10px 40px;
+  }
+
+  .gform-thumb-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .gform-table thead th:nth-child(2),
+  .gform-table tbody td:nth-child(2) {
+    display: none;
+  }
+}

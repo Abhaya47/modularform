@@ -99,6 +99,8 @@ body.adminimal-theme *::-moz-focus-inner {
 .nav-center a:focus-visible {
   outline: 2px solid #ff6b6b;
   outline-offset: 2px;
+  color: #fff;
+
 }
 
 /* =========================================
@@ -631,6 +633,22 @@ ul.primary li.active a,ul.primary li.active a.active,ul.primary li.active a:acti
   position: relative;
 }
 
+/* Active link in nav-center (Drupal adds .active class to the <a> directly) */
+.nav-center a.active,
+.nav-center li.active-trail > a,
+.nav-center li.active > a {
+  background: #284357;
+  color: #ddcdcd !important;
+  border-radius: 8px;
+}
+
+.nav-center a.active:hover,
+.nav-center li.active-trail > a:hover,
+.nav-center li.active > a:hover {
+  background: #005a94;
+  color: #fff !important;
+}
+
 ul.primary li.active a.active:after {
   content: "";
   display: block;
@@ -638,8 +656,9 @@ ul.primary li.active a.active:after {
   left: 0px;
   bottom: -5px;
   width: 100%;
-  background: white;
+  background: #0074BD;
   position: absolute;
+
 }
 
 ul.primary li a:hover {
@@ -647,7 +666,7 @@ ul.primary li a:hover {
 }
 
 ul.primary li.active a:hover {
-  color: #333;
+  color: #ffffbf;
 }
 
 .tabs-secondary {

@@ -1,0 +1,371 @@
+/* =============================================
+   ModularForm Builder — scoped to #modularform-builder-form
+   ============================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Roboto:wght@300;400;500&display=swap');
+
+/* ---------- CSS Variables + form shell ---------- */
+#modularform-builder-form {
+  --gf-purple:        #673ab7;
+  --gf-purple-light:  #ede7f6;
+  --gf-blue:          #1a73e8;
+  --gf-blue-light:    #e8f0fe;
+  --gf-border:        #e0e0e0;
+  --gf-surface:       #ffffff;
+  --gf-text:          #202124;
+  --gf-text-muted:    #5f6368;
+  --gf-danger:        #d93025;
+  --gf-radius:        8px;
+  --gf-shadow:        0 1px 3px rgba(0,0,0,.12), 0 1px 2px rgba(0,0,0,.08);
+  --gf-shadow-hover:  0 2px 6px rgba(0,0,0,.15), 0 2px 4px rgba(0,0,0,.10);
+  --gf-font:          'Google Sans', 'Roboto', sans-serif;
+
+  max-width: 720px;
+  margin: 32px auto;
+  font-family: var(--gf-font);
+  color: var(--gf-text);
+  background: transparent;
+}
+
+/* ---------- Top accent bar ---------- */
+#modularform-builder-form::before {
+  content: '';
+  display: block;
+  height: 10px;
+  background: linear-gradient(90deg, var(--gf-purple) 0%, #9c27b0 50%, #673ab7 100%);
+  border-radius: var(--gf-radius) var(--gf-radius) 0 0;
+}
+
+/* ---------- Section card ---------- */
+#modularform-builder-form .depth-section {
+  background: var(--gf-surface);
+  border-radius: var(--gf-radius);
+  box-shadow: var(--gf-shadow);
+  margin-bottom: 16px;
+  padding: 0;
+  border-top: 10px solid var(--gf-purple);
+  transition: box-shadow .2s ease;
+}
+
+#modularform-builder-form .depth-section:hover {
+  box-shadow: var(--gf-shadow-hover);
+}
+
+#modularform-builder-form .depth-section > .form-item {
+  padding: 0 24px;
+}
+
+#modularform-builder-form .depth-section > .form-item label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  color: var(--gf-text-muted);
+  display: block;
+  margin-top: 20px;
+}
+
+#modularform-builder-form .depth-section > .form-item input[type="text"] {
+  font-size: 22px;
+  font-weight: 500;
+  border: none;
+  border-bottom: 2px solid var(--gf-border);
+  border-radius: 0;
+  width: 100%;
+  padding: 8px 0;
+  color: var(--gf-text);
+  background: transparent;
+  outline: none;
+  font-family: var(--gf-font);
+  transition: border-color .2s;
+  box-sizing: border-box;
+}
+
+#modularform-builder-form .depth-section > .form-item input[type="text"]:focus {
+  border-bottom-color: var(--gf-purple);
+}
+
+/* "Add Question" button */
+#modularform-builder-form .depth-section > input[type="submit"] {
+  display: inline-flex;
+  align-items: center;
+  margin: 12px 24px 20px;
+  padding: 8px 16px;
+  background: transparent;
+  color: var(--gf-purple);
+  border: 1.5px solid var(--gf-purple);
+  border-radius: 4px;
+  font-family: var(--gf-font);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s;
+}
+
+#modularform-builder-form .depth-section > input[type="submit"]:hover {
+  background: var(--gf-purple-light);
+}
+
+/* ---------- Question card ---------- */
+#modularform-builder-form .depth-question {
+  background: var(--gf-surface);
+  border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius);
+  margin: 0 16px 12px;
+  padding: 20px 20px 16px;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+#modularform-builder-form .depth-question:first-of-type {
+  margin-top: 8px;
+}
+
+#modularform-builder-form .depth-question:hover {
+  border-color: #bdbdbd;
+  box-shadow: 0 1px 4px rgba(0,0,0,.10);
+}
+
+#modularform-builder-form .depth-question:focus-within {
+  border-color: var(--gf-blue);
+  border-left: 4px solid var(--gf-blue);
+  padding-left: 16px;
+}
+
+#modularform-builder-form .depth-question .form-item label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gf-text-muted);
+  display: block;
+  margin-bottom: 2px;
+}
+
+#modularform-builder-form .depth-question .form-item input[type="text"] {
+  font-size: 15px;
+  border: none;
+  border-bottom: 1px solid var(--gf-border);
+  border-radius: 0;
+  width: 100%;
+  padding: 6px 0;
+  background: transparent;
+  outline: none;
+  color: var(--gf-text);
+  font-family: var(--gf-font);
+  transition: border-color .2s;
+  box-sizing: border-box;
+}
+
+#modularform-builder-form .depth-question .form-item input[type="text"]:focus {
+  border-bottom-color: var(--gf-blue);
+  border-bottom-width: 2px;
+}
+
+#modularform-builder-form .depth-question .form-item select {
+  margin-top: 12px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: var(--gf-font);
+  border: 1px solid var(--gf-border);
+  border-radius: 4px;
+  background: var(--gf-surface);
+  color: var(--gf-text);
+  cursor: pointer;
+  outline: none;
+  transition: border-color .2s;
+  min-width: 180px;
+}
+
+#modularform-builder-form .depth-question .form-item select:focus {
+  border-color: var(--gf-blue);
+  box-shadow: 0 0 0 2px var(--gf-blue-light);
+}
+
+#modularform-builder-form .depth-question .field-preview {
+  margin: 10px 0 4px;
+  font-size: 13px;
+  color: #9e9e9e;
+  border-bottom: 1px dotted #bdbdbd;
+  padding-bottom: 6px;
+  font-style: italic;
+}
+
+/* "Add Option" button */
+#modularform-builder-form .depth-question > input[type="submit"] {
+  margin-top: 10px;
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--gf-blue);
+  border: 1.5px solid var(--gf-blue);
+  border-radius: 4px;
+  font-family: var(--gf-font);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s;
+}
+
+#modularform-builder-form .depth-question > input[type="submit"]:hover {
+  background: var(--gf-blue-light);
+}
+
+/* ---------- Option rows ---------- */
+#modularform-builder-form .depth-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+#modularform-builder-form .depth-option:last-of-type {
+  border-bottom: none;
+}
+
+#modularform-builder-form .depth-option::before {
+  content: '';
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #bdbdbd;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+#modularform-builder-form .depth-option .form-item {
+  flex: 1;
+  margin: 0;
+}
+
+#modularform-builder-form .depth-option .form-item label {
+  display: none;
+}
+
+#modularform-builder-form .depth-option .form-item input[type="text"] {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid transparent;
+  font-size: 14px;
+  padding: 4px 0;
+  background: transparent;
+  font-family: var(--gf-font);
+  color: var(--gf-text);
+  outline: none;
+  transition: border-color .2s;
+  box-sizing: border-box;
+}
+
+#modularform-builder-form .depth-option .form-item input[type="text"]:focus {
+  border-bottom-color: var(--gf-blue);
+}
+
+#modularform-builder-form .depth-option input[type="submit"] {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--gf-text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: var(--gf-font);
+  transition: color .15s, background .15s;
+}
+
+#modularform-builder-form .depth-option input[type="submit"]:hover {
+  color: var(--gf-danger);
+  background: #fce8e6;
+}
+
+/* ---------- Bottom action buttons ---------- */
+#modularform-builder-form #modular-form-wrapper > input[type="submit"][value="+ Add Section"] {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  background: var(--gf-surface);
+  border: 2px dashed var(--gf-border);
+  border-radius: var(--gf-radius);
+  color: var(--gf-text-muted);
+  font-family: var(--gf-font);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+  transition: border-color .2s, color .2s, background .2s;
+}
+
+#modularform-builder-form #modular-form-wrapper > input[type="submit"][value="+ Add Section"]:hover {
+  border-color: var(--gf-purple);
+  color: var(--gf-purple);
+  background: var(--gf-purple-light);
+}
+
+#modularform-builder-form #modular-form-wrapper > input[type="submit"][value="Create the survey"] {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  background: var(--gf-purple);
+  border: none;
+  border-radius: var(--gf-radius);
+  color: #fff;
+  font-family: var(--gf-font);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .3px;
+  cursor: pointer;
+  box-sizing: border-box;
+  box-shadow: 0 2px 6px rgba(103,58,183,.35);
+  transition: background .2s, box-shadow .2s, transform .1s;
+}
+
+#modularform-builder-form #modular-form-wrapper > input[type="submit"][value="Create the survey"]:hover {
+  background: #5e35b1;
+  box-shadow: 0 4px 10px rgba(103,58,183,.4);
+}
+
+#modularform-builder-form #modular-form-wrapper > input[type="submit"][value="Create the survey"]:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 3px rgba(103,58,183,.3);
+}
+
+
+/*Delete Buttons (Red & Right-Aligned)*/
+
+/* 1. Section & Question Delete Buttons */
+#modularform-builder-form .depth-section > input[type="submit"][value="Delete Section"],
+#modularform-builder-form .depth-question > input[type="submit"][value="Delete Question"] {
+  color: var(--gf-danger);
+  border-color: var(--gf-danger);
+  float: right; /* Aligns to the right */
+}
+
+/* Hover state for Section & Question Delete */
+#modularform-builder-form .depth-section > input[type="submit"][value="Delete Section"]:hover,
+#modularform-builder-form .depth-question > input[type="submit"][value="Delete Question"]:hover {
+  background: #fce8e6;
+}
+
+/* Clearfix: Ensures the section/question containers fully wrap the floated buttons */
+#modularform-builder-form .depth-section::after,
+#modularform-builder-form .depth-question::after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+/* 2. Option Delete Button */
+#modularform-builder-form .depth-option input[type="submit"][value="Delete"] {
+  color: var(--gf-danger);
+  margin-left: auto; /* Pushes the button to the right inside the flex container */
+}
+
+/* ---------- form-item cleanup (scoped) ---------- */
+#modularform-builder-form .form-item {
+  margin-bottom: 0;
+}
+
+#modularform-builder-form .form-item .description {
+  font-size: 11px;
+  color: var(--gf-text-muted);
+  margin-top: 4px;
+}
