@@ -369,3 +369,149 @@
   color: var(--gf-text-muted);
   margin-top: 4px;
 }
+
+/* ---------- Validation rule rows ---------- */
+#modularform-builder-form .validation-rule-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fafafa;
+  border: 1px solid var(--gf-border);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+/* Hide auto-generated labels inside rule rows */
+#modularform-builder-form .validation-rule-row .form-item {
+  margin: 0;
+}
+#modularform-builder-form .validation-rule-row .form-item label {
+  display: none;
+}
+
+/* Rule type select */
+#modularform-builder-form .validation-rule-row select {
+  font-size: 12px;
+  font-family: var(--gf-font);
+  padding: 5px 8px;
+  border: 1px solid var(--gf-border);
+  border-radius: 4px;
+  background: var(--gf-surface);
+  color: var(--gf-text);
+  min-width: 130px;
+  outline: none;
+  cursor: pointer;
+}
+
+/* Value + error message inputs */
+#modularform-builder-form .validation-rule-row input[type="text"] {
+  font-size: 12px;
+  font-family: var(--gf-font);
+  padding: 5px 8px;
+  border: 1px solid var(--gf-border);
+  border-radius: 4px;
+  background: var(--gf-surface);
+  color: var(--gf-text);
+  width: 90px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+/* Error message input stretches to fill remaining space */
+#modularform-builder-form .validation-rule-row .form-item:has(input[placeholder]) {
+  flex: 1;
+  min-width: 0;
+}
+#modularform-builder-form .validation-rule-row .form-item:has(input[placeholder]) input[type="text"] {
+  width: 100%;
+}
+
+/* Focus states */
+#modularform-builder-form .validation-rule-row input[type="text"]:focus,
+#modularform-builder-form .validation-rule-row select:focus {
+  border-color: var(--gf-blue);
+  box-shadow: 0 0 0 2px var(--gf-blue-light);
+}
+
+/* Delete button — red */
+#modularform-builder-form .validation-rule-row input[type="submit"] {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1.5px solid var(--gf-danger);
+  color: var(--gf-danger);
+  font-size: 11px;
+  font-family: var(--gf-font);
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s;
+}
+#modularform-builder-form .validation-rule-row input[type="submit"]:hover {
+  background: #fce8e6;
+}
+
+/* Add Rule button */
+#modularform-builder-form .adv-validation-block > input[type="submit"][value="+ Add Rule"] {
+  margin-top: 4px;
+  padding: 5px 12px;
+  background: transparent;
+  color: var(--gf-blue);
+  border: 1.5px solid var(--gf-blue);
+  border-radius: 4px;
+  font-family: var(--gf-font);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s;
+}
+#modularform-builder-form .adv-validation-block > input[type="submit"][value="+ Add Rule"]:hover {
+  background: var(--gf-blue-light);
+}
+
+/* ---------- Validation footer bar ---------- */
+#modularform-builder-form .question-validation-block {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  margin-top: 16px;
+  padding: 10px 14px;
+  background: #f8f7fc;
+  border: 1px solid #e8e4f3;
+  border-radius: 6px;
+}
+
+/* Each checkbox+label pair sits inline */
+#modularform-builder-form .question-validation-block > .form-item {
+  display: flex;
+  align-items: center;
+  flex-direction: row-reverse; /* checkbox left, label right */
+  gap: 6px;
+  margin: 0;
+}
+
+#modularform-builder-form .question-validation-block > .form-item label {
+  font-size: 13px;
+  color: var(--gf-text-muted);
+  font-weight: 400;
+  margin: 0;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+#modularform-builder-form .question-validation-block > .form-item input[type="checkbox"] {
+  margin: 0;
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--gf-purple);
+}
+
+/* adv-rules expands below, full width */
+#modularform-builder-form .question-validation-block > #adv-validation-wrapper-* ,
+#modularform-builder-form .question-validation-block [id^="adv-validation-wrapper-"] {
+  flex-basis: 100%;
+}

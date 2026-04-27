@@ -398,14 +398,49 @@ function modularform_builder_form($form, &$form_state) {
   foreach ($elements as $id => $el) {
     if ($el['type'] == 'question') {
       $sec_id_lookup = $el['parent'];
+
+      // sync question_type
       $path = ['elements_container', $sec_id_lookup, $id, 'question_type'];
       $submitted_type = drupal_array_get_nested_value($form_state['values'], $path);
       if (isset($submitted_type)) {
-        $form_state['storage']['elements'][$id]['question_type'] = $submitted_type;
-        $elements[$id]['question_type'] = $submitted_type; // keep local copy in sync
+        $old_type = $form_state['storage']['elements'][$id]['question_type'] ?? 'text';
+        $new_type = $submitted_type;
+        $form_state['storage']['elements'][$id]['question_type'] = $new_type;
+        $elements[$id]['question_type'] = $new_type;
+
+        // If switched away from a type that had options, purge orphaned options
+        $had_options = in_array($old_type, ['radio', 'checkbox', 'dropdown', 'tag']);
+        $has_options = in_array($new_type, ['radio', 'checkbox', 'dropdown', 'tag']);
+        if ($had_options && !$has_options) {
+          foreach ($form_state['storage']['elements'] as $child_id => $child_el) {
+            if ($child_el['type'] === 'option' && $child_el['parent'] === $id) {
+              unset($form_state['storage']['elements'][$child_id]);
+            }
+          }
+        }
+      }
+
+      // sync add_validation checkbox
+      $path = ['elements_container', $sec_id_lookup, $id, 'validation', 'add_validation'];
+      $submitted_adv = drupal_array_get_nested_value($form_state['values'], $path);if (isset($submitted_adv)) {
+        $was_enabled = $form_state['storage']['elements'][$id]['add_validation'] ?? FALSE;
+        $now_enabled = (bool) $submitted_adv;
+        $form_state['storage']['elements'][$id]['add_validation'] = $now_enabled;
+        $elements[$id]['add_validation'] = $now_enabled;
+
+        // If toggled off, purge orphaned validation rules
+        if ($was_enabled && !$now_enabled) {
+          foreach ($form_state['storage']['elements'] as $child_id => $child_el) {
+            if ($child_el['type'] === 'validation_rule' && $child_el['parent'] === $id) {
+              unset($form_state['storage']['elements'][$child_id]);
+            }
+          }
+        }
       }
     }
   }
+
+
 
   // -------------------
   //  form rendering
@@ -414,6 +449,10 @@ function modularform_builder_form($form, &$form_state) {
   $sections = array_filter($elements, fn($el) => $el['type'] == 'section');
   $questions = array_filter($elements, fn($el) => $el['type'] == 'question');
   $options = array_filter($elements, fn($el) => $el['type'] == 'option');
+  $val_rules = array_filter($elements, fn($el) => $el['type'] === 'validation_rule');
+
+
+
 
   $section_keys = array_keys($sections);
   //for each section key value type
@@ -459,6 +498,9 @@ function modularform_builder_form($form, &$form_state) {
           'radio' => t('Multiple Choice'),
           'boolean' => t('Yes/No'),
           'checkbox' => t('Checkbox'),
+          'file' => t('File'),
+          'dropdown' => t('Dropdown'),
+          'tag' => t('Tag'),
         ],
         '#default_value' => $q_el['question_type'] ?? 'text',
         '#ajax' => [
@@ -469,6 +511,7 @@ function modularform_builder_form($form, &$form_state) {
       ];
 
       $q_type = $q_el['question_type'] ?? 'text';
+      $show_adv_val = $q_el['add_validation'] ?? FALSE;
 
       switch ($q_type) {
         case 'text':
@@ -503,6 +546,7 @@ function modularform_builder_form($form, &$form_state) {
             $form['elements_container'][$sec_id][$q_id][$o_id]['option_label'] = [
               '#type' => 'textfield',
               '#title' => t('Option'),
+              '#required' => TRUE,
             ];
             $form['elements_container'][$sec_id][$q_id][$o_id]['delete'] = [
               '#type' => 'submit',
@@ -528,7 +572,104 @@ function modularform_builder_form($form, &$form_state) {
             ],
           ];
           break;
+        case 'file':
+          $form['elements_container'][$sec_id][$q_id]['preview'] = [
+            '#markup' => '<p class="field-preview">File upload field</p>',
+          ];
+          break;
       }
+
+      //      Validation block
+      $form['elements_container'][$sec_id][$q_id]['validation'] = [
+        '#type' => 'container',
+        '#attributes' => [
+          'id' => 'validation-wrapper-' . $q_id,
+          'class' => ['question-validation-block'],
+        ],
+      ];
+
+
+      // 3. Rule-builder block — only rendered when checkbox is on
+      $form['elements_container'][$sec_id][$q_id]['validation']['adv_rules'] = [
+        '#type'       => 'container',
+        '#attributes' => [
+          'id'    => 'adv-validation-wrapper-' . $q_id,
+          'class' => ['adv-validation-block'],
+        ],
+      ];
+
+      if ($show_adv_val) {
+        $q_val_rules = array_filter($val_rules, fn($el) => $el['parent'] === $q_id);
+
+        foreach ($q_val_rules as $r_id => $r_el) {
+          $form['elements_container'][$sec_id][$q_id]['validation']['adv_rules'][$r_id] = [
+            '#type'       => 'container',
+            '#attributes' => ['class' => ['validation-rule-row']],
+          ];
+
+          $form['elements_container'][$sec_id][$q_id]['validation']['adv_rules'][$r_id]['rule_type'] = [
+            '#type'          => 'select',
+            '#title'         => t('Rule'),
+            '#options'       => _modularform_validation_rule_options($q_type),
+            '#default_value' => $r_el['rule_type'] ?? '',
+          ];
+
+          $form['elements_container'][$sec_id][$q_id]['validation']['adv_rules'][$r_id]['rule_value'] = [
+            '#type'  => 'textfield',
+            '#title' => t('Value'),
+          ];
+
+          $form['elements_container'][$sec_id][$q_id]['validation']['adv_rules'][$r_id]['error_message'] = [
+            '#type'        => 'textfield',
+            '#title'       => t('Custom error message'),
+            '#placeholder' => t('Optional'),
+          ];
+
+          $form['elements_container'][$sec_id][$q_id]['validation']['adv_rules'][$r_id]['delete'] = [
+            '#type'                    => 'submit',
+            '#value'                   => t('Delete'),
+            '#name'                    => 'delete_' . $r_id,
+            '#submit'                  => ['modularform_delete_element_submit'],
+            '#ajax'                    => [
+              'callback' => 'modularform_ajax_validation_callback',
+              'wrapper'  => 'adv-validation-wrapper-' . $q_id,
+            ],
+            '#limit_validation_errors' => [],
+          ];
+        }
+
+        $form['elements_container'][$sec_id][$q_id]['validation']['adv_rules']['add_rule'] = [
+          '#type'   => 'submit',
+          '#value'  => t('+ Add Rule'),
+          '#name'   => 'add_rule_' . $q_id,
+          '#submit' => ['modularform_add_element_submit'],
+          '#ajax'   => [
+            'callback' => 'modularform_ajax_validation_callback',
+            'wrapper'  => 'adv-validation-wrapper-' . $q_id,
+          ],
+        ];
+      }
+
+      //      is_required() block
+      $form['elements_container'][$sec_id][$q_id]['validation']['is_required'] = [
+        '#type' => 'checkbox',
+        '#title' => t('Required'),
+        '#default_value' => $q_el['is_required'] ?? 0,
+      ];
+
+      // 2. Toggle to reveal rule-builder
+      $form['elements_container'][$sec_id][$q_id]['validation']['add_validation'] = [
+        '#type'          => 'checkbox',
+        '#title'         => t('Add validation rules'),
+        '#default_value' => $show_adv_val ? 1 : 0,
+        '#ajax'          => [
+          'callback' => 'modularform_ajax_validation_callback',
+          'wrapper'  => 'adv-validation-wrapper-' . $q_id,
+          'event'    => 'change',
+        ],
+      ];
+
+
       $form['elements_container'][$sec_id][$q_id]['delete'] = [
         '#type' => 'submit',
         '#value' => t('Delete Question'),
@@ -622,6 +763,16 @@ function modularform_add_element_submit($form, &$form_state) {
       'weight' => count($form_state['storage']['elements']),
     ];
   }
+  elseif (strpos($trigger, 'add_rule_') === 0) {
+    $q_id = substr($trigger, strlen('add_rule_'));
+    $r_id = 'rule' . uniqid();
+    $form_state['storage']['elements'][$r_id] = [
+      'type'      => 'validation_rule',
+      'parent'    => $q_id,
+      'rule_type' => '',
+      'weight'    => 0,
+    ];
+  }
 
   $form_state['rebuild'] = TRUE;
 }
@@ -668,6 +819,60 @@ function modularform_collect_descendants($parent_id, $elements) {
   return $descendants;
 }
 
+function _modularform_validation_rule_options($q_type) {
+  $rules = [
+    'text' => [
+      'min_length'   => t('Min length (chars)'),
+      'max_length'   => t('Max length (chars)'),
+      'exact_length' => t('Exact length (chars)'),
+      'is_email'     => t('Valid email'),
+      'is_url'       => t('Valid URL'),
+      'is_numeric'   => t('Numeric only'),
+      'is_alpha'     => t('Letters only'),
+      'starts_with'  => t('Starts with'),
+      'ends_with'    => t('Ends with'),
+      'contains'     => t('Contains'),
+      'regex'        => t('Matches regex'),
+    ],
+    'textarea' => [
+      'min_length' => t('Min length (chars)'),
+      'max_length' => t('Max length (chars)'),
+      'min_words'  => t('Min word count'),
+      'max_words'  => t('Max word count'),
+      'contains'   => t('Contains phrase'),
+      'regex'      => t('Matches regex'),
+    ],
+    'radio' => [
+      'disallow_value' => t('Disallow specific option'),
+    ],
+    'checkbox' => [
+      'min_selections' => t('Min selections'),
+      'max_selections' => t('Max selections'),
+      'exact_count'    => t('Exact number of selections'),
+    ],
+    'dropdown' => [
+      'disallow_value' => t('Disallow specific value'),
+    ],
+    'boolean' => [
+      'must_be_true'  => t('Must be Yes'),
+      'must_be_false' => t('Must be No'),
+    ],
+    'file' => [
+      'max_filesize'  => t('Max file size (MB)'),
+      'min_files'     => t('Min number of files'),
+      'max_files'     => t('Max number of files'),
+      'allowed_types' => t('Allowed extensions'),
+    ],
+    'tag' => [
+      'min_tags'   => t('Min tags'),
+      'max_tags'   => t('Max tags'),
+      'exact_tags' => t('Exact number of tags'),
+    ],
+  ];
+
+  return $rules[$q_type] ?? [];
+}
+
 function modularform_ajax_top_callback($form, $form_state) {
   return $form['elements_container'];
 }
@@ -704,6 +909,17 @@ function modularform_ajax_question_callback($form, $form_state) {
 
   $sec_id = $elements[$q_id]['parent'];
   return $form['elements_container'][$sec_id][$q_id];
+}
+
+function modularform_ajax_validation_callback($form, &$form_state) {
+  $parents = $form_state['triggering_element']['#parents'];
+  // Log it so we can see the actual structure
+  watchdog('modularform', 'AJAX parents: <pre>@p</pre>', ['@p' => print_r($parents, TRUE)]);
+
+  $sec_id = $parents[1];
+  $q_id   = $parents[2];
+
+  return $form['elements_container'][$sec_id][$q_id]['validation']['adv_rules'];
 }
 
 /**
