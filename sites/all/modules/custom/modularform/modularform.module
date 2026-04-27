@@ -374,7 +374,7 @@ function _modularform_slug_exists($slug) {
 //data is stored in flat array bt form is in tree i.e. nested
 function modularform_builder_form($form, &$form_state) {
   $form['#tree'] = TRUE;
-//  elements_container → $sec_id → $q_id → question_type structure of storage
+  //  elements_container → $sec_id → $q_id → question_type structure of storage
 
   if (empty($form_state['storage']['elements'])) {
     $first_sec_id = 'sec' . uniqid();
@@ -398,17 +398,18 @@ function modularform_builder_form($form, &$form_state) {
   foreach ($elements as $id => $el) {
     if ($el['type'] == 'question') {
       $sec_id_lookup = $el['parent'];
-      $submitted_type = $form_state['values']['elements_container'][$sec_id_lookup][$id]['question_type'] ?? NULL;
-      if ($submitted_type) {
+      $path = ['elements_container', $sec_id_lookup, $id, 'question_type'];
+      $submitted_type = drupal_array_get_nested_value($form_state['values'], $path);
+      if (isset($submitted_type)) {
         $form_state['storage']['elements'][$id]['question_type'] = $submitted_type;
         $elements[$id]['question_type'] = $submitted_type; // keep local copy in sync
       }
     }
   }
 
-// -------------------
+  // -------------------
   //  form rendering
-//  ----------------
+  //  ----------------
 
   $sections = array_filter($elements, fn($el) => $el['type'] == 'section');
   $questions = array_filter($elements, fn($el) => $el['type'] == 'question');
@@ -430,33 +431,6 @@ function modularform_builder_form($form, &$form_state) {
       '#type' => 'textfield',
       '#title' => t('Section Title'),
     ];
-
-    $form['elements_container'][$sec_id]['add_q'] = [
-      '#type' => 'submit',
-      '#value' => t('+ Add Question'),
-      '#name' => 'add_q_' . $sec_id,
-      '#submit' => ['modularform_add_element_submit'],
-      '#ajax' => [
-        'callback' => 'modularform_ajax_section_callback',
-        'wrapper' => 'section-wrapper-' . $sec_id,
-        // ← only redraws this section
-      ],
-    ];
-
-    //section delete button
-    if ($sec_id !== $section_keys[0]) {
-      $form['elements_container'][$sec_id]['delete'] = [
-        '#type' => 'submit',
-        '#value' => t('Delete Section'),
-        '#name' => 'delete_' . $sec_id,
-        '#submit' => ['modularform_delete_element_submit'],
-        '#ajax' => [
-          'callback' => 'modularform_ajax_top_callback',
-          'wrapper'  => 'modular-form-wrapper',
-        ],
-        '#limit_validation_errors' => [],
-      ];
-    }
 
     // Questions belonging to this section
     $section_questions = array_filter($questions, fn($el) => $el['parent'] == $sec_id);
@@ -494,20 +468,6 @@ function modularform_builder_form($form, &$form_state) {
         ],
       ];
 
-      $form['elements_container'][$sec_id][$q_id]['delete'] = [
-        '#type' => 'submit',
-        '#value' => t('Delete Question'),
-        '#name' => 'delete_' . $q_id,
-        '#submit' => ['modularform_delete_element_submit'],
-        '#ajax' => [
-          'callback' => 'modularform_ajax_section_callback',  // redraws the section
-          'wrapper'  => 'section-wrapper-' . $sec_id,
-        ],
-        '#limit_validation_errors' => [],
-      ];
-
-
-
       $q_type = $q_el['question_type'] ?? 'text';
 
       switch ($q_type) {
@@ -533,17 +493,6 @@ function modularform_builder_form($form, &$form_state) {
         case 'radio':
         case 'checkbox':
           // Show Add Option button and existing options only for these types
-          $form['elements_container'][$sec_id][$q_id]['add_opt'] = [
-            '#type' => 'submit',
-            '#value' => t('+ Add Option'),
-            '#name' => 'add_opt_' . $q_id,
-            '#submit' => ['modularform_add_element_submit'],
-            '#ajax' => [
-              'callback' => 'modularform_ajax_question_callback',
-              'wrapper' => 'question-wrapper-' . $q_id,
-            ],
-          ];
-
           $question_options = array_filter($options, fn($el) => $el['parent'] == $q_id);
 
           foreach ($question_options as $o_id => $o_el) {
@@ -567,8 +516,58 @@ function modularform_builder_form($form, &$form_state) {
               '#limit_validation_errors' => [],
             ];
           }
+
+          $form['elements_container'][$sec_id][$q_id]['add_opt'] = [
+            '#type' => 'submit',
+            '#value' => t('+ Add Option'),
+            '#name' => 'add_opt_' . $q_id,
+            '#submit' => ['modularform_add_element_submit'],
+            '#ajax' => [
+              'callback' => 'modularform_ajax_question_callback',
+              'wrapper' => 'question-wrapper-' . $q_id,
+            ],
+          ];
           break;
       }
+      $form['elements_container'][$sec_id][$q_id]['delete'] = [
+        '#type' => 'submit',
+        '#value' => t('Delete Question'),
+        '#name' => 'delete_' . $q_id,
+        '#submit' => ['modularform_delete_element_submit'],
+        '#ajax' => [
+          'callback' => 'modularform_ajax_section_callback',
+          // redraws the section
+          'wrapper' => 'section-wrapper-' . $sec_id,
+        ],
+        '#limit_validation_errors' => [],
+      ];
+    }
+
+    $form['elements_container'][$sec_id]['add_q'] = [
+      '#type' => 'submit',
+      '#value' => t('+ Add Question'),
+      '#name' => 'add_q_' . $sec_id,
+      '#submit' => ['modularform_add_element_submit'],
+      '#ajax' => [
+        'callback' => 'modularform_ajax_section_callback',
+        'wrapper' => 'section-wrapper-' . $sec_id,
+        // ← only redraws this section
+      ],
+    ];
+
+    //section delete button
+    if ($sec_id !== $section_keys[0]) {
+      $form['elements_container'][$sec_id]['delete'] = [
+        '#type' => 'submit',
+        '#value' => t('Delete Section'),
+        '#name' => 'delete_' . $sec_id,
+        '#submit' => ['modularform_delete_element_submit'],
+        '#ajax' => [
+          'callback' => 'modularform_ajax_top_callback',
+          'wrapper' => 'modular-form-wrapper',
+        ],
+        '#limit_validation_errors' => [],
+      ];
     }
   }
   $form['elements_container']['add_section'] = [
@@ -588,15 +587,6 @@ function modularform_builder_form($form, &$form_state) {
   ];
 
   return $form;
-}
-
-function modularform_question_type_submit($form, &$form_state) {
-  $trigger = $form_state['triggering_element']['#name'];
-  $q_id = str_replace('qtype_', '', $trigger);
-  $value = $form_state['triggering_element']['#value'];
-
-  $form_state['storage']['elements'][$q_id]['question_type'] = $value;
-  $form_state['rebuild'] = TRUE;
 }
 
 function modularform_add_element_submit($form, &$form_state) {
@@ -749,12 +739,12 @@ function modularform_get_delete_target($form_state) {
 
 // The final save handler
 function modularform_builder_form_submit($form, &$form_state) {
-  $values   = $form_state['values']['elements_container'];
+  $values = $form_state['values']['elements_container'];
   $elements = $form_state['storage']['elements'];
 
-  $sections  = array_filter($elements, fn($el) => $el['type'] == 'section');
+  $sections = array_filter($elements, fn($el) => $el['type'] == 'section');
   $questions = array_filter($elements, fn($el) => $el['type'] == 'question');
-  $options   = array_filter($elements, fn($el) => $el['type'] == 'option');
+  $options = array_filter($elements, fn($el) => $el['type'] == 'option');
   var_dump($form_state['values']);
   die();
 }
