@@ -107,6 +107,12 @@
 }
 
 /* ---------- Question card ---------- */
+
+/* ONLY space question text & type */
+#modularform-builder-form .depth-question > .form-item + .form-item {
+  margin-top: 16px;
+}
+
 #modularform-builder-form .depth-question {
   background: var(--gf-surface);
   border: 1px solid var(--gf-border);
