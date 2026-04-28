@@ -521,3 +521,72 @@
 #modularform-builder-form .question-validation-block [id^="adv-validation-wrapper-"] {
   flex-basis: 100%;
 }
+
+.gform-ops-links {
+  white-space: nowrap;
+}
+
+.adv-rule-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end; /* Keeps inputs aligned at bottom */
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 15px;
+}
+
+/* 1. Standard parts (Rule Dropdown and Value Wrapper) */
+.adv-rule-row > .form-item-rule-type,
+.adv-rule-row > .rule-value-wrapper {
+  flex: 2; /* Base size */
+  min-width: 120px;
+}
+
+/* 2. BIGGER: Custom Message */
+.adv-rule-row > .form-item-error-message {
+  flex: 5; /* Takes up most of the remaining space */
+}
+
+/* 3. SMALLER: Delete Button */
+.adv-rule-row .form-item-remove-rule,
+.adv-rule-row .btn-remove-rule {
+  flex: 0 0 auto; /* Don't grow, don't shrink */
+  margin-bottom: 5px; /* Align with input boxes better */
+  padding: 4px 8px;
+  background: #fdfdfd;
+  border: 1px solid #ccc;
+  color: #d9534f; /* Red-ish color */
+  cursor: pointer;
+}
+
+.adv-rule-row .btn-remove-rule:hover {
+  background: #d9534f;
+  color: #fff;
+  border-color: #d43f3a;
+}
+
+/* Ensure all inputs take full width of their flex column */
+.adv-rule-row input,
+.adv-rule-row select {
+  width: 100% !important;
+  box-sizing: border-box;
+}
+
+.adv-rule-row .btn-delete-red {
+  background: #d9534f;   /* Danger Red */
+  color: #fff;
+  border: 1px solid #d43f3a;   /* Matches standard Drupal input heights */
+  transition: background 0.2s;
+}
+
+.adv-rule-row .btn-delete-red:hover {
+  background: #c9302c;
+  border-color: #ac2925;
+}
+
+/* Ensure all internal inputs fill their flex column */
+.adv-rule-row input,
+.adv-rule-row select {
+  width: 100% !important;
+  box-sizing: border-box;
+}
