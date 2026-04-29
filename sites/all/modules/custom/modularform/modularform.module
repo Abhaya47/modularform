@@ -13,6 +13,29 @@ function modularform_custom_theme() {
   //  }
 }
 
+function modularform_library() {
+  $libraries = [];
+
+  $libraries['select2'] = [
+    'title'   => 'Select2',
+    'version' => '4.0.13',
+    'js'      => [
+      'https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js' => [
+        'type' => 'external',
+      ],
+    ],
+    'css'     => [
+      'https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css' => [
+        'type'  => 'external',
+        'media' => 'screen',
+      ],
+    ],
+    'dependencies' => [['system', 'jquery']],
+  ];
+
+  return $libraries;
+}
+
 function modularform_menu() {
   $items = [];
 
@@ -252,18 +275,27 @@ function form_dashboard_page() {
     $owner = isset($users[$form->created_by]) ? format_username($users[$form->created_by]) : t('Unknown');
     $status = $form->status ? t('Published') : t('Draft');
     $created = format_date($form->created_at, 'custom', 'M j Y');
-
-    $ops = implode(' | ', [
-      l(t('Edit Settings'), 'forms/edit/' . $form->id),
-      l(t('Edit Survey'), 'forms/' . $form->id . '/builder'),
-    ]);
+    $links = array(
+      'builder_preview' => array(
+        'title' => t('Preview Survey'),
+        'href' => 'forms/' . $form->id . '/builder/preview',
+      ),
+      'builder_edit' => array(
+        'title' => t('Edit Survey'),
+        'href' => 'forms/' . $form->id . '/builder/',
+      ),
+      'settings_edit' => array(
+        'title' => t('Edit Settings'),
+        'href' => 'forms/' . $form->id ,
+      ),
+    );
 
     $rows[] = [
       check_plain($form->title),
       check_plain($owner),
       $status,
       $created,
-      $ops,
+      $links,
     ];
   }
 
@@ -591,7 +623,7 @@ function modularform_builder_form($form, &$form_state, $fid) {
 
         case 'richtext':
           $form['elements_container'][$sec_id][$q_id]['preview'] = [
-            '#markup' => '<p class="field-preview">Rich text editor</p>',
+            '#markup' => '<p class="field-preview">Rich text editor (TinyMCE)</p>',
           ];
           break;
 
@@ -1297,8 +1329,6 @@ function modularform_builder_form_submit($form, &$form_state) {
       'datatype' => $datatype_map[$q_type_str] ?? 'varchar',
       'is_required' => (int) ($q_vals['validation']['is_required'] ?? 0),
       'position' => $position,
-      'file_multiple'     => (int) ($q_vals['file_settings']['multiple'] ?? 0),
-      'dropdown_multiple' => (int) ($q_vals['dropdown_multiple'] ?? 0),
       'created_at' => $now,
       'updated_at' => $now,
     ];
@@ -1312,8 +1342,6 @@ function modularform_builder_form_submit($form, &$form_state) {
         'type'              => $q_fields_insert['type'],
         'datatype'          => $q_fields_insert['datatype'],
         'is_required'       => $q_fields_insert['is_required'],
-        'file_multiple'     => $q_fields_insert['file_multiple'],
-        'dropdown_multiple' => $q_fields_insert['dropdown_multiple'],
         'position'          => $position,
         'updated_at'        => $now,
       ])
@@ -1381,7 +1409,7 @@ function modularform_builder_form_submit($form, &$form_state) {
     ->execute();
 
   drupal_set_message(t('Survey saved successfully.'));
-  $form_state['redirect'] = 'admin/modularform/' . $fid;
+  $form_state['redirect'] = '/forms/' . $fid . '/builder/preview';
 }
 
 /**
@@ -1389,16 +1417,64 @@ function modularform_builder_form_submit($form, &$form_state) {
  */
 function modularform_preview_form($form, &$form_state, $fid) {
   $elements = _modularform_load_elements($fid);
+  $form['#attributes']['class'][] = 'modularform-preview-form';
   if (empty($elements)) {
+    $form['empty'] = ['#markup' => '<p>' . t('No form elements found.') . '</p>'];
     return $form;
   }
 
   $sections  = array_filter($elements, fn($el) => $el['type'] === 'section');
   $questions = array_filter($elements, fn($el) => $el['type'] === 'question');
   $options   = array_filter($elements, fn($el) => $el['type'] === 'option');
+  $val_rules = array_filter($elements, fn($el) => $el['type'] === 'validation_rule');
 
   uasort($sections,  fn($a, $b) => $a['weight'] <=> $b['weight']);
   uasort($questions, fn($a, $b) => $a['weight'] <=> $b['weight']);
+
+  // Derive file_multiple and dropdown_multiple from validation rules
+  foreach ($questions as $q_id => &$q) {
+    $q_rules = array_filter($val_rules, fn($r) => $r['parent'] === $q_id);
+    if ($q['question_type'] === 'file') {
+      foreach ($q_rules as $r) {
+        if ($r['rule_type'] === 'max_files' && (int) $r['rule_value'] > 1) {
+          $q['file_multiple'] = TRUE;
+        }
+      }
+    }
+    if ($q['question_type'] === 'dropdown') {
+      foreach ($q_rules as $r) {
+        if ($r['rule_type'] === 'max_selections' && (int) $r['rule_value'] > 1) {
+          $q['dropdown_multiple'] = TRUE;
+        }
+      }
+    }
+  }
+  unset($q);
+
+  // Attach Select2 library and our preview JS/CSS
+  $form['#attached']['library'][]        = ['modularform', 'select2'];
+  $form['#attached']['js'][]             = drupal_get_path('module', 'modularform') . '/js/modularform.preview.js';
+  $form['#attached']['css'][]            = drupal_get_path('module', 'modularform') . '/css/modularform.preview.css';
+
+  // Pass validation rules to JS for client-side validation
+  $js_rules = [];
+  foreach ($questions as $q_id => $q) {
+    $q_rules = array_filter($val_rules, fn($r) => $r['parent'] === $q_id);
+    if (!empty($q_rules)) {
+      foreach ($q_rules as $r) {
+        $js_rules[$q_id][] = [
+          'rule_type'     => $r['rule_type'],
+          'rule_value'    => $r['rule_value'],
+          'error_message' => $r['error_message'] ?? '',
+          'q_type'        => $q['question_type'],
+        ];
+      }
+    }
+  }
+  $form['#attached']['js'][] = [
+    'data' => ['modularformPreview' => ['rules' => $js_rules]],
+    'type' => 'setting',
+  ];
 
   $form['#tree'] = TRUE;
   $form['#attributes']['enctype'] = 'multipart/form-data';
@@ -1409,7 +1485,7 @@ function modularform_preview_form($form, &$form_state, $fid) {
       '#attributes' => ['class' => ['preview-section']],
     ];
 
-    $form[$sec_id]['title'] = [
+    $form[$sec_id]['_title'] = [
       '#markup' => '<h3 class="preview-section-title">' . check_plain($sec['title']) . '</h3>',
     ];
 
@@ -1425,81 +1501,134 @@ function modularform_preview_form($form, &$form_state, $fid) {
       uasort($q_options, fn($a, $b) => $a['weight'] <=> $b['weight']);
       $options_list = [];
       foreach ($q_options as $o) {
-        $options_list[check_plain($o['option'])] = check_plain($o['option']);
+        $val = check_plain($o['option']);
+        $options_list[$val] = $val;
       }
 
       $form[$sec_id][$q_id] = [
         '#type'       => 'container',
-        '#attributes' => ['class' => ['preview-question']],
+        '#attributes' => [
+          'class'        => ['preview-question'],
+          'data-q-id'    => $q_id,
+          'data-q-type'  => $q_type,
+        ],
       ];
 
       switch ($q_type) {
 
         case 'text':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type'     => 'textfield',
-            '#title'    => $label,
-            '#required' => $required,
+            '#type'       => 'textfield',
+            '#title'      => $label,
+            '#required'   => $required,
+            '#attributes' => ['data-q-id' => $q_id],
           ];
           break;
 
         case 'textarea':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type'     => 'textarea',
-            '#title'    => $label,
-            '#rows'     => 4,
-            '#required' => $required,
+            '#type'       => 'textarea',
+            '#title'      => $label,
+            '#rows'       => 5,
+            '#required'   => $required,
+            '#attributes' => ['data-q-id' => $q_id],
+          ];
+          break;
+
+        case 'richtext':
+          $form[$sec_id][$q_id]['answer'] = [
+            '#type'       => 'textarea',
+            '#title'      => $label,
+            '#required'   => $required,
+            '#rows'       => 8,
+            '#attributes' => [
+              'data-q-id' => $q_id,
+              'class'     => ['tinymce-editor'],
+            ],
+          ];
+          break;
+
+        case 'date':
+          $form[$sec_id][$q_id]['answer'] = [
+            '#type'       => 'date',
+            '#title'      => $label,
+            '#required'   => $required,
+            '#attributes' => ['data-q-id' => $q_id],
+          ];
+          break;
+
+        case 'time':
+          $form[$sec_id][$q_id]['answer'] = [
+            '#type'       => 'textfield',
+            '#title'      => $label,
+            '#required'   => $required,
+            '#attributes' => ['type' => 'time', 'data-q-id' => $q_id],
           ];
           break;
 
         case 'boolean':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type'     => 'radios',
-            '#title'    => $label,
-            '#options'  => ['yes' => t('Yes'), 'no' => t('No')],
-            '#required' => $required,
+            '#type'       => 'radios',
+            '#title'      => $label,
+            '#options'    => ['yes' => t('Yes'), 'no' => t('No')],
+            '#required'   => $required,
+            '#attributes' => ['data-q-id' => $q_id],
           ];
           break;
 
         case 'radio':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type'     => 'radios',
-            '#title'    => $label,
-            '#options'  => $options_list,
-            '#required' => $required,
+            '#type'       => 'radios',
+            '#title'      => $label,
+            '#options'    => $options_list,
+            '#required'   => $required,
+            '#attributes' => ['data-q-id' => $q_id],
           ];
           break;
 
+        case 'list':
         case 'checkbox':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type'     => 'checkboxes',
-            '#title'    => $label,
-            '#options'  => $options_list,
-            '#required' => $required,
+            '#type'       => 'checkboxes',
+            '#title'      => $label,
+            '#options'    => $options_list,
+            '#required'   => $required,
+            '#attributes' => ['data-q-id' => $q_id],
           ];
           break;
 
         case 'dropdown':
+          $is_multiple = !empty($q['dropdown_multiple']);
           $form[$sec_id][$q_id]['answer'] = [
-            '#type'          => 'select',
-            '#title'         => $label,
-            '#options'       => $options_list,
-            '#empty_option'  => t('- Select -'),
-            '#required'      => $required,
+            '#type'         => 'select',
+            '#title'        => $label,
+            '#options'      => $options_list,
+            '#empty_option' => $is_multiple ? NULL : t('- Select -'),
+            '#required'     => $required,
+            '#multiple'     => $is_multiple,
+            '#attributes'   => [
+              'data-q-id'    => $q_id,
+              'class'        => ['select2-enable'],
+            ],
           ];
           break;
 
         case 'tag':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type'     => 'checkboxes',
-            '#title'    => $label,
-            '#options'  => $options_list,
-            '#required' => $required,
-            '#attributes' => ['class' => ['preview-tags']],
+            '#type'       => 'select',
+            '#title'      => $label,
+            '#options'    => $options_list,
+            '#required'   => $required,
+            '#multiple'   => TRUE,
+            '#attributes' => [
+              'data-q-id' => $q_id,
+              'class'     => ['select2-enable', 'select2-tags'],
+            ],
           ];
           break;
 
         case 'file':
+          $is_multiple = !empty($q['file_multiple']);
           $form[$sec_id][$q_id]['answer'] = [
             '#type'              => 'managed_file',
             '#title'             => $label,
@@ -1508,14 +1637,16 @@ function modularform_preview_form($form, &$form_state, $fid) {
             '#upload_validators' => [
               'file_validate_size' => [25 * 1024 * 1024],
             ],
-            '#description' => t('Preview only — file will not be saved.'),
+            '#multiple'          => $is_multiple,
+            '#description'       => t('Preview only — file will not be saved.'),
+            '#attributes'        => ['data-q-id' => $q_id],
           ];
           break;
       }
     }
   }
 
-  // No submit button — preview only.
+  // No submit button.
   return $form;
 }
 
