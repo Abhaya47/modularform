@@ -128,31 +128,28 @@ function _modularform_rule_definitions() {
     ],
 
     'file' => [
-      'file' => [
-        'max_filesize' => [
-          'label' => t('Max file size (MB)'),
-          'value_type' => 'number',
-        ],
-        'min_files' => [
-          'label' => t('Min number of files'),
-          'value_type' => 'number',
-        ],
-        'max_files' => [
-          'label' => t('Max number of files'),
-          'value_type' => 'number',
-        ],
-
-        'allowed_types' => [
-          'label' => t('Allowed file types'),
-          'value_type' => 'select',
-          'value_options' => [
-            'image' => t('Images (jpg, png, gif, webp)'),
-            'document' => t('Documents (pdf, doc, docx, odt)'),
-            'video' => t('Video (mp4, mov, avi)'),
-            'audio' => t('Audio (mp3, wav, ogg)'),
-            'archive' => t('Archives (zip, tar, gz)'),
-            'any' => t('Any file type'),
-          ],
+      'max_filesize' => [
+        'label' => t('Max file size (MB)'),
+        'value_type' => 'number',
+      ],
+      'min_files' => [
+        'label' => t('Min number of files'),
+        'value_type' => 'number',
+      ],
+      'max_files' => [
+        'label' => t('Max number of files'),
+        'value_type' => 'number',
+      ],
+      'allowed_types' => [
+        'label' => t('Allowed file types'),
+        'value_type' => 'select',
+        'value_options' => [
+          'image' => t('Images (jpg, png, gif, webp)'),
+          'document' => t('Documents (pdf, doc, docx, odt)'),
+          'video' => t('Video (mp4, mov, avi)'),
+          'audio' => t('Audio (mp3, wav, ogg)'),
+          'archive' => t('Archives (zip, tar, gz)'),
+          'any' => t('Any file type'),
         ],
       ],
     ],
