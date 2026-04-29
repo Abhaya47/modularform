@@ -3,16 +3,6 @@
     attach: function (context, settings) {
       var rules = (settings.modularformPreview && settings.modularformPreview.rules) ? settings.modularformPreview.rules : {};
 
-      // ── TinyMCE init ──────────────────────────────────────────────────────────
-      if (window.tinyMCE) {
-        tinyMCE.init({
-          selector: '.tinymce-editor',
-          menubar: false,
-          plugins: 'lists link',
-          toolbar: 'bold italic underline | bullist numlist | link',
-          height: 250,
-        });
-      }
 
       // ── Select2 init ───────────────────────────────────────────────────────
       $('.select2-enable', context).once('select2-init').each(function () {

@@ -17,16 +17,16 @@ function modularform_library() {
   $libraries = [];
 
   $libraries['select2'] = [
-    'title'   => 'Select2',
+    'title' => 'Select2',
     'version' => '4.0.13',
-    'js'      => [
+    'js' => [
       'https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js' => [
         'type' => 'external',
       ],
     ],
-    'css'     => [
+    'css' => [
       'https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css' => [
-        'type'  => 'external',
+        'type' => 'external',
         'media' => 'screen',
       ],
     ],
@@ -275,20 +275,20 @@ function form_dashboard_page() {
     $owner = isset($users[$form->created_by]) ? format_username($users[$form->created_by]) : t('Unknown');
     $status = $form->status ? t('Published') : t('Draft');
     $created = format_date($form->created_at, 'custom', 'M j Y');
-    $links = array(
-      'builder_preview' => array(
+    $links = [
+      'builder_preview' => [
         'title' => t('Preview Survey'),
         'href' => 'forms/' . $form->id . '/builder/preview',
-      ),
-      'builder_edit' => array(
+      ],
+      'builder_edit' => [
         'title' => t('Edit Survey'),
         'href' => 'forms/' . $form->id . '/builder/',
-      ),
-      'settings_edit' => array(
+      ],
+      'settings_edit' => [
         'title' => t('Edit Settings'),
-        'href' => 'forms/' . $form->id ,
-      ),
-    );
+        'href' => 'forms/' . $form->id,
+      ],
+    ];
 
     $rows[] = [
       check_plain($form->title),
@@ -492,8 +492,20 @@ function modularform_builder_form($form, &$form_state, $fid) {
           $new_type = $submitted_type;
           $form_state['storage']['elements'][$id]['question_type'] = $new_type;
           $elements[$id]['question_type'] = $new_type;
-          $had_options = in_array($old_type, ['radio', 'checkbox', 'dropdown', 'list', 'tag']);
-          $has_options = in_array($new_type, ['radio', 'checkbox', 'dropdown', 'list', 'tag']);
+          $had_options = in_array($old_type, [
+            'radio',
+            'checkbox',
+            'dropdown',
+            'list',
+            'tag',
+          ]);
+          $has_options = in_array($new_type, [
+            'radio',
+            'checkbox',
+            'dropdown',
+            'list',
+            'tag',
+          ]);
           if ($had_options && !$has_options) {
             foreach ($form_state['storage']['elements'] as $child_id => $child_el) {
               if ($child_el['type'] === 'option' && $child_el['parent'] === $id) {
@@ -504,7 +516,13 @@ function modularform_builder_form($form, &$form_state, $fid) {
         }
 
         // ── Sync add_validation ──────────────────────────────────────────────
-        $path = ['elements_container', $sec_id_lookup, $id, 'validation', 'add_validation'];
+        $path = [
+          'elements_container',
+          $sec_id_lookup,
+          $id,
+          'validation',
+          'add_validation',
+        ];
         $submitted_adv = drupal_array_get_nested_value($form_state['values'], $path);
         if (isset($submitted_adv)) {
           $was_enabled = $form_state['storage']['elements'][$id]['add_validation'] ?? FALSE;
@@ -526,14 +544,21 @@ function modularform_builder_form($form, &$form_state, $fid) {
           fn($el) => $el['type'] === 'validation_rule' && $el['parent'] === $id
         );
         foreach ($q_val_rules as $r_id => $r_el) {
-          $path = ['elements_container', $sec_id_lookup, $id, 'validation', 'adv_rules', $r_id, 'rule_type'];
+          $path = [
+            'elements_container',
+            $sec_id_lookup,
+            $id,
+            'validation',
+            'adv_rules',
+            $r_id,
+            'rule_type',
+          ];
           $submitted_rule_type = drupal_array_get_nested_value($form_state['values'], $path);
           if (isset($submitted_rule_type)) {
             $form_state['storage']['elements'][$r_id]['rule_type'] = $submitted_rule_type;
             $elements[$r_id]['rule_type'] = $submitted_rule_type;
           }
         }
-
       }
     }
   }
@@ -582,33 +607,32 @@ function modularform_builder_form($form, &$form_state, $fid) {
       ];
 
       $form['elements_container'][$sec_id][$q_id]['question_type'] = [
-        '#type'          => 'select',
-        '#title'         => t('Question Type'),
-        '#options'       => [
-          'text'      => t('Short Answer'),
-          'textarea'  => t('Paragraph'),
-          'richtext'  => t('Rich Text'),
-          'date'      => t('Date'),
-          'time'      => t('Time'),
-          'list'      => t('List'),
-          'radio'     => t('Multiple Choice'),
-          'boolean'   => t('Yes / No'),
-          'checkbox'  => t('Checkbox'),
-          'dropdown'  => t('Dropdown'),
-          'file'      => t('File'),
-          'tag'       => t('Tag'),
+        '#type' => 'select',
+        '#title' => t('Question Type'),
+        '#options' => [
+          'text' => t('Short Answer'),
+          'textarea' => t('Paragraph'),
+          'richtext' => t('Rich Text'),
+          'date' => t('Date'),
+          'time' => t('Time'),
+          'list' => t('List'),
+          'radio' => t('Multiple Choice'),
+          'boolean' => t('Yes / No'),
+          'checkbox' => t('Checkbox'),
+          'dropdown' => t('Dropdown'),
+          'file' => t('File'),
+          'tag' => t('Tag'),
         ],
         '#default_value' => $q_type,
-        '#ajax'          => [
+        '#ajax' => [
           'callback' => 'modularform_ajax_question_callback',
-          'wrapper'  => 'question-wrapper-' . $q_id,
-          'event'    => 'change',
+          'wrapper' => 'question-wrapper-' . $q_id,
+          'event' => 'change',
         ],
       ];
 
       // Types that need options managed
       switch ($q_type) {
-
         case 'text':
           $form['elements_container'][$sec_id][$q_id]['preview'] = [
             '#markup' => '<p class="field-preview">Short answer text field</p>',
@@ -647,12 +671,12 @@ function modularform_builder_form($form, &$form_state, $fid) {
 
         case 'file':
           $form['elements_container'][$sec_id][$q_id]['file_settings'] = [
-            '#type'  => 'container',
+            '#type' => 'container',
             '#attributes' => ['class' => ['file-settings']],
           ];
           $form['elements_container'][$sec_id][$q_id]['file_settings']['multiple'] = [
-            '#type'          => 'checkbox',
-            '#title'         => t('Allow multiple files'),
+            '#type' => 'checkbox',
+            '#title' => t('Allow multiple files'),
             '#default_value' => $q_el['file_multiple'] ?? 0,
           ];
           $form['elements_container'][$sec_id][$q_id]['preview'] = [
@@ -669,23 +693,23 @@ function modularform_builder_form($form, &$form_state, $fid) {
 
           foreach ($question_options as $o_id => $o_el) {
             $form['elements_container'][$sec_id][$q_id][$o_id] = [
-              '#type'       => 'container',
+              '#type' => 'container',
               '#attributes' => ['class' => ['depth-option']],
             ];
             $form['elements_container'][$sec_id][$q_id][$o_id]['option_label'] = [
-              '#type'          => 'textfield',
-              '#title'         => t('Option'),
+              '#type' => 'textfield',
+              '#title' => t('Option'),
               '#default_value' => $o_el['option'] ?? '',
-              '#required'      => TRUE,
+              '#required' => TRUE,
             ];
             $form['elements_container'][$sec_id][$q_id][$o_id]['delete'] = [
-              '#type'                  => 'submit',
-              '#value'                 => t('Delete'),
-              '#name'                  => 'delete_' . $o_id,
-              '#submit'                => ['modularform_delete_element_submit'],
-              '#ajax'                  => [
+              '#type' => 'submit',
+              '#value' => t('Delete'),
+              '#name' => 'delete_' . $o_id,
+              '#submit' => ['modularform_delete_element_submit'],
+              '#ajax' => [
                 'callback' => 'modularform_ajax_question_callback',
-                'wrapper'  => 'question-wrapper-' . $q_id,
+                'wrapper' => 'question-wrapper-' . $q_id,
               ],
               '#limit_validation_errors' => [],
             ];
@@ -694,20 +718,20 @@ function modularform_builder_form($form, &$form_state, $fid) {
           // Dropdown gets a multiselect toggle
           if ($q_type === 'dropdown') {
             $form['elements_container'][$sec_id][$q_id]['dropdown_multiple'] = [
-              '#type'          => 'checkbox',
-              '#title'         => t('Allow multiple selections'),
+              '#type' => 'checkbox',
+              '#title' => t('Allow multiple selections'),
               '#default_value' => $q_el['dropdown_multiple'] ?? 0,
             ];
           }
 
           $form['elements_container'][$sec_id][$q_id]['add_opt'] = [
-            '#type'   => 'submit',
-            '#value'  => t('+ Add Option'),
-            '#name'   => 'add_opt_' . $q_id,
+            '#type' => 'submit',
+            '#value' => t('+ Add Option'),
+            '#name' => 'add_opt_' . $q_id,
             '#submit' => ['modularform_add_element_submit'],
-            '#ajax'   => [
+            '#ajax' => [
               'callback' => 'modularform_ajax_question_callback',
-              'wrapper'  => 'question-wrapper-' . $q_id,
+              'wrapper' => 'question-wrapper-' . $q_id,
             ],
           ];
           break;
@@ -739,14 +763,14 @@ function modularform_builder_form($form, &$form_state, $fid) {
           ];
           // The rest of your code remains the same...
           $form['elements_container'][$sec_id][$q_id]['validation']['adv_rules'][$r_id]['rule_type'] = [
-            '#type'          => 'select',
-            '#title'         => t('Rule'),
-            '#options'       => _modularform_validation_rule_options($q_type),
+            '#type' => 'select',
+            '#title' => t('Rule'),
+            '#options' => _modularform_validation_rule_options($q_type),
             '#default_value' => $r_el['rule_type'] ?? '',
-            '#ajax'          => [
+            '#ajax' => [
               'callback' => 'modularform_ajax_rule_value_callback',
-              'wrapper'  => 'rule-value-wrapper-' . $r_id,
-              'event'    => 'change',
+              'wrapper' => 'rule-value-wrapper-' . $r_id,
+              'event' => 'change',
             ],
           ];
 
@@ -759,7 +783,6 @@ function modularform_builder_form($form, &$form_state, $fid) {
 
           $current_rule_type = $r_el['rule_type'] ?? '';
 
-
           $value_type = _modularform_rule_value_type($q_type, $current_rule_type);
 
           switch ($value_type) {
@@ -771,19 +794,19 @@ function modularform_builder_form($form, &$form_state, $fid) {
 
             case 'number':
               $form['elements_container'][$sec_id][$q_id]['validation']['adv_rules'][$r_id]['rule_value_wrapper']['rule_value'] = [
-                '#type'             => 'textfield',
-                '#title'            => t('Value'),
-                '#default_value'    => $r_el['rule_value'] ?? '',
-                '#size'             => 10,
+                '#type' => 'textfield',
+                '#title' => t('Value'),
+                '#default_value' => $r_el['rule_value'] ?? '',
+                '#size' => 10,
                 '#element_validate' => ['element_validate_number'],
               ];
               break;
 
             case 'select':
               $form['elements_container'][$sec_id][$q_id]['validation']['adv_rules'][$r_id]['rule_value_wrapper']['rule_value'] = [
-                '#type'          => 'select',
-                '#title'         => t('Value'),
-                '#options'       => _modularform_rule_value_options($q_type, $current_rule_type),
+                '#type' => 'select',
+                '#title' => t('Value'),
+                '#options' => _modularform_rule_value_options($q_type, $current_rule_type),
                 '#default_value' => $r_el['rule_value'] ?? '',
               ];
               break;
@@ -791,8 +814,8 @@ function modularform_builder_form($form, &$form_state, $fid) {
             case 'text':
             default:
               $form['elements_container'][$sec_id][$q_id]['validation']['adv_rules'][$r_id]['rule_value_wrapper']['rule_value'] = [
-                '#type'          => 'textfield',
-                '#title'         => t('Value'),
+                '#type' => 'textfield',
+                '#title' => t('Value'),
                 '#default_value' => $r_el['rule_value'] ?? '',
               ];
               break;
@@ -967,16 +990,16 @@ function _modularform_load_elements($fid) {
   $elements = [];
 
   $type_map_flip = [
-    0  => 'text',
-    1  => 'textarea',
-    2  => 'radio',
-    3  => 'boolean',
-    4  => 'checkbox',
-    5  => 'file',
-    6  => 'dropdown',
-    7  => 'tag',
-    8  => 'richtext',
-    9  => 'date',
+    0 => 'text',
+    1 => 'textarea',
+    2 => 'radio',
+    3 => 'boolean',
+    4 => 'checkbox',
+    5 => 'file',
+    6 => 'dropdown',
+    7 => 'tag',
+    8 => 'richtext',
+    9 => 'date',
     10 => 'time',
     11 => 'list',
   ];
@@ -1177,8 +1200,8 @@ function modularform_ajax_rule_value_callback($form, &$form_state) {
   $parents = $form_state['triggering_element']['#parents'];
   // parents: [elements_container, sec_id, q_id, validation, adv_rules, r_id, rule_type]
   $sec_id = $parents[1];
-  $q_id   = $parents[2];
-  $r_id   = $parents[5];
+  $q_id = $parents[2];
+  $r_id = $parents[5];
 
   return $form['elements_container'][$sec_id][$q_id]['validation']['adv_rules'][$r_id]['rule_value_wrapper'];
 }
@@ -1232,33 +1255,33 @@ function modularform_builder_form_submit($form, &$form_state) {
   uasort($val_rules, fn($a, $b) => $a['weight'] <=> $b['weight']);
 
   $type_map = [
-    'text'      => 0,
-    'textarea'  => 1,
-    'radio'     => 2,
-    'boolean'   => 3,
-    'checkbox'  => 4,
-    'file'      => 5,
-    'dropdown'  => 6,
-    'tag'       => 7,
-    'richtext'  => 8,   // ← add
-    'date'      => 9,   // ← add
-    'time'      => 10,  // ← add
-    'list'      => 11,  // ← add
+    'text' => 0,
+    'textarea' => 1,
+    'radio' => 2,
+    'boolean' => 3,
+    'checkbox' => 4,
+    'file' => 5,
+    'dropdown' => 6,
+    'tag' => 7,
+    'richtext' => 8,   // ← add
+    'date' => 9,   // ← add
+    'time' => 10,  // ← add
+    'list' => 11,  // ← add
   ];
 
   $datatype_map = [
-    'text'      => 'varchar',
-    'textarea'  => 'text',
-    'richtext'  => 'text',    // ← add
-    'radio'     => 'int',
-    'boolean'   => 'bool',
-    'checkbox'  => 'int',
-    'file'      => 'varchar',
-    'dropdown'  => 'int',
-    'tag'       => 'int',
-    'date'      => 'date',    // ← add
-    'time'      => 'varchar', // ← add
-    'list'      => 'int',     // ← add
+    'text' => 'varchar',
+    'textarea' => 'text',
+    'richtext' => 'text',    // ← add
+    'radio' => 'int',
+    'boolean' => 'bool',
+    'checkbox' => 'int',
+    'file' => 'varchar',
+    'dropdown' => 'int',
+    'tag' => 'int',
+    'date' => 'date',    // ← add
+    'time' => 'varchar', // ← add
+    'list' => 'int',     // ← add
   ];
 
   // ── 1. Bulk deletes — children before parents ──────────────────────────────
@@ -1337,13 +1360,13 @@ function modularform_builder_form_submit($form, &$form_state) {
       ->key(['q_id' => $q_id])
       ->insertFields($q_fields_insert)
       ->updateFields([
-        'sec_id'            => $sec_id,
-        'label'             => $q_fields_insert['label'],
-        'type'              => $q_fields_insert['type'],
-        'datatype'          => $q_fields_insert['datatype'],
-        'is_required'       => $q_fields_insert['is_required'],
-        'position'          => $position,
-        'updated_at'        => $now,
+        'sec_id' => $sec_id,
+        'label' => $q_fields_insert['label'],
+        'type' => $q_fields_insert['type'],
+        'datatype' => $q_fields_insert['datatype'],
+        'is_required' => $q_fields_insert['is_required'],
+        'position' => $position,
+        'updated_at' => $now,
       ])
       ->execute();
   }
@@ -1423,12 +1446,12 @@ function modularform_preview_form($form, &$form_state, $fid) {
     return $form;
   }
 
-  $sections  = array_filter($elements, fn($el) => $el['type'] === 'section');
+  $sections = array_filter($elements, fn($el) => $el['type'] === 'section');
   $questions = array_filter($elements, fn($el) => $el['type'] === 'question');
-  $options   = array_filter($elements, fn($el) => $el['type'] === 'option');
+  $options = array_filter($elements, fn($el) => $el['type'] === 'option');
   $val_rules = array_filter($elements, fn($el) => $el['type'] === 'validation_rule');
 
-  uasort($sections,  fn($a, $b) => $a['weight'] <=> $b['weight']);
+  uasort($sections, fn($a, $b) => $a['weight'] <=> $b['weight']);
   uasort($questions, fn($a, $b) => $a['weight'] <=> $b['weight']);
 
   // Derive file_multiple and dropdown_multiple from validation rules
@@ -1452,9 +1475,9 @@ function modularform_preview_form($form, &$form_state, $fid) {
   unset($q);
 
   // Attach Select2 library and our preview JS/CSS
-  $form['#attached']['library'][]        = ['modularform', 'select2'];
-  $form['#attached']['js'][]             = drupal_get_path('module', 'modularform') . '/js/modularform.preview.js';
-  $form['#attached']['css'][]            = drupal_get_path('module', 'modularform') . '/css/modularform.preview.css';
+  $form['#attached']['library'][] = ['modularform', 'select2'];
+  $form['#attached']['js'][] = drupal_get_path('module', 'modularform') . '/js/modularform.preview.js';
+  $form['#attached']['css'][] = drupal_get_path('module', 'modularform') . '/css/modularform.preview.css';
 
   // Pass validation rules to JS for client-side validation
   $js_rules = [];
@@ -1463,10 +1486,10 @@ function modularform_preview_form($form, &$form_state, $fid) {
     if (!empty($q_rules)) {
       foreach ($q_rules as $r) {
         $js_rules[$q_id][] = [
-          'rule_type'     => $r['rule_type'],
-          'rule_value'    => $r['rule_value'],
+          'rule_type' => $r['rule_type'],
+          'rule_value' => $r['rule_value'],
           'error_message' => $r['error_message'] ?? '',
-          'q_type'        => $q['question_type'],
+          'q_type' => $q['question_type'],
         ];
       }
     }
@@ -1481,7 +1504,7 @@ function modularform_preview_form($form, &$form_state, $fid) {
 
   foreach ($sections as $sec_id => $sec) {
     $form[$sec_id] = [
-      '#type'       => 'container',
+      '#type' => 'container',
       '#attributes' => ['class' => ['preview-section']],
     ];
 
@@ -1493,8 +1516,8 @@ function modularform_preview_form($form, &$form_state, $fid) {
     uasort($sec_questions, fn($a, $b) => $a['weight'] <=> $b['weight']);
 
     foreach ($sec_questions as $q_id => $q) {
-      $q_type   = $q['question_type'] ?? 'text';
-      $label    = $q['label'] ?? '';
+      $q_type = $q['question_type'] ?? 'text';
+      $label = $q['label'] ?? '';
       $required = !empty($q['is_required']);
 
       $q_options = array_filter($options, fn($o) => $o['parent'] === $q_id);
@@ -1506,82 +1529,84 @@ function modularform_preview_form($form, &$form_state, $fid) {
       }
 
       $form[$sec_id][$q_id] = [
-        '#type'       => 'container',
+        '#type' => 'container',
         '#attributes' => [
-          'class'        => ['preview-question'],
-          'data-q-id'    => $q_id,
-          'data-q-type'  => $q_type,
+          'class' => ['preview-question'],
+          'data-q-id' => $q_id,
+          'data-q-type' => $q_type,
         ],
       ];
 
       switch ($q_type) {
-
         case 'text':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type'       => 'textfield',
-            '#title'      => $label,
-            '#required'   => $required,
+            '#type' => 'textfield',
+            '#title' => $label,
+            '#required' => $required,
             '#attributes' => ['data-q-id' => $q_id],
           ];
           break;
 
         case 'textarea':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type'       => 'textarea',
-            '#title'      => $label,
-            '#rows'       => 5,
-            '#required'   => $required,
+            '#type' => 'textarea',
+            '#title' => $label,
+            '#rows' => 5,
+            '#required' => $required,
             '#attributes' => ['data-q-id' => $q_id],
           ];
           break;
 
         case 'richtext':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type'       => 'textarea',
-            '#title'      => $label,
-            '#required'   => $required,
-            '#rows'       => 8,
+            '#type' => 'textarea',
+            '#title' => $label,
+            '#required' => $required,
+            '#rows' => 8,
             '#attributes' => [
-              'data-q-id' => $q_id,
-              'class'     => ['tinymce-editor'],
+              'class' => ['dfp-text-editor-area'],
+              // Your custom ID aligns perfectly with the JS selector
+              'id' => 'editor-' . $q_id,
             ],
+            // Call a wrapper function to load your JS
+            '#after_build' => ['_dfp_attach_tinymce'],
           ];
           break;
 
         case 'date':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type'       => 'date',
-            '#title'      => $label,
-            '#required'   => $required,
+            '#type' => 'date',
+            '#title' => $label,
+            '#required' => $required,
             '#attributes' => ['data-q-id' => $q_id],
           ];
           break;
 
         case 'time':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type'       => 'textfield',
-            '#title'      => $label,
-            '#required'   => $required,
+            '#type' => 'textfield',
+            '#title' => $label,
+            '#required' => $required,
             '#attributes' => ['type' => 'time', 'data-q-id' => $q_id],
           ];
           break;
 
         case 'boolean':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type'       => 'radios',
-            '#title'      => $label,
-            '#options'    => ['yes' => t('Yes'), 'no' => t('No')],
-            '#required'   => $required,
+            '#type' => 'radios',
+            '#title' => $label,
+            '#options' => ['yes' => t('Yes'), 'no' => t('No')],
+            '#required' => $required,
             '#attributes' => ['data-q-id' => $q_id],
           ];
           break;
 
         case 'radio':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type'       => 'radios',
-            '#title'      => $label,
-            '#options'    => $options_list,
-            '#required'   => $required,
+            '#type' => 'radios',
+            '#title' => $label,
+            '#options' => $options_list,
+            '#required' => $required,
             '#attributes' => ['data-q-id' => $q_id],
           ];
           break;
@@ -1589,10 +1614,10 @@ function modularform_preview_form($form, &$form_state, $fid) {
         case 'list':
         case 'checkbox':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type'       => 'checkboxes',
-            '#title'      => $label,
-            '#options'    => $options_list,
-            '#required'   => $required,
+            '#type' => 'checkboxes',
+            '#title' => $label,
+            '#options' => $options_list,
+            '#required' => $required,
             '#attributes' => ['data-q-id' => $q_id],
           ];
           break;
@@ -1600,29 +1625,29 @@ function modularform_preview_form($form, &$form_state, $fid) {
         case 'dropdown':
           $is_multiple = !empty($q['dropdown_multiple']);
           $form[$sec_id][$q_id]['answer'] = [
-            '#type'         => 'select',
-            '#title'        => $label,
-            '#options'      => $options_list,
+            '#type' => 'select',
+            '#title' => $label,
+            '#options' => $options_list,
             '#empty_option' => $is_multiple ? NULL : t('- Select -'),
-            '#required'     => $required,
-            '#multiple'     => $is_multiple,
-            '#attributes'   => [
-              'data-q-id'    => $q_id,
-              'class'        => ['select2-enable'],
+            '#required' => $required,
+            '#multiple' => $is_multiple,
+            '#attributes' => [
+              'data-q-id' => $q_id,
+              'class' => ['select2-enable'],
             ],
           ];
           break;
 
         case 'tag':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type'       => 'select',
-            '#title'      => $label,
-            '#options'    => $options_list,
-            '#required'   => $required,
-            '#multiple'   => TRUE,
+            '#type' => 'select',
+            '#title' => $label,
+            '#options' => $options_list,
+            '#required' => $required,
+            '#multiple' => TRUE,
             '#attributes' => [
               'data-q-id' => $q_id,
-              'class'     => ['select2-enable', 'select2-tags'],
+              'class' => ['select2-enable', 'select2-tags'],
             ],
           ];
           break;
@@ -1630,16 +1655,16 @@ function modularform_preview_form($form, &$form_state, $fid) {
         case 'file':
           $is_multiple = !empty($q['file_multiple']);
           $form[$sec_id][$q_id]['answer'] = [
-            '#type'              => 'managed_file',
-            '#title'             => $label,
-            '#required'          => $required,
-            '#upload_location'   => 'temporary://modularform_preview',
+            '#type' => 'managed_file',
+            '#title' => $label,
+            '#required' => $required,
+            '#upload_location' => 'temporary://modularform_preview',
             '#upload_validators' => [
               'file_validate_size' => [25 * 1024 * 1024],
             ],
-            '#multiple'          => $is_multiple,
-            '#description'       => t('Preview only — file will not be saved.'),
-            '#attributes'        => ['data-q-id' => $q_id],
+            '#multiple' => $is_multiple,
+            '#description' => t('Preview only — file will not be saved.'),
+            '#attributes' => ['data-q-id' => $q_id],
           ];
           break;
       }
@@ -1650,6 +1675,52 @@ function modularform_preview_form($form, &$form_state, $fid) {
   return $form;
 }
 
+function _dynamic_form_preview_maybe_load_tinymce($form_id) {
+  $tinymce_js = 'sites/all/libraries/tinymce/js/tinymce/tinymce.min.js';
+  if (!file_exists(DRUPAL_ROOT . '/' . $tinymce_js)) {
+    return;
+  }
+  drupal_add_js($tinymce_js, ['type' => 'file', 'weight' => 10]);
+  $init_js = <<<JS
+(function ($) {
+  Drupal.behaviors.dfpTinymcePreview = {
+    attach: function (context, settings) {
+      \$('.dfp-text-editor-area', context).once('dfp-tinymce-init', function () {
+        if (typeof tinymce === 'undefined') { return; }
+        tinymce.init({
+          selector  : '#' + this.id,
+          readonly  : false,
+          height    : 200,
+          menubar   : false,
+          statusbar : false,
+          plugins   : 'lists link',
+          toolbar   : 'bold italic underline strikethrough | bullist numlist blockquote | link'
+        });
+      });
+    }
+  };
+})(jQuery);
+JS;
+  drupal_add_js($init_js, [
+    'type' => 'inline',
+    'scope' => 'footer',
+    'weight' => 20,
+  ]);
+}
+
+/**
+ * #after_build callback to trigger the TinyMCE inclusion.
+ */
+function _dfp_attach_tinymce($element, &$form_state) {
+  // Grab the form ID from the form state if needed by your helper
+  $form_id = isset($form_state['build_info']['form_id']) ? $form_state['build_info']['form_id'] : 'unknown_form_id';
+
+  // Call your custom helper function
+  _dynamic_form_preview_maybe_load_tinymce($form_id);
+
+  // #after_build callbacks MUST return the element
+  return $element;
+}
 
 /**
  * Implements hook_theme().
