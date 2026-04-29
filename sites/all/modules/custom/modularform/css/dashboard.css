@@ -180,6 +180,7 @@
   border-collapse: collapse;
   table-layout: fixed;
   min-width: 480px;
+  margin-bottom: 60px;
 }
 
 .gform-table thead th:nth-child(1) { width: 40%; }
@@ -211,6 +212,8 @@
 
 .gform-table tbody tr:hover {
   background: #f8f5ff;
+  position: relative;
+  z-index: 500;
 }
 
 .gform-table tbody tr:last-child {
@@ -222,7 +225,6 @@
   padding: 11px 18px;
   font-size: 13px;
   color: #3c4043;
-  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: middle;
@@ -264,27 +266,89 @@
 
 /* ── Operations cell ── */
 .gform-td-ops {
+  overflow: visible !important; /* This allows the menu to pop out */
+  text-overflow: clip !important;
   white-space: nowrap;
+  position: relative;
+  /* Essential for absolute positioning of the menu */
 }
 
-.gform-td-ops a {
+/* The container for the button and the menu */
+.action-dropdown {
+  position: relative;
   display: inline-block;
-  font-size: 12px;
-  font-weight: 500;
-  color: #673ab7;
-  text-decoration: none;
-  padding: 4px 10px;
-  border-radius: 4px;
-  border: 1px solid #d1b8f5;
-  background: #f3e5f5;
-  transition: background 0.12s, border-color 0.12s;
-  margin-right: 4px;
 }
 
-.gform-td-ops a:hover {
+/* Style the "Actions" button to match your theme */
+.action-dropbtn {
+  font-size: 12px;
+  font-weight: 600;
+  color: #673ab7;
+  background: #f3e5f5;
+  border: 1px solid #d1b8f5;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.action-dropbtn:hover {
   background: #e8d5f5;
   border-color: #b399e8;
 }
+
+/* The actual menu (hidden by default) */
+.action-dropdown-content {
+  display: none; /* This is why you don't see it yet! */
+  position: absolute;
+  right: 0; /* Align to the right of the button */
+  background-color: #ffffff;
+  min-width: 140px;
+  box-shadow: 0px 4px 12px rgba(0,0,0,0.15);
+  border: 1px solid #d1d1d1;
+  border-radius: 4px;
+  z-index: 10;
+  margin-top: 2px;
+}
+
+/* Show the menu when hovering over the container */
+.action-dropdown:hover .action-dropdown-content {
+  display: block;
+}
+
+/* Style the links inside the dropdown */
+.action-dropdown-content a {
+  color: #333;
+  padding: 8px 12px;
+  text-decoration: none;
+  display: block; /* Stack them vertically */
+  font-size: 13px;
+  border: none; /* Remove your previous border */
+  background: none; /* Remove your previous purple background */
+  margin-right: 0;
+  border-radius: 0;
+  transition: background 0.1s;
+}
+
+.action-dropdown-content a:hover {
+  background-color: #f3e5f5;
+  color: #673ab7;
+}
+
+/* Optional: Add a divider between links */
+.action-dropdown-content a:not(:last-child) {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.action-dropdown {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+  z-index: 100; /* Ensure it stays above other rows */
+}
+
+/* Ensure the button itself looks like a separate clickable element */
+
 
 /* ── Empty state ── */
 .gform-empty-row td {
@@ -310,3 +374,10 @@
     display: none;
   }
 }
+
+
+.gform-table thead th:nth-child(1) { width: 35%; } /* Name */
+.gform-table thead th:nth-child(2) { width: 15%; } /* Owner */
+.gform-table thead th:nth-child(3) { width: 15%; } /* Status */
+.gform-table thead th:nth-child(4) { width: 20%; } /* Created */
+.gform-table thead th:nth-child(5) { width: 15%; } /* Operations */
