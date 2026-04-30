@@ -78,17 +78,17 @@ function modularform_menu() {
   ];
 
   $items['forms/trash'] = [
-    'title'            => 'Trash',
-    'page callback'    => 'form_deleted_dashboard_page',
+    'title' => 'Trash',
+    'page callback' => 'form_deleted_dashboard_page',
     'access arguments' => ['delete forms'],
     'menu_name' => 'main-menu',
 
   ];
 
   $items['forms/restore/%'] = [
-    'title'            => 'Restore Form',
-    'page callback'    => 'modularform_restore',
-    'page arguments'   => [2],
+    'title' => 'Restore Form',
+    'page callback' => 'modularform_restore',
+    'page arguments' => [2],
     'access arguments' => ['delete forms'],
   ];
 
@@ -385,10 +385,19 @@ function modularform_create_form($form, &$form_state, $id = NULL) {
     '#default_value' => $modular_form ? $modular_form->status : 0,
   ];
 
-  var_dump($modular_form->closes_at);
+  //  $form['closes']=[
+  //
+  //  ];
+
+  $timestamp = (int) $modular_form->closes_at;
   $form['closes_at'] = [
     '#type' => 'date',
     '#title' => t('Closes at'),
+    '#default_value' => [
+      'year' => date('Y', $timestamp),
+      'month' => date('n', $timestamp),
+      'day' => date('j', $timestamp),
+    ],
     '#required' => TRUE,
   ];
 
@@ -1886,7 +1895,8 @@ function modularform_soft_delete($form_id) {
 
   if ($updated) {
     drupal_set_message(t('Form "@title" has been deleted.', ['@title' => $form->title]));
-  } else {
+  }
+  else {
     drupal_set_message(t('Failed to delete the form.'), 'error');
   }
 
@@ -1905,7 +1915,14 @@ function form_deleted_dashboard_page() {
   $rows = [];
 
   $forms = db_select('modularform_forms', 'f')
-    ->fields('f', ['id', 'title', 'status', 'created_by', 'created_at', 'deleted_at'])
+    ->fields('f', [
+      'id',
+      'title',
+      'status',
+      'created_by',
+      'created_at',
+      'deleted_at',
+    ])
     ->isNotNull('deleted_at')               // Only fetch soft-deleted forms
     ->orderBy('deleted_at', 'DESC')
     ->execute()
@@ -1915,23 +1932,23 @@ function form_deleted_dashboard_page() {
     return '<p>' . t('No deleted forms found.') . '</p>';
   }
 
-  $uids  = array_unique(array_column((array) $forms, 'created_by'));
+  $uids = array_unique(array_column((array) $forms, 'created_by'));
   $users = user_load_multiple($uids);
 
   foreach ($forms as $form) {
-    $owner      = isset($users[$form->created_by]) ? format_username($users[$form->created_by]) : t('Unknown');
-    $status     = $form->status ? t('Published') : t('Draft');
-    $created    = format_date($form->created_at, 'custom', 'M j Y');
+    $owner = isset($users[$form->created_by]) ? format_username($users[$form->created_by]) : t('Unknown');
+    $status = $form->status ? t('Published') : t('Draft');
+    $created = format_date($form->created_at, 'custom', 'M j Y');
     $deleted_on = format_date($form->deleted_at, 'custom', 'M j Y');
 
     $links = [
       'restore' => [
         'title' => t('Restore'),
-        'href'  => 'forms/restore/' . $form->id,
+        'href' => 'forms/restore/' . $form->id,
       ],
       'permanent_delete' => [
         'title' => t('Delete Permanently'),
-        'href'  => 'forms/permanent_delete/' . $form->id,
+        'href' => 'forms/permanent_delete/' . $form->id,
       ],
     ];
 
@@ -1946,9 +1963,9 @@ function form_deleted_dashboard_page() {
   }
 
   return [
-    '#theme'    => 'trash',
-    '#header'   => $header,
-    '#rows'     => $rows,
+    '#theme' => 'trash',
+    '#header' => $header,
+    '#rows' => $rows,
     '#attached' => [
       'css' => [drupal_get_path('module', 'modularform') . '/css/dashboard.css'],
     ],
@@ -2026,7 +2043,7 @@ function modularform_perma_delete($form_id) {
     // Roll back the entire transaction on any failure.
     $txn->rollback();
     watchdog('modularform', 'Failed to permanently delete form @id: @msg', [
-      '@id'  => $form_id,
+      '@id' => $form_id,
       '@msg' => $e->getMessage(),
     ], WATCHDOG_ERROR);
     drupal_set_message(t('Failed to permanently delete the form. Please try again.'), 'error');
@@ -2060,7 +2077,7 @@ function modularform_theme() {
       ],
       'template' => 'modularform-trash',
       'path' => drupal_get_path('module', 'modularform') . '/templates',
-    ]
+    ],
   ];
 }
 
