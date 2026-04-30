@@ -94,40 +94,26 @@
         <?php endforeach; ?>
       </div>
     <?php else: ?>
-      <div class="gform-thumb-grid">
-        <div class="gform-thumb">
-          <div class="gform-thumb-preview"
-               style="background: <?php print $color['bg']; ?>">
-            <svg width="44" height="44" viewBox="0 0 44 44"
-                 xmlns="http://www.w3.org/2000/svg">
-              <rect x="7" y="5" width="30" height="34" rx="3"
-                    fill="<?php print $color['fill']; ?>"/>
-              <rect x="11" y="11" width="22" height="3" rx="1.5"
-                    fill="<?php print $color['line']; ?>"/>
-              <rect x="11" y="17" width="22" height="3" rx="1.5"
-                    fill="<?php print $color['line']; ?>"/>
-              <rect x="11" y="23" width="15" height="3" rx="1.5"
-                    fill="<?php print $color['line']; ?>"/>
-              <rect x="11" y="29" width="18" height="3" rx="1.5"
-                    fill="<?php print $color['line']; ?>" opacity=".5"/>
-            </svg>
-          </div>
-          <div class="gform-thumb-meta">
-            <div class="gform-thumb-info">
-              +
-            </div>
-            <button class="gform-thumb-btn"
-                    title="<?php print t('More options'); ?>">
-              <svg viewBox="0 0 24 24" fill="currentColor"
-                   xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12" cy="5" r="1.8"/>
-                <circle cx="12" cy="12" r="1.8"/>
-                <circle cx="12" cy="19" r="1.8"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
+      <?php
+      $content = '<div class="gform-thumb-grid">
+                          <div class="gform-thumb">
+                            <div class="gform-thumb-preview" style="background: ' . $color['bg'] . ';">
+                              ' . t('+ New') . '
+                            </div>
+                            <div class="gform-thumb-meta">
+                              <div class="gform-thumb-info">
+                                ' . t('+ Create a new form') . '
+                              </div>
+                            </div>
+                          </div>
+                        </div>';
+      print l($content, 'forms/create', [
+        'html' => TRUE,
+        'attributes' => [
+          'class' => ['add-btn'],
+        ],
+      ]);
+      ?>
     <?php endif; ?>
 
 

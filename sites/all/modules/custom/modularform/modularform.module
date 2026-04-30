@@ -52,16 +52,44 @@ function modularform_menu() {
     'title' => 'Create Form',
     'page callback' => 'drupal_get_form',
     'page arguments' => ['modularform_create_form'],
-    'access arguments' => ['access content'],
+    'access arguments' => ['create content'],
     'access callback' => 'form_create_access',
   ];
 
   $items['forms/edit/%'] = [
     'title' => 'Edit Form',
     'page callback' => 'drupal_get_form',
-    'page arguments' => ['modularform_create_form'],
-    'access arguments' => ['access content'],
-    'access callback' => 'form_edit_access',
+    'page arguments' => ['modularform_create_form', 2],
+    'access arguments' => ['edit forms'],
+  ];
+
+  $items['forms/delete/%'] = [
+    'title' => 'Delete Form',
+    'page callback' => 'modularform_soft_delete',
+    'page arguments' => [2],
+    'access arguments' => ['delete forms'],
+  ];
+
+  $items['forms/permanent_delete/%'] = [
+    'title' => 'Delete Form Permanently',
+    'page callback' => 'modularform_perma_delete',
+    'page arguments' => [2],
+    'access arguments' => ['delete forms'],
+  ];
+
+  $items['forms/trash'] = [
+    'title'            => 'Trash',
+    'page callback'    => 'form_deleted_dashboard_page',
+    'access arguments' => ['delete forms'],
+    'menu_name' => 'main-menu',
+
+  ];
+
+  $items['forms/restore/%'] = [
+    'title'            => 'Restore Form',
+    'page callback'    => 'modularform_restore',
+    'page arguments'   => [2],
+    'access arguments' => ['delete forms'],
   ];
 
   $items['forms/%/builder'] = [
@@ -263,6 +291,7 @@ function form_dashboard_page() {
 
   $forms = db_select('modularform_forms', 'f')
     ->fields('f', ['id', 'title', 'status', 'created_by', 'created_at'])
+    ->isNull('deleted_at')
     ->orderBy('created_at', 'DESC')
     ->execute()
     ->fetchAll();
@@ -286,7 +315,11 @@ function form_dashboard_page() {
       ],
       'settings_edit' => [
         'title' => t('Edit Settings'),
-        'href' => 'forms/' . $form->id,
+        'href' => 'forms/edit/' . $form->id,
+      ],
+      'delete' => [
+        'title' => t('Delete Survey'),
+        'href' => 'forms/delete/' . $form->id,
       ],
     ];
 
@@ -296,15 +329,6 @@ function form_dashboard_page() {
       $status,
       $created,
       $links,
-    ];
-  }
-
-  if (empty($rows)) {
-    $rows[] = [
-      [
-        'data' => t('No forms yet. !link', ['!link' => l(t('Create one'), 'forms/create')]),
-        'colspan' => 5,
-      ],
     ];
   }
 
@@ -321,28 +345,30 @@ function form_dashboard_page() {
 // create page
 function modularform_create_form($form, &$form_state, $id = NULL) {
   if ($id) {
-    $modular_form = modularform_load($id);
+    $controller = entity_get_controller('modularform_form');
+    $results = $controller->load([$id]);
+    $modular_form = reset($results);
   }
   else {
     $modular_form = NULL;
   }
   $form['id'] = [
     '#type' => 'hidden',
-    '#default_value' => $modular_form ? $modular_form['id'] : '',
+    '#default_value' => $modular_form ? $modular_form->id : '',
   ];
 
   $form['title'] = [
     '#type' => 'textfield',
     '#title' => t('Title'),
     '#required' => TRUE,
-    '#default_value' => $modular_form ? $modular_form['title'] : 'Untitled form',
+    '#default_value' => $modular_form ? $modular_form->title : 'Untitled form',
   ];
 
   $form['description'] = [
     '#type' => 'textfield',
     '#title' => t('Description'),
     '#required' => FALSE,
-    '#default_value' => $modular_form ? $modular_form['description'] : '',
+    '#default_value' => $modular_form ? $modular_form->description : '',
   ];
 
   $radio_options = [
@@ -356,14 +382,14 @@ function modularform_create_form($form, &$form_state, $id = NULL) {
     '#options' => $radio_options,
     '#description' => t('Use one of the options below.'),
     '#required' => TRUE,
-    '#default_value' => $modular_form ? $modular_form['status'] : 0,
+    '#default_value' => $modular_form ? $modular_form->status : 0,
   ];
 
+  var_dump($modular_form->closes_at);
   $form['closes_at'] = [
     '#type' => 'date',
     '#title' => t('Closes at'),
     '#required' => TRUE,
-    '#default_value' => $modular_form ? $modular_form['closes_at'] : '',
   ];
 
   $form['submit'] = [
@@ -381,33 +407,37 @@ function modularform_create_form($form, &$form_state, $id = NULL) {
 //modularform_create_form submit
 function modularform_create_form_submit($form, &$form_state) {
   $values = $form_state['values'];
-  $lang = 'und';
   $id = $values['id'];
-
   $controller = entity_get_controller('modularform_form');
+  $now = (new DateTime('now', new DateTimeZone('UTC')))->getTimestamp();
+
   if (!empty($id)) {
-    $entity = $controller->load($id);
+    $results = $controller->load([$id]);  // ← wrap in array
+    $entity = reset($results);            // ← extract from result
   }
   else {
     $entity = $controller->create(['type' => 'organization']);
+    $entity->slug = modularform_generate_random_slug($values['title']);
+    $entity->created_at = $now;
+    global $user;
+    $entity->created_by = $user->uid;
   }
+
   $entity->title = $values['title'];
   $entity->description = $values['description'];
   $entity->status = $values['status'];
-  $entity->closes_at = $values['closes_at'];
-  $entity->slug = modularform_generate_random_slug($values['title']);
-  global $user;
-
-  $entity->created_by = $user->uid;
-
-  $now = (new DateTime('now', new DateTimeZone('UTC')))->getTimestamp();
-  $entity->created_at = $now;
+  $closes_at = $values['closes_at'];
+  $entity->closes_at = mktime(0, 0, 0,
+    $closes_at['month'],
+    $closes_at['day'],
+    $closes_at['year']
+  );
   $entity->updated_at = $now;
   $entity->save();
+
   $message = !empty($id) ? 'Form %title updated.' : 'Form %title saved in draft.';
-  $fid = $entity->id;
   drupal_set_message(t($message, ['%title' => $entity->title]));
-  drupal_goto("forms/$fid/builder");
+  drupal_goto('forms/' . $entity->id . '/builder');
 }
 
 /**
@@ -449,6 +479,24 @@ function modularform_builder_form($form, &$form_state, $fid) {
 
   // ── Seed storage — DB on edit, blank on create ─────────────────────────────
   $is_edit = FALSE;
+
+  $form_name = db_select('modularform_forms', 'f')
+    ->fields('f', ['title', 'description'])
+    ->condition('id', $fid)
+    ->execute()
+    ->fetchAssoc();
+
+  $form['form_header'] = [
+    '#type' => 'item',
+    '#markup' => '<div class="modularform-header-box">
+    <div class="modularform-header-bar"></div>
+    <div style="padding: 28px 32px 32px;">
+      <h2 class="modularform-title">' . check_plain($form_name['title']) . '</h2>
+      <div class="modularform-description">' . nl2br(check_plain($form_name['description'])) . '</div>
+    </div>
+  </div>',
+    '#weight' => -10,
+  ];
 
   if (empty($form_state['storage']['elements'])) {
     $loaded = _modularform_load_elements($fid);
@@ -631,6 +679,13 @@ function modularform_builder_form($form, &$form_state, $fid) {
         ],
       ];
 
+      $is_multiple = 0;
+      foreach ($val_rules as $r_id => $r_el) {
+        if ($r_el['parent'] === $q_id && ($r_el['rule_type'] ?? '') === 'is_multiple') {
+          $is_multiple = (int) ($r_el['rule_value'] ?? 0);
+          break;
+        }
+      }
       // Types that need options managed
       switch ($q_type) {
         case 'text':
@@ -670,6 +725,13 @@ function modularform_builder_form($form, &$form_state, $fid) {
           break;
 
         case 'file':
+          $is_multiple = 0;
+          foreach ($val_rules as $r_el) {
+            if ($r_el['parent'] === $q_id && ($r_el['rule_type'] ?? '') === 'is_multiple') {
+              $is_multiple = (int) ($r_el['rule_value'] ?? 0);
+              break;
+            }
+          }
           $form['elements_container'][$sec_id][$q_id]['file_settings'] = [
             '#type' => 'container',
             '#attributes' => ['class' => ['file-settings']],
@@ -677,8 +739,18 @@ function modularform_builder_form($form, &$form_state, $fid) {
           $form['elements_container'][$sec_id][$q_id]['file_settings']['multiple'] = [
             '#type' => 'checkbox',
             '#title' => t('Allow multiple files'),
-            '#default_value' => $q_el['file_multiple'] ?? 0,
+            '#default_value' => $is_multiple ?? 0,
           ];
+
+          $r_id = 'rule_' . $q_id . '_is_multiple';
+          $form_state['storage']['elements'][$r_id] = [
+            'type' => 'validation_rule',
+            'parent' => $q_id,
+            'rule_type' => 'is_multiple',
+            'rule_value' => $is_multiple,
+            'weight' => 0,
+          ];
+
           $form['elements_container'][$sec_id][$q_id]['preview'] = [
             '#markup' => '<p class="field-preview">File upload field</p>',
           ];
@@ -715,12 +787,27 @@ function modularform_builder_form($form, &$form_state, $fid) {
             ];
           }
 
-          // Dropdown gets a multiselect toggle
           if ($q_type === 'dropdown') {
+            $is_multiple = 0;
+            foreach ($val_rules as $r_el) {
+              if ($r_el['parent'] === $q_id && ($r_el['rule_type'] ?? '') === 'is_multiple') {
+                $is_multiple = (int) ($r_el['rule_value'] ?? 0);
+                break;
+              }
+            }
             $form['elements_container'][$sec_id][$q_id]['dropdown_multiple'] = [
               '#type' => 'checkbox',
               '#title' => t('Allow multiple selections'),
-              '#default_value' => $q_el['dropdown_multiple'] ?? 0,
+              '#default_value' => $is_multiple,
+            ];
+
+            $r_id = 'rule_' . $q_id . '_is_multiple';
+            $form_state['storage']['elements'][$r_id] = [
+              'type' => 'validation_rule',
+              'parent' => $q_id,
+              'rule_type' => 'is_multiple',
+              'rule_value' => $is_multiple,
+              'weight' => 0,
             ];
           }
 
@@ -759,9 +846,8 @@ function modularform_builder_form($form, &$form_state, $fid) {
         foreach ($q_val_rules as $r_id => $r_el) {
           $form['elements_container'][$sec_id][$q_id]['validation']['adv_rules'][$r_id] = [
             '#type' => 'container',
-            '#attributes' => ['class' => ['adv-rule-row']], // Add this line
+            '#attributes' => ['class' => ['adv-rule-row']],
           ];
-          // The rest of your code remains the same...
           $form['elements_container'][$sec_id][$q_id]['validation']['adv_rules'][$r_id]['rule_type'] = [
             '#type' => 'select',
             '#title' => t('Rule'),
@@ -1244,16 +1330,6 @@ function modularform_builder_form_submit($form, &$form_state) {
   $values = $form_state['values']['elements_container'];
   $now = REQUEST_TIME;
 
-  $sections = array_filter($elements, fn($el) => $el['type'] === 'section');
-  $questions = array_filter($elements, fn($el) => $el['type'] === 'question');
-  $options = array_filter($elements, fn($el) => $el['type'] === 'option');
-  $val_rules = array_filter($elements, fn($el) => $el['type'] === 'validation_rule');
-
-  uasort($sections, fn($a, $b) => $a['weight'] <=> $b['weight']);
-  uasort($questions, fn($a, $b) => $a['weight'] <=> $b['weight']);
-  uasort($options, fn($a, $b) => $a['weight'] <=> $b['weight']);
-  uasort($val_rules, fn($a, $b) => $a['weight'] <=> $b['weight']);
-
   $type_map = [
     'text' => 0,
     'textarea' => 1,
@@ -1263,87 +1339,82 @@ function modularform_builder_form_submit($form, &$form_state) {
     'file' => 5,
     'dropdown' => 6,
     'tag' => 7,
-    'richtext' => 8,   // ← add
-    'date' => 9,   // ← add
-    'time' => 10,  // ← add
-    'list' => 11,  // ← add
+    'richtext' => 8,
+    'date' => 9,
+    'time' => 10,
+    'list' => 11,
   ];
-
   $datatype_map = [
     'text' => 'varchar',
     'textarea' => 'text',
-    'richtext' => 'text',    // ← add
+    'richtext' => 'text',
     'radio' => 'int',
     'boolean' => 'bool',
     'checkbox' => 'int',
     'file' => 'varchar',
     'dropdown' => 'int',
     'tag' => 'int',
-    'date' => 'date',    // ← add
-    'time' => 'varchar', // ← add
-    'list' => 'int',     // ← add
+    'date' => 'date',
+    'time' => 'varchar',
+    'list' => 'int',
   ];
 
-  // ── 1. Bulk deletes — children before parents ──────────────────────────────
+  // ── 0. Bucket elements by type ────────────────────────────────────────────
+  $sections = [];
+  $questions = [];
+  $options = [];
+  $val_rules = [];
+
+  foreach ($elements as $id => $el) {
+    switch ($el['type']) {
+      case 'section':
+        $sections[$id] = $el;
+        break;
+      case 'question':
+        $questions[$id] = $el;
+        break;
+      case 'option':
+        $options[$id] = $el;
+        break;
+      case 'validation_rule':
+        $val_rules[$id] = $el;
+        break;
+    }
+  }
+
+  uasort($sections, fn($a, $b) => $a['weight'] <=> $b['weight']);
+  uasort($questions, fn($a, $b) => $a['weight'] <=> $b['weight']);
+  uasort($options, fn($a, $b) => $a['weight'] <=> $b['weight']);
+  uasort($val_rules, fn($a, $b) => $a['weight'] <=> $b['weight']);
+
   $live_sec_ids = array_keys($sections) ?: [''];
   $live_q_ids = array_keys($questions) ?: [''];
   $live_o_ids = array_keys($options) ?: [''];
   $live_r_ids = array_keys($val_rules) ?: [''];
 
-  db_delete('modularform_validation_rules')
-    ->condition('form_id', $fid)
-    ->condition('r_id', $live_r_ids, 'NOT IN')
-    ->execute();
-
-  db_delete('modularform_question_options')
-    ->condition('form_id', $fid)
-    ->condition('o_id', $live_o_ids, 'NOT IN')
-    ->execute();
-
-  db_delete('modularform_questions')
-    ->condition('form_id', $fid)
-    ->condition('q_id', $live_q_ids, 'NOT IN')
-    ->execute();
-
-  db_delete('modularform_sections')
-    ->condition('form_id', $fid)
-    ->condition('sec_id', $live_sec_ids, 'NOT IN')
-    ->execute();
-
-  // ── 2. Upsert sections ─────────────────────────────────────────────────────
+  // ── 1. Build flat record arrays ───────────────────────────────────────────
+  $sec_records = [];
   foreach ($sections as $sec_id => $sec_el) {
-    $name = $values[$sec_id]['title'] ?? $sec_el['title'] ?? '';
-
-    db_merge('modularform_sections')
-      ->key(['sec_id' => $sec_id])
-      ->insertFields([
-        'sec_id' => $sec_id,
-        'form_id' => $fid,
-        'name' => $name,
-        'weight' => $sec_el['weight'],
-        'created_at' => $now,
-        'updated_at' => $now,
-      ])
-      ->updateFields([
-        'name' => $name,
-        'weight' => $sec_el['weight'],
-        'updated_at' => $now,
-      ])
-      ->execute();
+    $sec_records[] = [
+      'sec_id' => $sec_id,
+      'form_id' => $fid,
+      'name' => $values[$sec_id]['title'] ?? $sec_el['title'] ?? '',
+      'weight' => $sec_el['weight'],
+      'created_at' => $now,
+      'updated_at' => $now,
+    ];
   }
 
-  // ── 3. Upsert questions ────────────────────────────────────────────────────
+  $q_records = [];
   $position_counter = [];
-
   foreach ($questions as $q_id => $q_el) {
     $sec_id = $q_el['parent'];
     $q_type_str = $q_el['question_type'] ?? 'text';
     $q_vals = $values[$sec_id][$q_id] ?? [];
-
     $position = $position_counter[$sec_id] ?? 0;
     $position_counter[$sec_id] = $position + 1;
 
-    $q_fields_insert = [
+    $q_records[] = [
       'q_id' => $q_id,
       'form_id' => $fid,
       'sec_id' => $sec_id,
@@ -1355,77 +1426,114 @@ function modularform_builder_form_submit($form, &$form_state) {
       'created_at' => $now,
       'updated_at' => $now,
     ];
-
-    db_merge('modularform_questions')
-      ->key(['q_id' => $q_id])
-      ->insertFields($q_fields_insert)
-      ->updateFields([
-        'sec_id' => $sec_id,
-        'label' => $q_fields_insert['label'],
-        'type' => $q_fields_insert['type'],
-        'datatype' => $q_fields_insert['datatype'],
-        'is_required' => $q_fields_insert['is_required'],
-        'position' => $position,
-        'updated_at' => $now,
-      ])
-      ->execute();
   }
 
-  // ── 4. Upsert options ──────────────────────────────────────────────────────
+  $o_records = [];
   foreach ($options as $o_id => $o_el) {
     $q_id = $o_el['parent'];
     $sec_id = $questions[$q_id]['parent'] ?? NULL;
-    $label = $values[$sec_id][$q_id][$o_id]['option_label'] ?? '';
 
-    db_merge('modularform_question_options')
-      ->key(['o_id' => $o_id])
-      ->insertFields([
-        'o_id' => $o_id,
-        'q_id' => $q_id,
-        'form_id' => $fid,
-        'option' => $label,
-        'weight' => $o_el['weight'],
-        'created_at' => $now,
-        'updated_at' => $now,
-      ])
-      ->updateFields([
-        'option' => $label,
-        'weight' => $o_el['weight'],
-        'updated_at' => $now,
-      ])
-      ->execute();
+    $o_records[] = [
+      'o_id' => $o_id,
+      'q_id' => $q_id,
+      'form_id' => $fid,
+      'option' => $values[$sec_id][$q_id][$o_id]['option_label'] ?? '',
+      'weight' => $o_el['weight'],
+      'created_at' => $now,
+      'updated_at' => $now,
+    ];
   }
 
-  // ── 5. Upsert validation rules ─────────────────────────────────────────────
+  $r_records = [];
   foreach ($val_rules as $r_id => $r_el) {
     $q_id = $r_el['parent'];
     $sec_id = $questions[$q_id]['parent'] ?? NULL;
-    $r_vals = $values[$sec_id][$q_id]['validation']['adv_rules'][$r_id] ?? [];
+    $q_type_str = $questions[$q_id]['question_type'] ?? '';
 
-    db_merge('modularform_validation_rules')
-      ->key(['r_id' => $r_id])
-      ->insertFields([
+    // Synthetic rules sourced from question-level checkboxes, not adv_rules
+    if (str_ends_with($r_id, '_is_multiple')) {
+      $is_multiple = match ($q_type_str) {
+        'dropdown' => (int) ($values[$sec_id][$q_id]['dropdown_multiple'] ?? 0),
+        'file' => (int) ($values[$sec_id][$q_id]['file_settings']['multiple'] ?? 0),
+        default => 0,
+      };
+
+      $r_records[] = [
         'r_id' => $r_id,
         'q_id' => $q_id,
         'form_id' => $fid,
-        'rule_type' => $r_vals['rule_type'] ?? '',
-        'rule_value' => $r_vals['rule_value_wrapper']['rule_value'] ?? '',
-        'error_message' => $r_vals['error_message'] ?? '',
-        'weight' => $r_el['weight'],
+        'rule_type' => 'is_multiple',
+        'rule_value' => $is_multiple,
+        'error_message' => '',
+        'weight' => 0,
         'created_at' => $now,
         'updated_at' => $now,
-      ])
-      ->updateFields([
-        'rule_type' => $r_vals['rule_type'] ?? '',
-        'rule_value' => $r_vals['rule_value_wrapper']['rule_value'] ?? '',
-        'error_message' => $r_vals['error_message'] ?? '',
-        'weight' => $r_el['weight'],
-        'updated_at' => $now,
-      ])
-      ->execute();
+      ];
+      continue;
+    }
+
+    // Normal adv_rules path
+    $r_vals = $values[$sec_id][$q_id]['validation']['adv_rules'][$r_id] ?? [];
+    $r_records[] = [
+      'r_id' => $r_id,
+      'q_id' => $q_id,
+      'form_id' => $fid,
+      'rule_type' => $r_vals['rule_type'] ?? '',
+      'rule_value' => $r_vals['rule_value_wrapper']['rule_value'] ?? '',
+      'error_message' => $r_vals['error_message'] ?? '',
+      'weight' => $r_el['weight'],
+      'created_at' => $now,
+      'updated_at' => $now,
+    ];
   }
 
-  // ── 6. Touch parent form ───────────────────────────────────────────────────
+  // ── 2. Bulk deletes — children before parents ─────────────────────────────
+  db_delete('modularform_validation_rules')
+    ->condition('form_id', $fid)
+    ->condition('r_id', $live_r_ids, 'NOT IN')
+    ->execute();
+  db_delete('modularform_question_options')
+    ->condition('form_id', $fid)
+    ->condition('o_id', $live_o_ids, 'NOT IN')
+    ->execute();
+  db_delete('modularform_questions')
+    ->condition('form_id', $fid)
+    ->condition('q_id', $live_q_ids, 'NOT IN')
+    ->execute();
+  db_delete('modularform_sections')
+    ->condition('form_id', $fid)
+    ->condition('sec_id', $live_sec_ids, 'NOT IN')
+    ->execute();
+
+  // ── 3. Bulk upserts via INSERT … ON DUPLICATE KEY UPDATE ──────────────────
+  _modularform_bulk_upsert('modularform_sections', $sec_records, [
+    'name',
+    'weight',
+    'updated_at',
+  ]);
+  _modularform_bulk_upsert('modularform_questions', $q_records, [
+    'sec_id',
+    'label',
+    'type',
+    'datatype',
+    'is_required',
+    'position',
+    'updated_at',
+  ]);
+  _modularform_bulk_upsert('modularform_question_options', $o_records, [
+    'option',
+    'weight',
+    'updated_at',
+  ]);
+  _modularform_bulk_upsert('modularform_validation_rules', $r_records, [
+    'rule_type',
+    'rule_value',
+    'error_message',
+    'weight',
+    'updated_at',
+  ]);
+
+  // ── 4. Touch parent form ──────────────────────────────────────────────────
   db_update('modularform_forms')
     ->fields(['updated_at' => $now])
     ->condition('id', $fid)
@@ -1433,6 +1541,40 @@ function modularform_builder_form_submit($form, &$form_state) {
 
   drupal_set_message(t('Survey saved successfully.'));
   $form_state['redirect'] = '/forms/' . $fid . '/builder/preview';
+}
+
+/**
+ * Bulk INSERT … ON DUPLICATE KEY UPDATE for a list of same-shape records.
+ *
+ * @param string $table DB table name (no prefix — Drupal adds it).
+ * @param array $records Flat array of associative row arrays (all same keys).
+ * @param array $update Column names to refresh on duplicate key.
+ */
+function _modularform_bulk_upsert($table, array $records, array $update_cols) {
+  if (empty($records)) {
+    return;
+  }
+  $connection = Database::getConnection();
+  $prefixed = $connection->prefixTables('{' . $table . '}');
+  $cols = array_keys($records[0]);
+
+  $col_list = implode(', ', $cols);
+  $row_ph = '(' . implode(', ', array_fill(0, count($cols), '?')) . ')';
+  $rows_sql = implode(', ', array_fill(0, count($records), $row_ph));
+
+  $update_parts = array_map(fn($c) => "$c = VALUES($c)", $update_cols);
+
+  $sql = "INSERT INTO $prefixed ($col_list) VALUES $rows_sql"
+    . " ON DUPLICATE KEY UPDATE " . implode(', ', $update_parts);
+
+  $args = [];
+  foreach ($records as $row) {
+    foreach ($cols as $col) {
+      $args[] = $row[$col];
+    }
+  }
+  $stmt = $connection->prepare($sql);
+  $stmt->execute($args);
 }
 
 /**
@@ -1565,7 +1707,6 @@ function modularform_preview_form($form, &$form_state, $fid) {
             '#rows' => 8,
             '#attributes' => [
               'class' => ['dfp-text-editor-area'],
-              // Your custom ID aligns perfectly with the JS selector
               'id' => 'editor-' . $q_id,
             ],
             // Call a wrapper function to load your JS
@@ -1722,6 +1863,178 @@ function _dfp_attach_tinymce($element, &$form_state) {
   return $element;
 }
 
+function modularform_soft_delete($form_id) {
+  // Validate the form exists.
+  $form = db_select('modularform_forms', 'mf')
+    ->fields('mf')
+    ->condition('id', $form_id)
+    ->execute()
+    ->fetchObject();
+
+  if (!$form) {
+    drupal_set_message(t('Form not found.'), 'error');
+    drupal_goto('forms');
+  }
+
+  // Mark as deleted by setting a deleted flag/timestamp.
+  $updated = db_update('modularform_forms')
+    ->fields([
+      'deleted_at' => REQUEST_TIME,
+    ])
+    ->condition('id', $form_id)
+    ->execute();
+
+  if ($updated) {
+    drupal_set_message(t('Form "@title" has been deleted.', ['@title' => $form->title]));
+  } else {
+    drupal_set_message(t('Failed to delete the form.'), 'error');
+  }
+
+  drupal_goto('forms/manage');
+}
+
+function form_deleted_dashboard_page() {
+  $header = [
+    t('Name'),
+    t('Owner'),
+    t('Status'),
+    t('Created'),
+    t('Deleted On'),
+    t('Operations'),
+  ];
+  $rows = [];
+
+  $forms = db_select('modularform_forms', 'f')
+    ->fields('f', ['id', 'title', 'status', 'created_by', 'created_at', 'deleted_at'])
+    ->isNotNull('deleted_at')               // Only fetch soft-deleted forms
+    ->orderBy('deleted_at', 'DESC')
+    ->execute()
+    ->fetchAll();
+
+  if (empty($forms)) {
+    return '<p>' . t('No deleted forms found.') . '</p>';
+  }
+
+  $uids  = array_unique(array_column((array) $forms, 'created_by'));
+  $users = user_load_multiple($uids);
+
+  foreach ($forms as $form) {
+    $owner      = isset($users[$form->created_by]) ? format_username($users[$form->created_by]) : t('Unknown');
+    $status     = $form->status ? t('Published') : t('Draft');
+    $created    = format_date($form->created_at, 'custom', 'M j Y');
+    $deleted_on = format_date($form->deleted_at, 'custom', 'M j Y');
+
+    $links = [
+      'restore' => [
+        'title' => t('Restore'),
+        'href'  => 'forms/restore/' . $form->id,
+      ],
+      'permanent_delete' => [
+        'title' => t('Delete Permanently'),
+        'href'  => 'forms/permanent_delete/' . $form->id,
+      ],
+    ];
+
+    $rows[] = [
+      check_plain($form->title),
+      check_plain($owner),
+      $status,
+      $created,
+      $deleted_on,
+      $links,
+    ];
+  }
+
+  return [
+    '#theme'    => 'trash',
+    '#header'   => $header,
+    '#rows'     => $rows,
+    '#attached' => [
+      'css' => [drupal_get_path('module', 'modularform') . '/css/dashboard.css'],
+    ],
+  ];
+}
+
+// Restore function:
+function modularform_restore($form_id) {
+  $form = db_select('modularform_forms', 'f')
+    ->fields('f')
+    ->condition('id', $form_id)
+    ->isNotNull('deleted_at')
+    ->execute()
+    ->fetchObject();
+
+  if (!$form) {
+    drupal_set_message(t('Form not found or is not deleted.'), 'error');
+    drupal_goto('forms/deleted');
+  }
+
+  db_update('modularform_forms')
+    ->fields(['deleted_at' => NULL])
+    ->condition('id', $form_id)
+    ->execute();
+
+  drupal_set_message(t('Form "@title" has been restored.', ['@title' => $form->title]));
+  drupal_goto('forms/manage');
+}
+
+/**
+ * Permanently delete a form and all its associated data from the DB.
+ */
+function modularform_perma_delete($form_id) {
+  // Validate the form exists and is soft-deleted.
+  $form = db_select('modularform_forms', 'f')
+    ->fields('f')
+    ->condition('id', $form_id)
+    ->isNotNull('deleted_at')
+    ->execute()
+    ->fetchObject();
+
+  if (!$form) {
+    drupal_set_message(t('Form not found or has not been deleted first.'), 'error');
+    drupal_goto('forms/deleted');
+  }
+
+  // Wrap everything in a transaction so it's all-or-nothing.
+  $txn = db_transaction();
+
+  try {
+    // Child tables first (leaf nodes of the relationship tree).
+    db_delete('modularform_question_options')
+      ->condition('form_id', $form_id)
+      ->execute();
+
+    db_delete('modularform_validation_rules')
+      ->condition('form_id', $form_id)
+      ->execute();
+
+    db_delete('modularform_questions')
+      ->condition('form_id', $form_id)
+      ->execute();
+
+    db_delete('modularform_sections')
+      ->condition('form_id', $form_id)
+      ->execute();
+
+    db_delete('modularform_forms')
+      ->condition('id', $form_id)
+      ->execute();
+
+    drupal_set_message(t('Form "@title" has been permanently deleted.', ['@title' => $form->title]));
+  }
+  catch (Exception $e) {
+    // Roll back the entire transaction on any failure.
+    $txn->rollback();
+    watchdog('modularform', 'Failed to permanently delete form @id: @msg', [
+      '@id'  => $form_id,
+      '@msg' => $e->getMessage(),
+    ], WATCHDOG_ERROR);
+    drupal_set_message(t('Failed to permanently delete the form. Please try again.'), 'error');
+  }
+
+  drupal_goto('forms/manage');
+}
+
 /**
  * Implements hook_theme().
  */
@@ -1740,6 +2053,14 @@ function modularform_theme() {
       'template' => 'modularform-initial',
       'path' => drupal_get_path('module', 'modularform') . '/templates',
     ],
+    'trash' => [
+      'variables' => [
+        'header' => NULL,
+        'rows' => NULL,
+      ],
+      'template' => 'modularform-trash',
+      'path' => drupal_get_path('module', 'modularform') . '/templates',
+    ]
   ];
 }
 

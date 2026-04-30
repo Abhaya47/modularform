@@ -6,7 +6,7 @@
 
 /* ---------- CSS Variables + form shell ---------- */
 #modularform-builder-form {
-  --gf-purple:        #673ab7;
+  --gf-purple: #3ab7a4;
   --gf-purple-light:  #ede7f6;
   --gf-blue:          #1a73e8;
   --gf-blue-light:    #e8f0fe;
@@ -28,12 +28,34 @@
 }
 
 /* ---------- Top accent bar ---------- */
-#modularform-builder-form::before {
-  content: '';
-  display: block;
-  height: 10px;
+
+.modularform-header-box {
+  background: #f0eeeb;
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--gf-radius);
+  overflow: hidden; /* this clips the bar to the rounded corners */
+  margin-bottom: 24px;
+}
+
+.modularform-header-bar {
+  height: 6px;
   background: linear-gradient(90deg, var(--gf-purple) 0%, #9c27b0 50%, #673ab7 100%);
-  border-radius: var(--gf-radius) var(--gf-radius) 0 0;
+}
+
+.modularform-title {
+  font-size: 22px;
+  font-weight: 500;
+  margin: 0 0 8px 0;
+  color: var(--color-text-primary);
+  letter-spacing: -0.3px;
+  line-height: 1.2;
+}
+
+.modularform-description {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.65;
+  margin: 0;
 }
 
 /* ---------- Section card ---------- */

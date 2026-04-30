@@ -63,6 +63,12 @@ function modularform_schema()
         'not null' => TRUE,
         'default' => 0
       ),
+      'deleted_at' => array(
+        'description' => 'Unix timestamp of soft delete, NULL if not deleted.',
+        'type' => 'int',
+        'not null' => FALSE,
+        'default'  => NULL,
+      )
     ),
     'primary key' => array('id'),
     'indexes' => array(
