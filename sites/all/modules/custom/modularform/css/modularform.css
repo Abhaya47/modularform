@@ -612,3 +612,45 @@
   width: 100% !important;
   box-sizing: border-box;
 }
+
+
+/*drag and drop*/
+.drag-handle {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 8px 6px 4px;
+  cursor: grab;
+  opacity: 0.3;
+  transition: opacity 0.15s;
+  vertical-align: middle;
+  float: left;
+  margin-right: 6px;
+  margin-top: 2px;
+  user-select: none;
+}
+.drag-handle:hover  { opacity: 0.75; }
+.drag-handle:active { cursor: grabbing; opacity: 1; }
+
+.drag-handle span {
+  display: block;
+  width: 14px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+/* Ghost while dragging */
+.dnd-dragging {
+  opacity: 0.5;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Drop target gap */
+.dnd-placeholder {
+  background: rgba(59, 130, 246, 0.07);
+  border: 2px dashed rgba(59, 130, 246, 0.35);
+  border-radius: 4px;
+  box-sizing: border-box;
+  transition: height 0.1s;
+}

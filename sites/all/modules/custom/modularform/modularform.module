@@ -648,8 +648,42 @@ function modularform_builder_form($form, &$form_state, $fid) {
   // ── Sync question_type + add_validation changes from AJAX rebuilds ──────────
   if (!empty($form_state['values'])) {
     foreach ($elements as $id => $el) {
+      // Sync section weights
+      if ($el['type'] === 'section') {
+        $w = drupal_array_get_nested_value($form_state['values'], [
+          'elements_container',
+          $id,
+          'weight',
+        ]);
+        if (isset($w)) {
+          $form_state['storage']['elements'][$id]['weight'] = (int) $w;
+          $elements[$id]['weight'] = (int) $w;
+        }
+      }
 
       if ($el['type'] == 'question') {
+        $w = drupal_array_get_nested_value($form_state['values'], [
+          'elements_container',
+          $el['parent'],
+          $id,
+          'weight',
+        ]);
+        if (isset($w)) {
+          $form_state['storage']['elements'][$id]['weight'] = (int) $w;
+          $elements[$id]['weight'] = (int) $w;
+        }
+
+        $new_sec = drupal_array_get_nested_value($form_state['values'], [
+          'elements_container',
+          $el['parent'],
+          $id,
+          'parent_sec',
+        ]);
+        if (isset($new_sec) && $new_sec !== $el['parent']) {
+          $form_state['storage']['elements'][$id]['parent'] = $new_sec;
+          $elements[$id]['parent'] = $new_sec;
+        }
+
         $sec_id_lookup = $el['parent'];
         // ── Sync question_type ───────────────────────────────────────────────
         $path = ['elements_container', $sec_id_lookup, $id, 'question_type'];
@@ -727,6 +761,24 @@ function modularform_builder_form($form, &$form_state, $fid) {
           }
         }
       }
+
+      if ($el['type'] === 'option') {
+        $q_parent = $el['parent'];
+        $sec_parent = $elements[$q_parent]['parent'] ?? NULL;
+        if ($sec_parent) {
+          $w = drupal_array_get_nested_value($form_state['values'], [
+            'elements_container',
+            $sec_parent,
+            $q_parent,
+            $id,
+            'weight',
+          ]);
+          if (isset($w)) {
+            $form_state['storage']['elements'][$id]['weight'] = (int) $w;
+            $elements[$id]['weight'] = (int) $w;
+          }
+        }
+      }
     }
   }
 
@@ -735,9 +787,9 @@ function modularform_builder_form($form, &$form_state, $fid) {
   $questions = array_filter($elements, fn($el) => $el['type'] == 'question');
   $options = array_filter($elements, fn($el) => $el['type'] == 'option');
   $val_rules = array_filter($elements, fn($el) => $el['type'] === 'validation_rule');
-  uasort($sections,  fn($a, $b) => ($a['weight'] ?? 0) <=> ($b['weight'] ?? 0));
+  uasort($sections, fn($a, $b) => ($a['weight'] ?? 0) <=> ($b['weight'] ?? 0));
   uasort($questions, fn($a, $b) => ($a['weight'] ?? 0) <=> ($b['weight'] ?? 0));
-  uasort($options,   fn($a, $b) => ($a['weight'] ?? 0) <=> ($b['weight'] ?? 0));
+  uasort($options, fn($a, $b) => ($a['weight'] ?? 0) <=> ($b['weight'] ?? 0));
 
   $section_keys = array_keys($sections);
 
@@ -753,7 +805,16 @@ function modularform_builder_form($form, &$form_state, $fid) {
     $form['elements_container'][$sec_id]['title'] = [
       '#type' => 'textfield',
       '#title' => t('Section Title'),
-      '#default_value' => $sec_el['title'] ?? '',  // ← edit
+      '#prefix' => '<div class="drag-handle" data-drag-scope="section" title="Drag to reorder">
+                      <span></span><span></span><span></span>
+                    </div>',
+      '#default_value' => $sec_el['title'] ?? '',
+    ];
+
+    $form['elements_container'][$sec_id]['weight'] = [
+      '#type' => 'hidden',
+      '#default_value' => $sec_el['weight'] ?? 0,
+      '#attributes' => ['class' => ['section-weight']],
     ];
 
     $section_questions = array_filter($questions, fn($el) => $el['parent'] == $sec_id);
@@ -774,6 +835,23 @@ function modularform_builder_form($form, &$form_state, $fid) {
         '#type' => 'textfield',
         '#title' => t('Question'),
         '#default_value' => $q_el['label'] ?? '',  // ← edit
+      ];
+
+      $form['elements_container'][$sec_id][$q_id]['drag_handle'] = [
+        '#markup' => '<div class="drag-handle" data-drag-scope="question" title="Drag to reorder"><span></span><span></span><span></span></div>',
+        '#weight' => -99,
+      ];
+
+      $form['elements_container'][$sec_id][$q_id]['weight'] = [
+        '#type' => 'hidden',
+        '#default_value' => $q_el['weight'] ?? 0,
+        '#attributes' => ['class' => ['question-weight']],
+      ];
+
+      $form['elements_container'][$sec_id][$q_id]['parent_sec'] = [
+        '#type' => 'hidden',
+        '#default_value' => $sec_id,
+        '#attributes' => ['class' => ['question-parent-sec']],
       ];
 
       $form['elements_container'][$sec_id][$q_id]['question_type'] = [
@@ -896,6 +974,18 @@ function modularform_builder_form($form, &$form_state, $fid) {
               '#default_value' => $o_el['option'] ?? '',
               '#required' => TRUE,
             ];
+
+            $form['elements_container'][$sec_id][$q_id][$o_id]['drag_handle'] = [
+              '#markup' => '<div class="drag-handle" data-drag-scope="option" title="Drag to reorder"><span></span><span></span><span></span></div>',
+              '#weight' => -99,
+            ];
+
+            $form['elements_container'][$sec_id][$q_id][$o_id]['weight'] = [
+              '#type' => 'hidden',
+              '#default_value' => $o_el['weight'] ?? 0,
+              '#attributes' => ['class' => ['option-weight']],
+            ];
+
             $form['elements_container'][$sec_id][$q_id][$o_id]['delete'] = [
               '#type' => 'submit',
               '#value' => t('Delete'),
@@ -1135,6 +1225,8 @@ function modularform_builder_form($form, &$form_state, $fid) {
     '#type' => 'submit',
     '#value' => $is_edit ? t('Update survey') : t('Create survey'),
   ];
+
+  $form['#attached']['js'][] = drupal_get_path('module', 'modularform') . '/js/modularform_dnd.js';
 
   return $form;
 }
@@ -1488,12 +1580,27 @@ function modularform_builder_form_submit($form, &$form_state) {
   foreach ($elements as $id => $el) {
     switch ($el['type']) {
       case 'section':
+        if (isset($values[$id]['weight'])) {
+          $el['weight'] = (int) $values[$id]['weight'];
+        }
         $sections[$id] = $el;
         break;
       case 'question':
+        $sec_id = $el['parent']; // original parent — used to look up submitted values
+        $new_sec = $values[$sec_id][$id]['parent_sec'] ?? $sec_id;
+        if (isset($values[$sec_id][$id]['weight'])) {
+          $el['weight'] = (int) $values[$sec_id][$id]['weight'];
+        }
+        $el['parent'] = $new_sec;
+        $el['original_parent'] = $sec_id; // store original for values lookup
         $questions[$id] = $el;
         break;
       case 'option':
+        $q_id = $el['parent'];
+        $sec_id = $elements[$q_id]['parent'] ?? NULL;
+        if ($sec_id && isset($values[$sec_id][$q_id][$id]['weight'])) {
+          $el['weight'] = (int) $values[$sec_id][$q_id][$id]['weight'];
+        }
         $options[$id] = $el;
         break;
       case 'validation_rule':
@@ -1528,16 +1635,17 @@ function modularform_builder_form_submit($form, &$form_state) {
   $q_records = [];
   $position_counter = [];
   foreach ($questions as $q_id => $q_el) {
-    $sec_id = $q_el['parent'];
+    $sec_id = $q_el['parent'];          // new section — saved to DB
+    $orig_sec = $q_el['original_parent'] ?? $sec_id; // original — used to read $values
     $q_type_str = $q_el['question_type'] ?? 'text';
-    $q_vals = $values[$sec_id][$q_id] ?? [];
+    $q_vals = $values[$orig_sec][$q_id] ?? []; // ← use orig_sec here
     $position = $position_counter[$sec_id] ?? 0;
     $position_counter[$sec_id] = $position + 1;
 
     $q_records[] = [
       'q_id' => $q_id,
       'form_id' => $fid,
-      'sec_id' => $sec_id,
+      'sec_id' => $sec_id,             // ← new section
       'label' => $q_vals['question_text'] ?? '',
       'type' => $type_map[$q_type_str] ?? 0,
       'datatype' => $datatype_map[$q_type_str] ?? 'varchar',
@@ -1552,12 +1660,13 @@ function modularform_builder_form_submit($form, &$form_state) {
   foreach ($options as $o_id => $o_el) {
     $q_id = $o_el['parent'];
     $sec_id = $questions[$q_id]['parent'] ?? NULL;
+    $orig_sec = $questions[$q_id]['original_parent'] ?? $sec_id;
 
     $o_records[] = [
       'o_id' => $o_id,
       'q_id' => $q_id,
       'form_id' => $fid,
-      'option' => $values[$sec_id][$q_id][$o_id]['option_label'] ?? '',
+      'option' => $values[$orig_sec][$q_id][$o_id]['option_label'] ?? '',
       'weight' => $o_el['weight'],
       'created_at' => $now,
       'updated_at' => $now,
@@ -1568,42 +1677,32 @@ function modularform_builder_form_submit($form, &$form_state) {
   foreach ($val_rules as $r_id => $r_el) {
     $q_id = $r_el['parent'];
     $sec_id = $questions[$q_id]['parent'] ?? NULL;
+    $orig_sec = $questions[$q_id]['original_parent'] ?? $sec_id;
     $q_type_str = $questions[$q_id]['question_type'] ?? '';
 
-    // Synthetic rules sourced from question-level checkboxes, not adv_rules
     if (str_ends_with($r_id, '_is_multiple')) {
       $is_multiple = match ($q_type_str) {
-        'dropdown' => (int) ($values[$sec_id][$q_id]['dropdown_multiple'] ?? 0),
-        'file' => (int) ($values[$sec_id][$q_id]['file_settings']['multiple'] ?? 0),
-        default => 0,
+        'dropdown' => (int) ($values[$orig_sec][$q_id]['dropdown_multiple'] ?? 0),
+        'file'     => (int) ($values[$orig_sec][$q_id]['file_settings']['multiple'] ?? 0),
+        default    => 0,
       };
-
       $r_records[] = [
-        'r_id' => $r_id,
-        'q_id' => $q_id,
-        'form_id' => $fid,
-        'rule_type' => 'is_multiple',
-        'rule_value' => $is_multiple,
-        'error_message' => '',
-        'weight' => 0,
-        'created_at' => $now,
-        'updated_at' => $now,
+        'r_id' => $r_id, 'q_id' => $q_id, 'form_id' => $fid,
+        'rule_type' => 'is_multiple', 'rule_value' => $is_multiple,
+        'error_message' => '', 'weight' => 0,
+        'created_at' => $now, 'updated_at' => $now,
       ];
       continue;
     }
 
-    // Normal adv_rules path
-    $r_vals = $values[$sec_id][$q_id]['validation']['adv_rules'][$r_id] ?? [];
+    $r_vals = $values[$orig_sec][$q_id]['validation']['adv_rules'][$r_id] ?? [];
     $r_records[] = [
-      'r_id' => $r_id,
-      'q_id' => $q_id,
-      'form_id' => $fid,
+      'r_id' => $r_id, 'q_id' => $q_id, 'form_id' => $fid,
       'rule_type' => $r_vals['rule_type'] ?? '',
       'rule_value' => $r_vals['rule_value_wrapper']['rule_value'] ?? '',
       'error_message' => $r_vals['error_message'] ?? '',
       'weight' => $r_el['weight'],
-      'created_at' => $now,
-      'updated_at' => $now,
+      'created_at' => $now, 'updated_at' => $now,
     ];
   }
 
