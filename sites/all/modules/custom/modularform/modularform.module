@@ -344,14 +344,27 @@ function form_dashboard_page() {
 
 // create page
 function modularform_create_form($form, &$form_state, $id = NULL) {
+  // Load existing form entity if editing.
+  $modular_form = NULL;
   if ($id) {
-    $controller = entity_get_controller('modularform_form');
-    $results = $controller->load([$id]);
-    $modular_form = reset($results);
+    $results = entity_get_controller('modularform_form')->load([$id]);
+    $modular_form = reset($results) ?: NULL;
   }
-  else {
-    $modular_form = NULL;
-  }
+
+  // Helper to pull saved or submitted value, falling back to entity or default.
+  // Using form_state values is what drives the AJAX rebuild correctly.
+  $val = function($key, $default = NULL) use (&$form_state, $modular_form) {
+    if (isset($form_state['values'][$key])) {
+      return $form_state['values'][$key];
+    }
+    if ($modular_form && isset($modular_form->$key)) {
+      return $modular_form->$key;
+    }
+    return $default;
+  };
+
+  $form['#tree'] = TRUE;
+
   $form['id'] = [
     '#type' => 'hidden',
     '#default_value' => $modular_form ? $modular_form->id : '',
@@ -361,56 +374,151 @@ function modularform_create_form($form, &$form_state, $id = NULL) {
     '#type' => 'textfield',
     '#title' => t('Title'),
     '#required' => TRUE,
-    '#default_value' => $modular_form ? $modular_form->title : 'Untitled form',
+    '#default_value' => $val('title', t('Untitled form')),
   ];
 
   $form['description'] = [
     '#type' => 'textfield',
     '#title' => t('Description'),
-    '#required' => FALSE,
-    '#default_value' => $modular_form ? $modular_form->description : '',
-  ];
-
-  $radio_options = [
-    '0' => t('Drafted'),
-    '1' => t('Published'),
+    '#default_value' => $val('description', ''),
   ];
 
   $form['status'] = [
     '#type' => 'radios',
     '#title' => t('Status'),
-    '#options' => $radio_options,
-    '#description' => t('Use one of the options below.'),
+    '#options' => ['0' => t('Draft'), '1' => t('Published')],
     '#required' => TRUE,
-    '#default_value' => $modular_form ? $modular_form->status : 0,
+    '#default_value' => $val('status', 0),
   ];
 
-  //  $form['closes']=[
-  //
-  //  ];
+  // ── Visibility ────────────────────────────────────────────────────────────
+  // 'public'     — anyone can access
+  // 'restricted' — specific roles within the organization
+  // 'private'    — specific named users (in-system or invited by email)
 
-  $timestamp = (int) $modular_form->closes_at;
-  $form['closes_at'] = [
-    '#type' => 'date',
-    '#title' => t('Closes at'),
-    '#default_value' => [
-      'year' => date('Y', $timestamp),
-      'month' => date('n', $timestamp),
-      'day' => date('j', $timestamp),
+  $form['visibility'] = [
+    '#type' => 'select',
+    '#title' => t('Visibility'),
+    '#options' => [
+      'public' => t('Public'),
+      'restricted' => t('Restricted (by role)'),
+      'private' => t('Private (specific people)'),
     ],
     '#required' => TRUE,
+    '#default_value' => $val('visibility', 'public'),
+    '#ajax' => [
+      'callback' => 'modularform_visibility_ajax',
+      'wrapper' => 'visibility-options-wrapper',
+    ],
   ];
+
+  $form['visibility_options_wrapper'] = [
+    '#type' => 'container',
+    '#attributes' => ['id' => 'visibility-options-wrapper'],
+  ];
+
+  $visibility = $val('visibility', 'public');
+
+  if ($visibility === 'restricted') {
+    // Pull roles available within this organization.
+    // Filter out Drupal's built-ins — only show org-relevant roles.
+    $roles = array_diff_key(user_roles(TRUE), [
+      DRUPAL_AUTHENTICATED_RID => TRUE,
+    ]);
+    $form['visibility_options_wrapper']['roles'] = [
+      '#type' => 'checkboxes',        // multi-select via checkboxes
+      '#title' => t('Allowed roles'),
+      '#options' => $roles,
+      '#required' => TRUE,
+      '#default_value' => $val('roles', []),
+      '#description' => t('Members of your organization with these roles can access this form.'),
+    ];
+  }
+
+  if ($visibility === 'private') {
+    // Autocomplete for existing users. The callback searches within the org.
+    $form['visibility_options_wrapper']['people'] = [
+      '#type' => 'textfield',
+      '#title' => t('Add people'),
+      '#autocomplete_path' => 'modularform/autocomplete/users',
+      '#description' => t('Enter a username or email. Non-members will receive an email invitation.'),
+      '#default_value' => '',  // populated separately from the pivot table
+    ];
+    // Hidden field carries the resolved uid list so we survive page submit.
+    $form['visibility_options_wrapper']['people_ids'] = [
+      '#type' => 'hidden',
+      '#default_value' => $val('people_ids', ''),
+      // comma-separated uids / emails
+    ];
+
+    // Display already-selected people as removable tags (rendered via template).
+    $saved_people = _modularform_load_form_people($modular_form ? $modular_form->id : NULL);
+    if (!empty($saved_people)) {
+      $form['visibility_options_wrapper']['people_list'] = [
+        '#theme' => 'modularform_people_tags',
+        '#people' => $saved_people,
+      ];
+    }
+  }
+
+  // ── Closes ────────────────────────────────────────────────────────────────
+
+  $form['closes'] = [
+    '#type' => 'checkbox',
+    '#title' => t('Set a closing date?'),
+    '#default_value' => $val('closes', 0),
+    '#ajax' => [
+      'callback' => 'modularform_closes_ajax',
+      'wrapper' => 'closes-at-wrapper',
+    ],
+    '#weight' => 10,
+  ];
+
+  $form['closes_at_wrapper'] = [
+    '#type' => 'container',
+    '#attributes' => ['id' => 'closes-at-wrapper'],
+    '#weight' => 11,
+  ];
+
+  if ($val('closes', 0)) {
+    $timestamp = ($modular_form && $modular_form->closes_at)
+      ? (int) $modular_form->closes_at
+      : REQUEST_TIME;
+
+    $form['closes_at_wrapper']['closes_at'] = [
+      '#type' => 'date',
+      '#title' => t('Closes at'),
+      '#required' => TRUE,
+      '#default_value' => [
+        'year' => date('Y', $timestamp),
+        'month' => date('n', $timestamp),
+        'day' => date('j', $timestamp),
+      ],
+    ];
+  }
+
+  // ── Submit ────────────────────────────────────────────────────────────────
 
   $form['submit'] = [
     '#type' => 'submit',
     '#value' => t('Start Building'),
-    '#weight' => 20,
+    '#weight' => 200,
   ];
 
   $form['#theme'] = ['modularform_initial_template'];
   $form['#attached']['css'][] = drupal_get_path('module', 'modularform') . '/css/modularform-initial.css';
 
   return $form;
+}
+
+// ── AJAX callbacks ────────────────────────────────────────────────────────────
+
+function modularform_closes_ajax($form, &$form_state) {
+  return $form['closes_at_wrapper'];
+}
+
+function modularform_visibility_ajax($form, &$form_state) {
+  return $form['visibility_options_wrapper'];
 }
 
 //modularform_create_form submit
@@ -435,12 +543,14 @@ function modularform_create_form_submit($form, &$form_state) {
   $entity->title = $values['title'];
   $entity->description = $values['description'];
   $entity->status = $values['status'];
-  $closes_at = $values['closes_at'];
-  $entity->closes_at = mktime(0, 0, 0,
-    $closes_at['month'],
-    $closes_at['day'],
-    $closes_at['year']
-  );
+  $closes_at = 0;
+  if (!empty($form_state['values']['closes']) && !empty($form_state['values']['closes_at'])) {
+    $d = $form_state['values']['closes_at'];
+    $closes_at = mktime(0, 0, 0, $d['month'], $d['day'], $d['year']);
+  }
+  $entity->closes = !empty($form_state['values']['closes']) ? 1 : 0;
+  $entity->closes_at = $closes_at;
+
   $entity->updated_at = $now;
   $entity->save();
 
@@ -538,9 +648,9 @@ function modularform_builder_form($form, &$form_state, $fid) {
   // ── Sync question_type + add_validation changes from AJAX rebuilds ──────────
   if (!empty($form_state['values'])) {
     foreach ($elements as $id => $el) {
+
       if ($el['type'] == 'question') {
         $sec_id_lookup = $el['parent'];
-
         // ── Sync question_type ───────────────────────────────────────────────
         $path = ['elements_container', $sec_id_lookup, $id, 'question_type'];
         $submitted_type = drupal_array_get_nested_value($form_state['values'], $path);
@@ -625,6 +735,9 @@ function modularform_builder_form($form, &$form_state, $fid) {
   $questions = array_filter($elements, fn($el) => $el['type'] == 'question');
   $options = array_filter($elements, fn($el) => $el['type'] == 'option');
   $val_rules = array_filter($elements, fn($el) => $el['type'] === 'validation_rule');
+  uasort($sections,  fn($a, $b) => ($a['weight'] ?? 0) <=> ($b['weight'] ?? 0));
+  uasort($questions, fn($a, $b) => ($a['weight'] ?? 0) <=> ($b['weight'] ?? 0));
+  uasort($options,   fn($a, $b) => ($a['weight'] ?? 0) <=> ($b['weight'] ?? 0));
 
   $section_keys = array_keys($sections);
 
@@ -1026,6 +1139,7 @@ function modularform_builder_form($form, &$form_state, $fid) {
   return $form;
 }
 
+//add element
 function modularform_add_element_submit($form, &$form_state) {
   $trigger = $form_state['triggering_element']['#name'];
   $fid = $form_state['storage']['fid'];
@@ -1282,9 +1396,6 @@ function modularform_ajax_question_callback($form, $form_state) {
 
 function modularform_ajax_validation_callback($form, &$form_state) {
   $parents = $form_state['triggering_element']['#parents'];
-  // Log it so we can see the actual structure
-  watchdog('modularform', 'AJAX parents: <pre>@p</pre>', ['@p' => print_r($parents, TRUE)]);
-
   $sec_id = $parents[1];
   $q_id = $parents[2];
 
@@ -1566,11 +1677,10 @@ function _modularform_bulk_upsert($table, array $records, array $update_cols) {
   $connection = Database::getConnection();
   $prefixed = $connection->prefixTables('{' . $table . '}');
   $cols = array_keys($records[0]);
-
   $col_list = implode(', ', $cols);
   $row_ph = '(' . implode(', ', array_fill(0, count($cols), '?')) . ')';
-  $rows_sql = implode(', ', array_fill(0, count($records), $row_ph));
 
+  $rows_sql = implode(', ', array_fill(0, count($records), $row_ph));
   $update_parts = array_map(fn($c) => "$c = VALUES($c)", $update_cols);
 
   $sql = "INSERT INTO $prefixed ($col_list) VALUES $rows_sql"
