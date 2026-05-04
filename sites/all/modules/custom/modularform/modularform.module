@@ -106,6 +106,13 @@ function modularform_menu() {
     'page arguments' => ['modularform_preview_form', 1],
     'access callback' => TRUE,
   ];
+
+  $items['modularform/autocomplete/users'] = [
+    'title' => 'User autocomplete',
+    'page callback' => 'modularform_autocomplete_users',
+    'access callback' => 'user_is_logged_in',
+    'type' => MENU_CALLBACK,
+  ];
   return $items;
 }
 
@@ -436,31 +443,39 @@ function modularform_create_form($form, &$form_state, $id = NULL) {
   }
 
   if ($visibility === 'private') {
-    // Autocomplete for existing users. The callback searches within the org.
     $form['visibility_options_wrapper']['people'] = [
-      '#type' => 'textfield',
+      '#type' => 'fieldset',
       '#title' => t('Add people'),
-      '#autocomplete_path' => 'modularform/autocomplete/users',
-      '#description' => t('Enter a username or email. Non-members will receive an email invitation.'),
-      '#default_value' => '',  // populated separately from the pivot table
-    ];
-    // Hidden field carries the resolved uid list so we survive page submit.
-    $form['visibility_options_wrapper']['people_ids'] = [
-      '#type' => 'hidden',
-      '#default_value' => $val('people_ids', ''),
-      // comma-separated uids / emails
+      '#prefix' => '<div id="people-fieldset-wrapper">',
+      '#suffix' => '</div>',
+      '#tree' => TRUE,
     ];
 
-    // Display already-selected people as removable tags (rendered via template).
-    $saved_people = _modularform_load_form_people($modular_form ? $modular_form->id : NULL);
-    if (!empty($saved_people)) {
-      $form['visibility_options_wrapper']['people_list'] = [
-        '#theme' => 'modularform_people_tags',
-        '#people' => $saved_people,
+    if (empty($form_state['num_people'])) {
+      $form_state['num_people'] = 1;
+    }
+
+    for ($i = 0; $i < $form_state['num_people']; $i++) {
+      $saved = isset($my_saved_people[$i]) ? $my_saved_people[$i] : '';
+
+      $form['visibility_options_wrapper']['people']['user'][$i] = [
+        '#type' => 'textfield',
+        '#autocomplete_path' => 'user/autocomplete',
+        '#title' => $i === 0 ? t('Username') : '',
+        '#default_value' => $saved,
       ];
     }
-  }
 
+    $form['visibility_options_wrapper']['people']['add_more'] = [
+      '#type' => 'submit',
+      '#value' => t('Add another person'),
+      '#submit' => ['your_form_add_more_submit'],
+      '#ajax' => [
+        'callback' => 'your_form_add_more_callback',
+        'wrapper' => 'people-fieldset-wrapper',
+      ],
+    ];
+  }
   // ── Closes ────────────────────────────────────────────────────────────────
 
   $form['closes'] = [
@@ -511,6 +526,15 @@ function modularform_create_form($form, &$form_state, $id = NULL) {
   return $form;
 }
 
+function your_form_add_more_submit($form, &$form_state) {
+  $form_state['num_people']++;
+  $form_state['rebuild'] = TRUE;
+}
+
+function your_form_add_more_callback($form, &$form_state) {
+  return $form['visibility_options_wrapper']['people'];
+}
+
 // ── AJAX callbacks ────────────────────────────────────────────────────────────
 
 function modularform_closes_ajax($form, &$form_state) {
@@ -529,8 +553,8 @@ function modularform_create_form_submit($form, &$form_state) {
   $now = (new DateTime('now', new DateTimeZone('UTC')))->getTimestamp();
 
   if (!empty($id)) {
-    $results = $controller->load([$id]);  // ← wrap in array
-    $entity = reset($results);            // ← extract from result
+    $results = $controller->load([$id]);
+    $entity = reset($results);
   }
   else {
     $entity = $controller->create(['type' => 'organization']);
@@ -543,20 +567,166 @@ function modularform_create_form_submit($form, &$form_state) {
   $entity->title = $values['title'];
   $entity->description = $values['description'];
   $entity->status = $values['status'];
+  $entity->updated_at = $now;
+
+  // ── closes_at fix ─────────────────────────────────────────────────────────
   $closes_at = 0;
-  if (!empty($form_state['values']['closes']) && !empty($form_state['values']['closes_at'])) {
-    $d = $form_state['values']['closes_at'];
+  if (!empty($values['closes']) && !empty($values['closes_at_wrapper']['closes_at'])) {
+    $d = $values['closes_at_wrapper']['closes_at'];
     $closes_at = mktime(0, 0, 0, $d['month'], $d['day'], $d['year']);
   }
-  $entity->closes = !empty($form_state['values']['closes']) ? 1 : 0;
+  $entity->closes = !empty($values['closes']) ? 1 : 0;
   $entity->closes_at = $closes_at;
 
-  $entity->updated_at = $now;
   $entity->save();
+
+  // ── visibility ────────────────────────────────────────────────────────────
+  $visibility = $values['visibility'];
+  $form_id = $entity->id;
+
+  // Always clear old members/invites on save so we start fresh
+  db_delete('modularform_form_members')
+    ->condition('form_id', $form_id)
+    ->execute();
+  db_delete('modularform_form_invites')
+    ->condition('form_id', $form_id)
+    ->execute();
+
+  if ($visibility === 'restricted') {
+    $selected_rids = array_filter($values['visibility_options_wrapper']['roles']);
+
+    if (!empty($selected_rids)) {
+      $queue = DrupalQueue::get('modularform_mail_queue');
+
+      $uids = db_select('users_roles', 'ur')
+        ->fields('ur', ['uid'])
+        ->condition('ur.rid', $selected_rids, 'IN')
+        ->execute()
+        ->fetchCol();
+
+      foreach (array_unique($uids) as $uid) {
+        db_insert('modularform_form_members')
+          ->fields([
+            'form_id' => $form_id,
+            'uid' => $uid,
+            'roles' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+          ])
+          ->execute();
+
+        $account = user_load($uid);
+        if ($account && !empty($account->mail)) {
+          $queue->createItem([
+            'key' => 'form_notify_role',
+            'to' => $account->mail,
+            'params' => ['form' => $entity],
+          ]);
+        }
+      }
+    }
+  }
+  elseif ($visibility === 'private') {
+    $queue = DrupalQueue::get('modularform_mail_queue');
+    $people = array_filter($values['visibility_options_wrapper']['people']['user']);
+
+    foreach ($people as $username) {
+      $username = trim($username);
+      if (empty($username)) {
+        continue;
+      }
+
+      if (valid_email_address($username)) {
+        db_insert('modularform_form_invites')
+          ->fields([
+            'form_id' => $form_id,
+            'email' => $username,
+            'created_at' => $now,
+          ])
+          ->execute();
+
+        $queue->createItem([
+          'key' => 'form_invite',
+          'to' => $username,
+          'params' => ['form' => $entity],
+        ]);
+      }
+      else {
+        $account = user_load_by_name($username);
+        if ($account) {
+          db_insert('modularform_form_members')
+            ->fields([
+              'form_id' => $form_id,
+              'uid' => $account->uid,
+              'roles' => 1,
+              'created_at' => $now,
+              'updated_at' => $now,
+            ])
+            ->execute();
+
+          $queue->createItem([
+            'key' => 'form_invite_user',
+            'to' => $account->mail,
+            'params' => ['form' => $entity],
+          ]);
+        }
+      }
+    }
+  }
 
   $message = !empty($id) ? 'Form %title updated.' : 'Form %title saved in draft.';
   drupal_set_message(t($message, ['%title' => $entity->title]));
   drupal_goto('forms/' . $entity->id . '/builder');
+}
+
+function modularform_mail($key, &$message, $params) {
+  $form = $params['form'];
+  $link = url('forms/' . $form->slug, ['absolute' => TRUE]);
+
+  switch ($key) {
+    case 'form_invite':
+      // Non-Drupal user invited by email
+      $message['subject'] = t('You have been invited to fill out: @title', ['@title' => $form->title]);
+      $message['body'][] = t('You have been invited to access a form.');
+      $message['body'][] = t('Click the link below to access it:');
+      $message['body'][] = $link;
+      break;
+
+    case 'form_invite_user':
+      // Existing Drupal user
+      $message['subject'] = t('You have been given access to: @title', ['@title' => $form->title]);
+      $message['body'][] = t('You have been granted access to a form. Log in and visit:');
+      $message['body'][] = $link;
+      break;
+
+    case 'form_notify_role':
+      $message['subject'] = t('You now have access to: @title', ['@title' => $form->title]);
+      $message['body'][] = t('A form has been shared with your role. Log in and visit:');
+      $message['body'][] = $link;
+      break;
+  }
+}
+
+/**
+ * Implements hook_cron_queue_info().
+ */
+function modularform_cron_queue_info() {
+  return [
+    'modularform_mail_queue' => [
+      'worker callback' => 'modularform_mail_queue_worker',
+      'time' => 30, // max seconds per cron run to spend on this queue
+    ],
+  ];
+}
+
+function modularform_mail_queue_worker($item) {
+  drupal_mail(
+    'modularform',
+    $item['key'],
+    $item['to'],
+    language_default(),
+    $item['params']
+  );
 }
 
 /**
@@ -1683,26 +1853,34 @@ function modularform_builder_form_submit($form, &$form_state) {
     if (str_ends_with($r_id, '_is_multiple')) {
       $is_multiple = match ($q_type_str) {
         'dropdown' => (int) ($values[$orig_sec][$q_id]['dropdown_multiple'] ?? 0),
-        'file'     => (int) ($values[$orig_sec][$q_id]['file_settings']['multiple'] ?? 0),
-        default    => 0,
+        'file' => (int) ($values[$orig_sec][$q_id]['file_settings']['multiple'] ?? 0),
+        default => 0,
       };
       $r_records[] = [
-        'r_id' => $r_id, 'q_id' => $q_id, 'form_id' => $fid,
-        'rule_type' => 'is_multiple', 'rule_value' => $is_multiple,
-        'error_message' => '', 'weight' => 0,
-        'created_at' => $now, 'updated_at' => $now,
+        'r_id' => $r_id,
+        'q_id' => $q_id,
+        'form_id' => $fid,
+        'rule_type' => 'is_multiple',
+        'rule_value' => $is_multiple,
+        'error_message' => '',
+        'weight' => 0,
+        'created_at' => $now,
+        'updated_at' => $now,
       ];
       continue;
     }
 
     $r_vals = $values[$orig_sec][$q_id]['validation']['adv_rules'][$r_id] ?? [];
     $r_records[] = [
-      'r_id' => $r_id, 'q_id' => $q_id, 'form_id' => $fid,
+      'r_id' => $r_id,
+      'q_id' => $q_id,
+      'form_id' => $fid,
       'rule_type' => $r_vals['rule_type'] ?? '',
       'rule_value' => $r_vals['rule_value_wrapper']['rule_value'] ?? '',
       'error_message' => $r_vals['error_message'] ?? '',
       'weight' => $r_el['weight'],
-      'created_at' => $now, 'updated_at' => $now,
+      'created_at' => $now,
+      'updated_at' => $now,
     ];
   }
 

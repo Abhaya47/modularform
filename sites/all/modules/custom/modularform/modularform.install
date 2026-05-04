@@ -3,556 +3,622 @@
 /**
  * Implements hook_schema()
  */
-function modularform_schema()
-{
-  $schema = array();
+function modularform_schema() {
+  $schema = [];
 
-  $schema['modularform_forms'] = array(
+  $schema['modularform_forms'] = [
     'description' => t('Forms'),
-    'fields' => array(
-      'id' => array(
+    'fields' => [
+      'id' => [
         'type' => 'serial',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      ),
-      'title' => array(
+      ],
+      'title' => [
         'description' => t('Title of the Form'),
         'type' => 'varchar',
         'length' => 100,
-      ),
-      'description' => array(
+        'not null' => TRUE,
+      ],
+      'description' => [
         'description' => t('Description of the Form'),
         'type' => 'text',
         'size' => 'big',
-      ),
-      'status' => array(
+      ],
+      'status' => [
         'description' => t('Status of the Form 0 is drafted, 1 is published'),
         'type' => 'int',
         'size' => 'tiny',
         'default' => 1,
-      ),
-      'slug' => array(
+      ],
+      'slug' => [
         'description' => t('Slug of the Form'),
         'type' => 'varchar',
         'length' => 255,
-      ),
-      'closes' => array(
+      ],
+      'closes' => [
         'description' => t('Whether form closes after a certain time or at a date'),
         'type' => 'int',
         'size' => 'tiny',
         'default' => 0,
-      ),
-      'closes_at' => array(
+      ],
+      'closes_at' => [
         'description' => t('Form unavailable after'),
         'type' => 'int',
-        'default' => 0
-      ),
-      'created_by' => array(
+        'not null' => FALSE,
+        'default' => NULL,
+      ],
+      'created_by' => [
         'description' => t('Creator of the Form using drupal user id'),
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      ),
-      'created_at' => array(
+      ],
+      'created_at' => [
         'type' => 'int',
         'not null' => TRUE,
-        'default' => 0
-      ),
-      'updated_at' => array(
+        'default' => 0,
+      ],
+      'updated_at' => [
         'type' => 'int',
         'not null' => TRUE,
-        'default' => 0
-      ),
-      'deleted_at' => array(
+        'default' => 0,
+      ],
+      'deleted_at' => [
         'description' => 'Unix timestamp of soft delete, NULL if not deleted.',
         'type' => 'int',
         'not null' => FALSE,
-        'default'  => NULL,
-      )
-    ),
-    'primary key' => array('id'),
-    'indexes' => array(
-      'status'=>array('status'),
-      'title' => array('title'),
-    ),
-  );
+        'default' => NULL,
+      ],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'status' => ['status'],
+      'title' => ['title'],
+    ],
+    'unique keys' => [
+      'slug' => ['slug'],
+    ],
+  ];
 
-  $schema['modularform_sections'] = array(
+  $schema['modularform_sections'] = [
     'description' => t('Sections'),
-    'fields' => array(
-//      'id' => array(
-//        'type' => 'serial',
-//        'unsigned' => TRUE,
-//        'not null' => TRUE,
-//      ),
+    'fields' => [
       'sec_id' => [
         'description' => t('Unique section key (sec_{fid}_{uniqid})'),
         'type' => 'varchar',
         'length' => 64,
         'not null' => TRUE,
       ],
-      'form_id' => array(
+      'form_id' => [
         'description' => t('Form foreign key'),
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      ),
-      'name' => array(
+      ],
+      'name' => [
         'description' => t('Name of the section'),
         'type' => 'varchar',
         'length' => 100,
-      ),
+      ],
       'weight' => [
         'type' => 'int',
         'not null' => TRUE,
         'default' => 0,
       ],
-      'created_at' => array(
+      'created_at' => [
         'type' => 'int',
         'not null' => TRUE,
-        'default' => 0
-      ),
-      'updated_at' => array(
+        'default' => 0,
+      ],
+      'updated_at' => [
         'type' => 'int',
         'not null' => TRUE,
-        'default' => 0
-      ),
-    ),
-    'primary key' => array('sec_id'),
-    'indexes' => array(
-      'form_id' => array('form_id'),
-    ),
-  );
+        'default' => 0,
+      ],
+    ],
+    'primary key' => ['sec_id'],
+    'indexes' => [
+      'form_id' => ['form_id'],
+    ],
+  ];
 
-  $schema['modularform_questions'] = array(
+  $schema['modularform_questions'] = [
     'description' => t('Questions'),
-    'fields' => array(
-//      'id' => array(
-//        'type' => 'serial',
-//        'unsigned' => TRUE,
-//        'not null' => TRUE,
-//      ),
+    'fields' => [
       'q_id' => [
         'description' => t('Unique question key (q_{fid}_{uniqid})'),
         'type' => 'varchar',
         'length' => 64,
         'not null' => TRUE,
       ],
-      'form_id' => array(
+      'form_id' => [
         'description' => t('Form foreign key'),
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      ),
-      'sec_id' => array(
+      ],
+      'sec_id' => [
         'description' => t('Section foreign key'),
         'type' => 'varchar',
         'length' => 64,
         'not null' => TRUE,
-      ),
-      'label' => array(
+      ],
+      'label' => [
         'description' => t('Label'),
         'type' => 'varchar',
         'length' => 100,
-      ),
-      'description' => array(
+      ],
+      'description' => [
         'description' => t('Description'),
         'type' => 'text',
         'size' => 'big',
-      ),
-      'placeholder' => array(
+      ],
+      'placeholder' => [
         'description' => t('Placeholder'),
         'type' => 'varchar',
         'length' => 255,
-      ),
-      'type' => array(
+      ],
+      'type' => [
         'description' => t('Type of the question like input field, radio or checkbox '),
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
-        'default' => 0
-      ),
-      'datatype' => array(
+        'default' => 0,
+      ],
+      'datatype' => [
         'description' => t('Answer storage type: varchar, text, int, bool'),
         'type' => 'varchar',
         'length' => 50,
         'default' => 'varchar',
-      ),
-      'is_required' => array(
+      ],
+      'is_required' => [
         'description' => t('Required'),
         'type' => 'int',
         'size' => 'tiny',
         'unsigned' => TRUE,
         'not null' => TRUE,
-        'default' => 0
-      ),
-      'validation_rules' => array(
-        'description' => t('Validation rules'),
-        'type' => 'text',
-        'size' => 'big',
-        'not null' => FALSE,
-      ),
-      'position' => array(
+        'default' => 0,
+      ],
+      'position' => [
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
-      ),
-      'created_at' => array(
+      ],
+      'created_at' => [
         'type' => 'int',
         'not null' => TRUE,
-        'default' => 0
-      ),
-      'updated_at' => array(
+        'default' => 0,
+      ],
+      'updated_at' => [
         'type' => 'int',
         'not null' => TRUE,
-        'default' => 0
-      ),
-    ),
-    'primary key' => array('q_id'),
-    'indexes' => array(
-      'section_id' => array('sec_id'),
-      'form_id' => array('form_id'),
-    )
-  );
+        'default' => 0,
+      ],
+    ],
+    'primary key' => ['q_id'],
+    'indexes' => [
+      'section_id' => ['sec_id'],
+      'form_id' => ['form_id'],
+    ],
+  ];
 
   $schema['modularform_validation_rules'] = [
     'description' => t('Validation rules per question'),
     'fields' => [
       'r_id' => [
         'description' => t('Unique rule key (r_{fid}_{uniqid})'),
-        'type'        => 'varchar',
-        'length'      => 64,
-        'not null'    => TRUE,
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
       ],
       'q_id' => [
         'description' => t('Question FK'),
-        'type'        => 'varchar',
-        'length'      => 64,
-        'not null'    => TRUE,
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
       ],
       'form_id' => [
         'description' => t('Form FK — enables bulk delete by form'),
-        'type'        => 'int',
-        'unsigned'    => TRUE,
-        'not null'    => TRUE,
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
       ],
       'rule_type' => [
-        'type'     => 'varchar',
-        'length'   => 50,
+        'type' => 'varchar',
+        'length' => 50,
         'not null' => TRUE,
-        'default'  => '',
+        'default' => '',
       ],
       'rule_value' => [
-        'type'     => 'varchar',
-        'length'   => 255,
+        'type' => 'varchar',
+        'length' => 255,
         'not null' => FALSE,
       ],
       'error_message' => [
-        'type'     => 'varchar',
-        'length'   => 255,
+        'type' => 'varchar',
+        'length' => 255,
         'not null' => FALSE,
       ],
       'weight' => [
-        'type'     => 'int',
+        'type' => 'int',
         'not null' => TRUE,
-        'default'  => 0,
+        'default' => 0,
       ],
       'created_at' => [
-        'type'     => 'int',
+        'type' => 'int',
         'not null' => TRUE,
-        'default'  => 0,
+        'default' => 0,
       ],
       'updated_at' => [
-        'type'     => 'int',
+        'type' => 'int',
         'not null' => TRUE,
-        'default'  => 0,
+        'default' => 0,
       ],
     ],
     'primary key' => ['r_id'],
     'indexes' => [
-      'q_id'    => ['q_id'],
+      'q_id' => ['q_id'],
       'form_id' => ['form_id'],
     ],
   ];
 
-  $schema['modularform_question_options'] = array(
+  $schema['modularform_question_options'] = [
     'description' => t('Question options'),
-    'fields' => array(
+    'fields' => [
       'o_id' => [
         'description' => t('Unique option key (opt_{fid}_{uniqid})'),
         'type' => 'varchar',
         'length' => 64,
         'not null' => TRUE,
       ],
-      'q_id' => array(
+      'q_id' => [
         'description' => t('Question id fk'),
         'type' => 'varchar',
         'length' => 64,
         'not null' => TRUE,
-      ),
+      ],
       'form_id' => [
         'description' => t('Form FK — enables bulk delete by form'),
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
       ],
-      'option' => array(
+      'option' => [
         'description' => t('Option'),
         'type' => 'varchar',
         'length' => 255,
-      ),
+      ],
       'weight' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+      'created_at' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+      'updated_at' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+    ],
+    'primary key' => ['o_id'],
+    'indexes' => [
+      'question_id' => ['q_id'],
+      'form_id' => ['form_id'],
+    ],
+  ];
+
+  $schema['modularform_form_members'] = [
+    'description' => t('Members'),
+
+    'fields' => [
+      'id' => [
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+
+      'form_id' => [
+        'description' => t('Form ID'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+
+      'uid' => [
+        'description' => t('Creator of the Form using drupal user id'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+
+      'roles' => [
+        'description' => t('Role 0 for creator, 1 for viewer, 2 for participant'),
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+
+      'created_at' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+
+      'updated_at' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'form_id' => ['form_id'],
+    ],
+  ];
+
+  $schema['modularform_form_invites'] = [
+    'description' => t('Email invites for private forms where the person is not a Drupal user.'),
+    'fields' => [
+      'id' => [
+        'type'     => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'form_id' => [
+        'description' => t('The form this invite belongs to.'),
+        'type'     => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'email' => [
+        'description' => t('Invited email address.'),
+        'type'     => 'varchar',
+        'length'   => 254,
+        'not null' => TRUE,
+        'default'  => '',
+      ],
+      'created_at' => [
         'type'     => 'int',
         'not null' => TRUE,
         'default'  => 0,
       ],
-      'created_at' => array(
-        'type' => 'int',
-        'not null' => TRUE,
-        'default' => 0
-      ),
-      'updated_at' => array(
-        'type' => 'int',
-        'not null' => TRUE,
-        'default' => 0
-      ),
-    ),
-    'primary key' => array('o_id'),
-    'indexes' => array(
-      'question_id' => array('q_id'),
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
       'form_id' => ['form_id'],
-    )
-  );
+      'email'   => ['email'],
+    ],
+  ];
 
-  $schema['modularform_responses'] = array(
+  $schema['modularform_responses'] = [
     'description' => t('Responses'),
-    'fields' => array(
-      'id' => array(
+    'fields' => [
+      'id' => [
         'type' => 'serial',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      ),
-      'form_id' => array(
+      ],
+      'form_id' => [
         'description' => t('Form foreign key'),
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      ),
-      'user_id' => array(
+      ],
+      'user_id' => [
         'description' => t('Drupal user'),
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      ),
-      'submitted_at' => array(
+      ],
+      'submitted_at' => [
         'type' => 'int',
         'not null' => TRUE,
-      ),
-      'created_at' => array(
+      ],
+      'created_at' => [
         'type' => 'int',
         'not null' => TRUE,
-        'default' => 0
-      ),
-      'updated_at' => array(
+        'default' => 0,
+      ],
+      'updated_at' => [
         'type' => 'int',
         'not null' => TRUE,
-        'default' => 0
-      ),
-    ),
-    'primary key' => array('id'),
-    'indexes' => array(
-      'form_id' => array('form_id'),
-      'user_id' => array('user_id'),
-    )
-  );
+        'default' => 0,
+      ],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'form_id' => ['form_id'],
+      'user_id' => ['user_id'],
+    ],
+  ];
 
-  $schema['modularform_answers'] = array(
+  $schema['modularform_answers'] = [
     'description' => t('Answers. options and checkboxes answers are stored in int as fk '),
-    'fields' => array(
-      'id' => array(
+    'fields' => [
+      'id' => [
         'type' => 'serial',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      ),
-      'response_id' => array(
+      ],
+      'response_id' => [
         'description' => t('Response id fk'),
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      ),
+      ],
       'q_id' => [
         'description' => t('Question FK (varchar natural key)'),
         'type' => 'varchar',
         'length' => 64,
         'not null' => TRUE,
       ],
-      'created_at' => array(
+      'created_at' => [
         'type' => 'int',
         'not null' => TRUE,
-        'default' => 0
-      ),
-      'updated_at' => array(
+        'default' => 0,
+      ],
+      'updated_at' => [
         'type' => 'int',
         'not null' => TRUE,
-        'default' => 0
-      ),
-    ),
-    'primary key' => array('id'),
-    'indexes' => array(
-      'response_id' => array('response_id'),
-      'q_id'        => ['q_id'],
-    )
-  );
+        'default' => 0,
+      ],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'response_id' => ['response_id'],
+      'q_id' => ['q_id'],
+    ],
+  ];
 
-  $schema['modularform_answers_int'] = array(
+  $schema['modularform_answers_int'] = [
     'description' => t('Int Answers'),
-    'fields' => array(
-      'id' => array(
+    'fields' => [
+      'id' => [
         'type' => 'serial',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      ),
-      'answer_id' => array(
+      ],
+      'answer_id' => [
         'description' => t('Answer id fk'),
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      ),
-      'value' => array(
+      ],
+      'value' => [
         'description' => t('Value'),
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      )
-    ),
-    'primary key' => array('id'),
-    'indexes' => array(
-      'answer_id' => array('answer_id'),
-    )
-  );
+      ],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'answer_id' => ['answer_id'],
+    ],
+  ];
 
-  $schema['modularform_answers_bool'] = array(
+  $schema['modularform_answers_bool'] = [
     'description' => t('Bool Answers'),
-    'fields' => array(
-      'id' => array(
+    'fields' => [
+      'id' => [
         'type' => 'serial',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      ),
-      'answer_id' => array(
+      ],
+      'answer_id' => [
         'description' => t('Answer id fk'),
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      ),
-      'value' => array(
+      ],
+      'value' => [
         'description' => t('Value'),
         'type' => 'int',
         'size' => 'tiny',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      )
-    ),
-    'primary key' => array('id'),
-    'indexes' => array(
-      'answer_id' => array('answer_id'),
-    )
-  );
+      ],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'answer_id' => ['answer_id'],
+    ],
+  ];
 
-  $schema['modularform_answers_text'] = array(
+  $schema['modularform_answers_text'] = [
     'description' => t('Answers'),
-    'fields' => array(
-      'id' => array(
+    'fields' => [
+      'id' => [
         'type' => 'serial',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      ),
-      'answer_id' => array(
+      ],
+      'answer_id' => [
         'description' => t('Answer id fk'),
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      ),
-      'value' => array(
+      ],
+      'value' => [
         'description' => t('Value'),
         'type' => 'text',
         'size' => 'big',
         'not null' => TRUE,
-      )
-    ),
-    'primary key' => array('id'),
-    'indexes' => array(
-      'answer_id' => array('answer_id'),
-    )
-  );
+      ],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'answer_id' => ['answer_id'],
+    ],
+  ];
 
-  $schema['modularform_answers_varchar'] = array(
+  $schema['modularform_answers_varchar'] = [
     'description' => t('Answers varchar'),
-    'fields' => array(
-      'id' => array(
+    'fields' => [
+      'id' => [
         'type' => 'serial',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      ),
-      'answer_id' => array(
+      ],
+      'answer_id' => [
         'description' => t('Answer id fk'),
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      ),
-      'value' => array(
+      ],
+      'value' => [
         'description' => t('Value'),
         'type' => 'varchar',
         'length' => 100,
         'not null' => TRUE,
-      )
-    ),
-    'primary key' => array('id'),
-    'indexes' => array(
-      'answer_id' => array('answer_id'),
-    )
-  );
+      ],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'answer_id' => ['answer_id'],
+    ],
+  ];
 
-  $schema['modularform_answers_date'] = array(
+  $schema['modularform_answers_date'] = [
     'description' => t('Date'),
-    'fields' => array(
-      'id' => array(
+    'fields' => [
+      'id' => [
         'type' => 'serial',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      ),
+      ],
 
-      'answer_id' => array(
+      'answer_id' => [
         'description' => t('Answer id fk'),
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      ),
+      ],
 
-      'value' => array(
+      'value' => [
         'description' => t('Value'),
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
-      )
+      ],
 
-    ),
-    'primary key' => array('id'),
-    'indexes' => array(
-      'answer_id' => array('answer_id'),
-    )
-  );
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'answer_id' => ['answer_id'],
+    ],
+  ];
 
   return $schema;
 }
 
+function modularform_install() {}
 
-function modularform_install()
-{
-
-}
-
-function modularform_uninstall(){
-
-}
+function modularform_uninstall() {}
