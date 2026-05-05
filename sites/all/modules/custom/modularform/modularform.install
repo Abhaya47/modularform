@@ -48,6 +48,19 @@ function modularform_schema() {
         'not null' => FALSE,
         'default' => NULL,
       ],
+      'scheduled' => [
+        'description' => t('Scheduled Form 0 is no 1 is yes'),
+        'type' => 'int',
+        'size' => 'tiny',
+        'default' => 0,
+      ],
+      'scheduled_date' => [
+        'description' => t('Form scheduled publishing date'),
+        'type' => 'int',
+        'not null' => FALSE,
+        'default' => NULL,
+      ],
+
       'created_by' => [
         'description' => t('Creator of the Form using drupal user id'),
         'type' => 'int',
@@ -82,6 +95,7 @@ function modularform_schema() {
   ];
 
   $schema['modularform_sections'] = [
+    # TODO create section description
     'description' => t('Sections'),
     'fields' => [
       'sec_id' => [
@@ -315,28 +329,24 @@ function modularform_schema() {
 
   $schema['modularform_form_members'] = [
     'description' => t('Members'),
-
     'fields' => [
       'id' => [
         'type' => 'serial',
         'unsigned' => TRUE,
         'not null' => TRUE,
       ],
-
       'form_id' => [
         'description' => t('Form ID'),
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
       ],
-
       'uid' => [
         'description' => t('Creator of the Form using drupal user id'),
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
       ],
-
       'roles' => [
         'description' => t('Role 0 for creator, 1 for viewer, 2 for participant'),
         'type' => 'int',
@@ -344,13 +354,11 @@ function modularform_schema() {
         'unsigned' => TRUE,
         'not null' => TRUE,
       ],
-
       'created_at' => [
         'type' => 'int',
         'not null' => TRUE,
         'default' => 0,
       ],
-
       'updated_at' => [
         'type' => 'int',
         'not null' => TRUE,
@@ -384,6 +392,14 @@ function modularform_schema() {
         'not null' => TRUE,
         'default'  => '',
       ],
+      'status' => [
+        'description' => t('Status 0 is accepted, 1 is not accepted.'),
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      #TODO when request is accepted add to user to form members.
       'created_at' => [
         'type'     => 'int',
         'not null' => TRUE,
@@ -395,6 +411,34 @@ function modularform_schema() {
       'form_id' => ['form_id'],
       'email'   => ['email'],
     ],
+  ];
+
+  $schema['modularform_tags'] = [
+    'description' => t('Tags'),
+    'fields' => [
+      'id' => [
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
+      'title' => [
+        'description' => t('Title'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ],
+      'created_at' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+      'updated_at' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+    ],
+    'primary key' => ['id'],
   ];
 
   $schema['modularform_responses'] = [

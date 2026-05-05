@@ -5,18 +5,86 @@
 
 
       // ── Select2 init ───────────────────────────────────────────────────────
-      $('.select2-enable', context).once('select2-init').each(function () {
-        var isTags = $(this).hasClass('select2-tags');
-        $(this).select2({
-          placeholder: isTags ? 'Select or type tags...' : 'Select an option...',
-          allowClear: true,
-          tags: isTags,
-          width: '100%',
+      $('.select2-tags-hidden', context).once('select2-tags').each(function () {
+        var $hidden = $(this);
+        var acUrl   = $hidden.data('ac-url');
+        var vid     = $hidden.data('vid');
+
+        // Insert a visible container div right after the hidden field
+        var $container = $('<div class="select2-tags-container"></div>');
+        $hidden.after($container);
+
+        // Select2 3.5.4 uses a plain <input type="hidden"> as its anchor
+        var $input = $('<input type="hidden" style="width:100%" />');
+        $container.append($input);
+
+        $input.select2({
+          tags: true,
+          multiple: true,
+          placeholder: Drupal.t('Search or add tags\u2026'),
+          minimumInputLength: 0,
+
+          // Called on init if there's a pre-existing value in $hidden
+          initSelection: function (element, callback) {
+            var val = $hidden.val();
+            if (!val) { callback([]); return; }
+            var items = [];
+            $.each(val.split(','), function (i, part) {
+              part = $.trim(part);
+              if (!part) return;
+              if (part.indexOf('new:') === 0) {
+                var name = part.slice(4);
+                items.push({ id: part, text: name });
+              } else {
+                items.push({ id: part, text: part });
+              }
+            });
+            callback(items);
+          },
+
+          // AJAX query against our Drupal callback
+          query: function (opts) {
+            $.ajax({
+              url: acUrl,
+              dataType: 'json',
+              data: { q: opts.term, vid: vid, page_limit: 20 },
+              success: function (data) {
+                opts.callback({ results: data.results, more: data.more });
+              },
+              error: function () {
+                opts.callback({ results: [] });
+              }
+            });
+          },
+
+          // FIX 3: use native Array.filter instead of $(data).filter()
+          // which is unreliable with plain object arrays in older jQuery
+          createSearchChoice: function (term, data) {
+            var termLower = term.toLowerCase();
+            var match = data.filter(function (item) {
+              return item.text.toLowerCase() === termLower;
+            });
+            if (match.length === 0) {
+              return { id: 'new:' + term, text: term + ' (' + Drupal.t('add new') + ')' };
+            }
+          },
+
+          // Format the display of selected items (strip the "(add new)" suffix)
+          formatSelection: function (item) {
+            return item.text.replace(/\s*\(add new\)\s*$/, '');
+          }
+        });
+
+        // Sync Select2 value back to the hidden field Drupal will submit
+        // FIX 2: also trigger change on $hidden so validation listeners fire
+        $input.on('change', function () {
+          var val = $input.select2('val');
+          $hidden.val(val ? val.join(',') : '');
+          $hidden.trigger('change');
         });
       });
 
       // ── Client-side validation ─────────────────────────────────────────────
-      // Attach blur/change listeners per field based on rules
       $.each(rules, function (q_id, q_rules) {
         var $field = $('[data-q-id="' + q_id + '"]', context);
 
@@ -29,7 +97,6 @@
         var $container = $field.closest('.preview-question');
         clearError($container);
 
-        // Get current value depending on field type
         var q_type = $container.data('q-type');
         var value  = getFieldValue(q_type, $container);
 
@@ -74,8 +141,12 @@
           case 'dropdown':
             return $container.find('select').val() || '';
 
+          // FIX 1: read from the hidden field and split into array,
+          // not from <select> which no longer exists for tag fields
           case 'tag':
-            return $container.find('select').val() || [];
+            var tagVal = $container.find('.select2-tags-hidden').val();
+            if (!tagVal) return [];
+            return tagVal.split(',').filter(Boolean);
 
           default:
             return '';
@@ -87,13 +158,11 @@
         var rv  = rule.rule_value;
         var msg = rule.error_message || defaultMessage(rt, rv);
 
-        // Helpers
         var len   = typeof value === 'string' ? value.length : 0;
         var words = typeof value === 'string' ? value.trim().split(/\s+/).filter(Boolean).length : 0;
         var count = Array.isArray(value) ? value.length : (value ? 1 : 0);
 
         switch (rt) {
-          // text / textarea / richtext
           case 'min_length':    return len > 0 && len < parseInt(rv) ? msg : null;
           case 'max_length':    return len > parseInt(rv) ? msg : null;
           case 'exact_length':  return len > 0 && len !== parseInt(rv) ? msg : null;
@@ -110,34 +179,24 @@
             try { return value && !(new RegExp(rv)).test(value) ? msg : null; }
             catch(e) { return null; }
 
-          // date
           case 'date_min':      return value && value < rv ? msg : null;
           case 'date_max':      return value && value > rv ? msg : null;
-
-          // time
           case 'time_min':      return value && value < rv ? msg : null;
           case 'time_max':      return value && value > rv ? msg : null;
-
-          // radio
           case 'disallow_value': return value && value === rv ? msg : null;
-
-          // boolean
           case 'must_be_true':  return value && value !== 'yes' ? msg : null;
           case 'must_be_false': return value && value !== 'no' ? msg : null;
 
-          // checkbox / list / tag / dropdown
           case 'min_selections': return count > 0 && count < parseInt(rv) ? msg : null;
           case 'max_selections': return count > parseInt(rv) ? msg : null;
           case 'exact_count':    return count > 0 && count !== parseInt(rv) ? msg : null;
           case 'min_tags':       return count > 0 && count < parseInt(rv) ? msg : null;
           case 'max_tags':       return count > parseInt(rv) ? msg : null;
           case 'exact_tags':     return count > 0 && count !== parseInt(rv) ? msg : null;
-
-          // file
-          case 'max_filesize':   return null; // handled server-side by managed_file
+          case 'max_filesize':   return null;
           case 'min_files':      return count > 0 && count < parseInt(rv) ? msg : null;
           case 'max_files':      return count > parseInt(rv) ? msg : null;
-          case 'allowed_types':  return null; // handled server-side
+          case 'allowed_types':  return null;
 
           default: return null;
         }

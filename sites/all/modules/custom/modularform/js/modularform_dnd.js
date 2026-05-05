@@ -18,6 +18,46 @@
     }
   };
 
+  Drupal.behaviors.modularformCollapse = {
+    attach: function (context) {
+      $(context).find('.collapse-toggle').once('collapse-toggle').on('click', function () {
+        var targetId = $(this).data('target');
+        var $body = $('#' + targetId);
+        var expanded = $(this).attr('aria-expanded') === 'true';
+
+        if (expanded) {
+          // Before collapsing, grab the current field value and show in header
+          var $label = $(this).siblings('.element-header-label');
+          var $questionField = $body.find('input[name*="question_text"]').first();
+          var $sectionField = $body.find('input[name*="[title]"]').first();
+
+          var currentVal = $questionField.val() || $sectionField.val() || $label.text();
+          if (currentVal) {
+            $label.text(currentVal);
+          }
+
+          $body.slideUp(150);
+          $(this).attr('aria-expanded', 'false').text('▸');
+        } else {
+          $body.slideDown(150);
+          $(this).attr('aria-expanded', 'true').text('▾');
+        }
+      });
+
+      // Keep header label live while typing (even before collapsing)
+      $(context).find('.depth-question, .depth-section').once('header-sync').each(function () {
+        var $container = $(this);
+        var $label = $container.find('.element-header-label').first();
+
+        $container.find('input[name*="question_text"], input[name*="[title]"]')
+          .first()
+          .on('input', function () {
+            $label.text($(this).val() || $label.text());
+          });
+      });
+    }
+  };
+
   function enableDrag(container, itemSel, scope, weightClass) {
     var $container = $(container);
 
