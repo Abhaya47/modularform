@@ -3,12 +3,11 @@
     attach: function (context, settings) {
       var rules = (settings.modularformPreview && settings.modularformPreview.rules) ? settings.modularformPreview.rules : {};
 
-
       // ── Select2 init ───────────────────────────────────────────────────────
       $('.select2-tags-hidden', context).once('select2-tags').each(function () {
         var $hidden = $(this);
-        var acUrl   = $hidden.data('ac-url');
-        var vid     = $hidden.data('vid');
+        var acUrl = $hidden.data('ac-url');
+        var vid = $hidden.data('vid');
 
         // Insert a visible container div right after the hidden field
         var $container = $('<div class="select2-tags-container"></div>');
@@ -27,11 +26,16 @@
           // Called on init if there's a pre-existing value in $hidden
           initSelection: function (element, callback) {
             var val = $hidden.val();
-            if (!val) { callback([]); return; }
+            if (!val) {
+              callback([]);
+              return;
+            }
             var items = [];
             $.each(val.split(','), function (i, part) {
               part = $.trim(part);
-              if (!part) return;
+              if (!part) {
+                return;
+              }
               if (part.indexOf('new:') === 0) {
                 var name = part.slice(4);
                 items.push({ id: part, text: name });
@@ -47,13 +51,14 @@
             $.ajax({
               url: acUrl,
               dataType: 'json',
-              data: { q: opts.term, vid: vid, page_limit: 20 },
+              data: { q: opts.term, page_limit: 20 },
+              // no vid
               success: function (data) {
                 opts.callback({ results: data.results, more: data.more });
               },
               error: function () {
                 opts.callback({ results: [] });
-              }
+              },
             });
           },
 
@@ -72,7 +77,7 @@
           // Format the display of selected items (strip the "(add new)" suffix)
           formatSelection: function (item) {
             return item.text.replace(/\s*\(add new\)\s*$/, '');
-          }
+          },
         });
 
         // Sync Select2 value back to the hidden field Drupal will submit
@@ -98,10 +103,10 @@
         clearError($container);
 
         var q_type = $container.data('q-type');
-        var value  = getFieldValue(q_type, $container);
+        var value = getFieldValue(q_type, $container);
 
         for (var i = 0; i < q_rules.length; i++) {
-          var rule  = q_rules[i];
+          var rule = q_rules[i];
           var error = applyRule(rule, value, q_type);
           if (error) {
             showError($container, error);
@@ -145,7 +150,9 @@
           // not from <select> which no longer exists for tag fields
           case 'tag':
             var tagVal = $container.find('.select2-tags-hidden').val();
-            if (!tagVal) return [];
+            if (!tagVal) {
+              return [];
+            }
             return tagVal.split(',').filter(Boolean);
 
           default:
@@ -154,84 +161,113 @@
       }
 
       function applyRule(rule, value, q_type) {
-        var rt  = rule.rule_type;
-        var rv  = rule.rule_value;
+        var rt = rule.rule_type;
+        var rv = rule.rule_value;
         var msg = rule.error_message || defaultMessage(rt, rv);
 
-        var len   = typeof value === 'string' ? value.length : 0;
+        var len = typeof value === 'string' ? value.length : 0;
         var words = typeof value === 'string' ? value.trim().split(/\s+/).filter(Boolean).length : 0;
         var count = Array.isArray(value) ? value.length : (value ? 1 : 0);
 
         switch (rt) {
-          case 'min_length':    return len > 0 && len < parseInt(rv) ? msg : null;
-          case 'max_length':    return len > parseInt(rv) ? msg : null;
-          case 'exact_length':  return len > 0 && len !== parseInt(rv) ? msg : null;
-          case 'min_words':     return words > 0 && words < parseInt(rv) ? msg : null;
-          case 'max_words':     return words > parseInt(rv) ? msg : null;
-          case 'is_email':      return value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? msg : null;
-          case 'is_url':        return value && !/^https?:\/\/.+/.test(value) ? msg : null;
-          case 'is_numeric':    return value && isNaN(Number(value)) ? msg : null;
-          case 'is_alpha':      return value && !/^[a-zA-Z]+$/.test(value) ? msg : null;
-          case 'starts_with':   return value && value.indexOf(rv) !== 0 ? msg : null;
-          case 'ends_with':     return value && value.slice(-rv.length) !== rv ? msg : null;
-          case 'contains':      return value && value.indexOf(rv) === -1 ? msg : null;
+          case 'min_length':
+            return len > 0 && len < parseInt(rv) ? msg : null;
+          case 'max_length':
+            return len > parseInt(rv) ? msg : null;
+          case 'exact_length':
+            return len > 0 && len !== parseInt(rv) ? msg : null;
+          case 'min_words':
+            return words > 0 && words < parseInt(rv) ? msg : null;
+          case 'max_words':
+            return words > parseInt(rv) ? msg : null;
+          case 'is_email':
+            return value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? msg : null;
+          case 'is_url':
+            return value && !/^https?:\/\/.+/.test(value) ? msg : null;
+          case 'is_numeric':
+            return value && isNaN(Number(value)) ? msg : null;
+          case 'is_alpha':
+            return value && !/^[a-zA-Z]+$/.test(value) ? msg : null;
+          case 'starts_with':
+            return value && value.indexOf(rv) !== 0 ? msg : null;
+          case 'ends_with':
+            return value && value.slice(-rv.length) !== rv ? msg : null;
+          case 'contains':
+            return value && value.indexOf(rv) === -1 ? msg : null;
           case 'regex':
-            try { return value && !(new RegExp(rv)).test(value) ? msg : null; }
-            catch(e) { return null; }
+            try { return value && !(new RegExp(rv)).test(value) ? msg : null; } catch (e) { return null; }
 
-          case 'date_min':      return value && value < rv ? msg : null;
-          case 'date_max':      return value && value > rv ? msg : null;
-          case 'time_min':      return value && value < rv ? msg : null;
-          case 'time_max':      return value && value > rv ? msg : null;
-          case 'disallow_value': return value && value === rv ? msg : null;
-          case 'must_be_true':  return value && value !== 'yes' ? msg : null;
-          case 'must_be_false': return value && value !== 'no' ? msg : null;
+          case 'date_min':
+            return value && value < rv ? msg : null;
+          case 'date_max':
+            return value && value > rv ? msg : null;
+          case 'time_min':
+            return value && value < rv ? msg : null;
+          case 'time_max':
+            return value && value > rv ? msg : null;
+          case 'disallow_value':
+            return value && value === rv ? msg : null;
+          case 'must_be_true':
+            return value && value !== 'yes' ? msg : null;
+          case 'must_be_false':
+            return value && value !== 'no' ? msg : null;
 
-          case 'min_selections': return count > 0 && count < parseInt(rv) ? msg : null;
-          case 'max_selections': return count > parseInt(rv) ? msg : null;
-          case 'exact_count':    return count > 0 && count !== parseInt(rv) ? msg : null;
-          case 'min_tags':       return count > 0 && count < parseInt(rv) ? msg : null;
-          case 'max_tags':       return count > parseInt(rv) ? msg : null;
-          case 'exact_tags':     return count > 0 && count !== parseInt(rv) ? msg : null;
-          case 'max_filesize':   return null;
-          case 'min_files':      return count > 0 && count < parseInt(rv) ? msg : null;
-          case 'max_files':      return count > parseInt(rv) ? msg : null;
-          case 'allowed_types':  return null;
+          case 'min_selections':
+            return count > 0 && count < parseInt(rv) ? msg : null;
+          case 'max_selections':
+            return count > parseInt(rv) ? msg : null;
+          case 'exact_count':
+            return count > 0 && count !== parseInt(rv) ? msg : null;
+          case 'min_tags':
+            return count > 0 && count < parseInt(rv) ? msg : null;
+          case 'max_tags':
+            return count > parseInt(rv) ? msg : null;
+          case 'exact_tags':
+            return count > 0 && count !== parseInt(rv) ? msg : null;
+          case 'max_filesize':
+            return null;
+          case 'min_files':
+            return count > 0 && count < parseInt(rv) ? msg : null;
+          case 'max_files':
+            return count > parseInt(rv) ? msg : null;
+          case 'allowed_types':
+            return null;
 
-          default: return null;
+          default:
+            return null;
         }
       }
 
       function defaultMessage(rule_type, rule_value) {
         var map = {
-          min_length:    'Must be at least ' + rule_value + ' characters.',
-          max_length:    'Must be no more than ' + rule_value + ' characters.',
-          exact_length:  'Must be exactly ' + rule_value + ' characters.',
-          min_words:     'Must contain at least ' + rule_value + ' words.',
-          max_words:     'Must contain no more than ' + rule_value + ' words.',
-          is_email:      'Must be a valid email address.',
-          is_url:        'Must be a valid URL.',
-          is_numeric:    'Must be numeric.',
-          is_alpha:      'Must contain letters only.',
-          starts_with:   'Must start with "' + rule_value + '".',
-          ends_with:     'Must end with "' + rule_value + '".',
-          contains:      'Must contain "' + rule_value + '".',
-          regex:         'Invalid format.',
-          date_min:      'Date must be on or after ' + rule_value + '.',
-          date_max:      'Date must be on or before ' + rule_value + '.',
-          time_min:      'Time must be at or after ' + rule_value + '.',
-          time_max:      'Time must be at or before ' + rule_value + '.',
-          disallow_value:'This option is not allowed.',
-          must_be_true:  'Must be Yes.',
+          min_length: 'Must be at least ' + rule_value + ' characters.',
+          max_length: 'Must be no more than ' + rule_value + ' characters.',
+          exact_length: 'Must be exactly ' + rule_value + ' characters.',
+          min_words: 'Must contain at least ' + rule_value + ' words.',
+          max_words: 'Must contain no more than ' + rule_value + ' words.',
+          is_email: 'Must be a valid email address.',
+          is_url: 'Must be a valid URL.',
+          is_numeric: 'Must be numeric.',
+          is_alpha: 'Must contain letters only.',
+          starts_with: 'Must start with "' + rule_value + '".',
+          ends_with: 'Must end with "' + rule_value + '".',
+          contains: 'Must contain "' + rule_value + '".',
+          regex: 'Invalid format.',
+          date_min: 'Date must be on or after ' + rule_value + '.',
+          date_max: 'Date must be on or before ' + rule_value + '.',
+          time_min: 'Time must be at or after ' + rule_value + '.',
+          time_max: 'Time must be at or before ' + rule_value + '.',
+          disallow_value: 'This option is not allowed.',
+          must_be_true: 'Must be Yes.',
           must_be_false: 'Must be No.',
-          min_selections:'Select at least ' + rule_value + ' option(s).',
-          max_selections:'Select no more than ' + rule_value + ' option(s).',
-          exact_count:   'Select exactly ' + rule_value + ' option(s).',
-          min_tags:      'Add at least ' + rule_value + ' tag(s).',
-          max_tags:      'Add no more than ' + rule_value + ' tag(s).',
-          exact_tags:    'Add exactly ' + rule_value + ' tag(s).',
-          min_files:     'Upload at least ' + rule_value + ' file(s).',
-          max_files:     'Upload no more than ' + rule_value + ' file(s).',
+          min_selections: 'Select at least ' + rule_value + ' option(s).',
+          max_selections: 'Select no more than ' + rule_value + ' option(s).',
+          exact_count: 'Select exactly ' + rule_value + ' option(s).',
+          min_tags: 'Add at least ' + rule_value + ' tag(s).',
+          max_tags: 'Add no more than ' + rule_value + ' tag(s).',
+          exact_tags: 'Add exactly ' + rule_value + ' tag(s).',
+          min_files: 'Upload at least ' + rule_value + ' file(s).',
+          max_files: 'Upload no more than ' + rule_value + ' file(s).',
         };
         return map[rule_type] || 'Invalid value.';
       }
