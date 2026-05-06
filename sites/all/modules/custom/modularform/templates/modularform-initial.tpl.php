@@ -9,7 +9,6 @@
   <div class="modularform-initial-wrapper">
     <h2><?php print t('Form Info'); ?></h2>
     <h3><?php print t('Please enter initial info for the form'); ?></h3>
-
     <form<?php print drupal_attributes($form['#attributes']); ?>>
 
       <div class="form-row">
@@ -24,18 +23,33 @@
         </div>
       </div>
 
-
       <div class="form-row">
         <div class="form-field">
           <?php print render($form['status']); ?>
         </div>
         <div class="form-field">
+          <?php print render($form['visibility']); ?>
+        </div>
+        <div class="form-field">
+          <?php print render($form['visibility_options_wrapper']); ?>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-field">
+          <?php print render($form['scheduled']); ?>
+        </div>
+        <div class="form-field">
+          <?php print render($form['scheduled_date_wrapper']); ?>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-field">
           <?php print render($form['closes']); ?>
         </div>
-
-
         <div class="form-field">
-          <?php print render($form['closes_at']); ?>
+          <?php print render($form['closes_at_wrapper']); ?>
         </div>
       </div>
 
@@ -44,8 +58,6 @@
       </div>
 
       <?php print drupal_render_children($form); ?>
-
     </form>
   </div>
-
 </div>
