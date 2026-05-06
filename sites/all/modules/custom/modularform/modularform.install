@@ -354,6 +354,28 @@ function modularform_schema() {
         'unsigned' => TRUE,
         'not null' => TRUE,
       ],
+      'status' => [
+        'description' => t('Status of their response 0 for not submitted, 1 for submitted'),
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+      'token' => [
+        'description' => t('Unique form Token'),
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+      ],
+      'notified' => [
+        'description' => t('Email sent or not 0 is not sent 1 is sent.'),
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ],
       'created_at' => [
         'type' => 'int',
         'not null' => TRUE,
@@ -393,13 +415,27 @@ function modularform_schema() {
         'default'  => '',
       ],
       'status' => [
-        'description' => t('Status 0 is accepted, 1 is not accepted.'),
+        'description' => t('Status 0 is not accepted, 1 is accepted.'),
         'type' => 'int',
         'size' => 'tiny',
         'unsigned' => TRUE,
         'not null' => TRUE,
+        'default' => 0,
       ],
-      #TODO when request is accepted add to user to form members.
+      'token' => [
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => ''
+      ],
+      'notified' => [
+        'description' => t('Email sent or not 0 is not sent 1 is sent.'),
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ],
       'created_at' => [
         'type'     => 'int',
         'not null' => TRUE,
@@ -501,6 +537,12 @@ function modularform_schema() {
         'description' => t('Question FK (varchar natural key)'),
         'type' => 'varchar',
         'length' => 64,
+        'not null' => TRUE,
+      ],
+      'answer_id' => [
+        'description' => t('Answer id fk'),
+        'type' => 'int',
+        'unsigned' => TRUE,
         'not null' => TRUE,
       ],
       'created_at' => [
@@ -666,3 +708,54 @@ function modularform_schema() {
 function modularform_install() {}
 
 function modularform_uninstall() {}
+
+/**
+ * Add token field to modularform_form_invites table.
+ */
+function modularform_update_7001(): void {
+  $table = 'modularform_form_invites';
+
+  // Define the new field.
+  $field = [
+    'type' => 'varchar',
+    'description' => 'Unique token for identifying the form invite.',
+    'length' => 64,
+    'not null' => TRUE,
+    'default' => '',
+  ];
+
+  // Add the field if it doesn't exist.
+  if (!db_field_exists($table, 'token')) {
+    db_add_field($table, 'token', $field);
+  }
+}
+
+/**
+ * Add status and token fields to modularform_form_members.
+ */
+function modularform_update_7002(): void {
+  $table = 'modularform_form_members';
+
+  // Add status field
+  if (!db_field_exists($table, 'status')) {
+    db_add_field($table, 'status', [
+      'description' => t('Status of their response 0 for not submitted, 1 for submitted'),
+      'type' => 'int',
+      'size' => 'tiny',
+      'unsigned' => TRUE,
+      'not null' => TRUE,
+      'default' => 0,
+    ]);
+  }
+
+  // Add token field
+  if (!db_field_exists($table, 'token')) {
+    db_add_field($table, 'token', [
+      'description' => t('Unique form Token'),
+      'type' => 'varchar',
+      'length' => 60,
+      'not null' => TRUE,
+      'default' => '', // required for existing rows
+    ]);
+  }
+}
