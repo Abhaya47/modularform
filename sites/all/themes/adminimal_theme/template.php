@@ -179,6 +179,19 @@ function adminimal_preprocess_page(&$vars) {
     '#secondary' => $vars['tabs']['#secondary'],
   );
   unset($vars['page']['hidden']);
+
+  $vars['site_name'] = 'Modularform';
+  global $user;
+  if ($user->uid) {
+    $vars['front_page'] = '/forms/manage';
+  } else {
+    $vars['front_page'] = '/landing';
+  }
+
+  $path = current_path();
+  if ($path == 'user/login' || $path == 'user/register') {
+    drupal_goto('landing');
+  }
 }
 
 /**
@@ -500,3 +513,11 @@ function adminimal_ckeditor_settings_alter(&$settings) {
   }
 }
 
+//alter form
+function adminimal_form_user_login_alter(&$form, &$form_state, $form_id) {
+  $form['#action'] = url('user/login', array('query' => array('destination' => 'forms/manage')));
+}
+
+function adminimal_form_user_register_form_alter(&$form, &$form_state, $form_id) {
+  $form['#action'] = url('user/register', array('query' => array('destination' => 'forms/manage')));
+}

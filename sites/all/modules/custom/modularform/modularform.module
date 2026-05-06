@@ -6,6 +6,7 @@ require_once dirname(__FILE__) . '/includes/dashboard.inc';
 require_once dirname(__FILE__) . '/includes/load_form_elements.inc';
 require_once dirname(__FILE__) . '/includes/preview.inc';
 require_once dirname(__FILE__) . '/includes/trash.inc';
+require_once dirname(__FILE__) . '/includes/user_registration.inc';
 //rules file
 require_once dirname(__FILE__) . '/modularform.rules.inc';
 
@@ -13,21 +14,33 @@ require_once dirname(__FILE__) . '/modularform.rules.inc';
  * Implements hook_custom_theme().
  */
 function modularform_custom_theme() {
-  global $user;
-
+//  global $user;
   //  if (isset($user->roles) && in_array('admin', $user->roles)) {
   return 'adminimal';
   //  }
 }
 
+#TODO form members list and restrictions
+#TODO form edit holders
+#TODO email
+#TODO form publishing and removing
+#TODO response saving and viewing
+
+
 function modularform_menu() {
   $items = [];
+
+  $items['/landing'] = array(
+    'title' => 'Dashboard',
+    'page callback' => 'landing_page',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
 
   $items['forms/manage'] = [
     'title' => 'Dashboard',
     'page callback' => 'form_dashboard_page',
     'access arguments' => ['view forms'],
-    // here for hook_permission. Uses the permission
     'access callback' => 'form_view_page',
     'menu_name' => 'main-menu',
   ];
@@ -90,16 +103,24 @@ function modularform_menu() {
     'access callback' => TRUE,
   ];
 
-  $items['modularform/autocomplete/users'] = [
-    'title' => 'User autocomplete',
-    'page callback' => 'modularform_autocomplete_users',
-    'access callback' => 'user_is_logged_in',
-    'type' => MENU_CALLBACK,
+  $items['register/invite/%'] = [
+    'title'            => 'Register via Invite',
+    'page callback'    => 'modularform_invite_register_page',
+    'page arguments'   => [2],
+    'access callback'  => TRUE,
+    'type'             => MENU_CALLBACK,
   ];
 
   $items['modularform/tags/autocomplete'] = array(
-    'title'            => 'Tag autocomplete',
-    'page callback'    => 'modularform_tags_autocomplete',
+    'title'          => 'Tag autocomplete',
+    'page callback'  => 'modularform_tags_autocomplete',
+    'access callback' => TRUE,
+    'type'           => MENU_CALLBACK,
+  );
+
+  $items['modularform/user-autocomplete'] = array(
+    'title'            => 'User autocomplete',
+    'page callback'    => 'modularform_user_autocomplete',
     'access arguments' => array('access content'),
     'type'             => MENU_CALLBACK,
   );
@@ -127,6 +148,15 @@ function modularform_permission() {
       'title' => t('Delete forms'),
       'description' => t('Allow users to delete forms.'),
     ],
+    'answer_forms' => [
+      'title' => t('Answer Forms'),
+      'description' => t('Allow users to answer forms.'),
+    ],
+    'view submissions' => [
+      'title' => t('View submissions'),
+      'description' => t('Allow users to view submissions.'),
+    ]
+
   ];
 }
 
@@ -274,61 +304,6 @@ function modularform_entity_info() {
   return $info;
 }
 
-// view page
-
-
-// create page
-
-
-function modularform_mail($key, &$message, $params) {
-  $form = $params['form'];
-  $link = url('forms/' . $form->slug, ['absolute' => TRUE]);
-
-  switch ($key) {
-    case 'form_invite':
-      // Non-Drupal user invited by email
-      $message['subject'] = t('You have been invited to fill out: @title', ['@title' => $form->title]);
-      $message['body'][] = t('You have been invited to access a form.');
-      $message['body'][] = t('Click the link below to access it:');
-      $message['body'][] = $link;
-      break;
-
-    case 'form_invite_user':
-      // Existing Drupal user
-      $message['subject'] = t('You have been given access to: @title', ['@title' => $form->title]);
-      $message['body'][] = t('You have been granted access to a form. Log in and visit:');
-      $message['body'][] = $link;
-      break;
-
-    case 'form_notify_role':
-      $message['subject'] = t('You now have access to: @title', ['@title' => $form->title]);
-      $message['body'][] = t('A form has been shared with your role. Log in and visit:');
-      $message['body'][] = $link;
-      break;
-  }
-}
-
-/**
- * Implements hook_cron_queue_info().
- */
-function modularform_cron_queue_info() {
-  return [
-    'modularform_mail_queue' => [
-      'worker callback' => 'modularform_mail_queue_worker',
-      'time' => 30, // max seconds per cron run to spend on this queue
-    ],
-  ];
-}
-
-function modularform_mail_queue_worker($item) {
-  drupal_mail(
-    'modularform',
-    $item['key'],
-    $item['to'],
-    language_default(),
-    $item['params']
-  );
-}
 
 /**
  * Implements hook_theme().
@@ -358,4 +333,119 @@ function modularform_theme() {
     ],
   ];
 }
+
+function custom_landing_page() {
+  return '<div id="dashboard-root"></div>'; // Drupal renders page--landing.tpl.php around this
+}
+
+// ── Queue worker (hook_cron_queue_info + processor) ───────────────────────────
+
+/**
+ * Implements hook_cron_queue_info().
+ */
+function modularform_cron_queue_info() {
+  return [
+    'modularform_mail_queue' => [
+      'worker callback' => 'modularform_mail_queue_worker',
+      'time' => 30,    // seconds per cron run to spend on this queue
+    ],
+  ];
+}
+
+/**
+ * Queue worker: fires the right email based on the item key.
+ */
+function modularform_mail_queue_worker($item) {
+  switch ($item['key']) {
+    // ── Existing user: fill this form ────────────────────────────────────────
+    case 'form_notify_user':
+      drupal_mail(
+        'modularform',
+        'notify_user',
+        $item['to'],
+        language_default(),
+        $item['params']
+      );
+      break;
+
+    // ── External address: register + fill ────────────────────────────────────
+    case 'form_invite_external':
+      drupal_mail(
+        'modularform',
+        'invite_external',
+        $item['to'],
+        language_default(),
+        $item['params']
+      );
+      break;
+
+    // ── Role-based notification (existing behaviour) ──────────────────────────
+    case 'form_notify_role':
+      drupal_mail(
+        'modularform',
+        'notify_role',
+        $item['to'],
+        language_default(),
+        $item['params']
+      );
+      break;
+  }
+}
+
+// ── hook_mail ─────────────────────────────────────────────────────────────────
+
+/**
+ * Implements hook_mail().
+ */
+function modularform_mail($key, &$message, $params) {
+  $form = $params['form'];
+
+  switch ($key) {
+    case 'notify_user':
+      $account = $params['account'];
+      $form_url = $params['form_url'];
+
+      $message['subject'] = t('You have been invited to fill out: @title', [
+        '@title' => $form->title,
+      ]);
+      $message['body'][] = t('Hello @name,', ['@name' => $account->name]);
+      $message['body'][] = t('@title is ready for you to fill out.', [
+        '@title' => $form->title,
+      ]);
+      $message['body'][] = t('Click the link below to get started:');
+      $message['body'][] = $form_url;
+      $message['body'][] = t('Thank you.');
+      break;
+
+    case 'invite_external':
+      $register_url = $params['register_url'];
+
+      $message['subject'] = t('You have been invited to fill out: @title', [
+        '@title' => $form->title,
+      ]);
+      $message['body'][] = t('Hello,');
+      $message['body'][] = t('You have been invited to fill out the form: @title.', [
+        '@title' => $form->title,
+      ]);
+      $message['body'][] = t('To get started, please register for an account using the link below:');
+      $message['body'][] = $register_url;
+      $message['body'][] = t('Once registered you will have access to the form.');
+      $message['body'][] = t('Thank you.');
+      break;
+
+    case 'notify_role':
+      $message['subject'] = t('A new form is available: @title', [
+        '@title' => $form->title,
+      ]);
+      $message['body'][] = t('Hello,');
+      $message['body'][] = t('A new form "@title" has been published and is available for your role.', [
+        '@title' => $form->title,
+      ]);
+      $message['body'][] = url('forms/' . $form->slug . '/fill', ['absolute' => TRUE]);
+      $message['body'][] = t('Thank you.');
+      break;
+  }
+}
+
+
 
