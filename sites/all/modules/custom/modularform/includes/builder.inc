@@ -816,44 +816,64 @@ function modularform_ajax_rule_value_callback($form, &$form_state) {
  * Modularform submit function
  */
 function modularform_builder_form_submit($form, &$form_state) {
-  $fid = $form_state['storage']['fid'];
+  $fid    = $form_state['storage']['fid'];
+  $is_new = $form_state['storage']['is_new'] ?? FALSE;
+
+//  neatly prepares the data
+  $records = _modularform_build_records($fid, $form_state);
+
+  if ($is_new) {
+    _modularform_create($fid, $records);
+  } else {
+    _modularform_edit($fid, $records);
+  }
+
+  db_update('modularform_forms')
+    ->fields(['updated_at' => REQUEST_TIME])
+    ->condition('id', $fid)
+    ->execute();
+
+  drupal_set_message(t('Survey saved successfully.'));
+  $form_state['redirect'] = '/forms/' . $fid . '/builder/preview';
+}
+
+function _modularform_build_records($fid, &$form_state) {
   $elements = $form_state['storage']['elements'];
-  $values = $form_state['values']['elements_container'];
-  $now = REQUEST_TIME;
+  $values   = $form_state['values']['elements_container'];
+  $now      = REQUEST_TIME;
 
   $type_map = [
-    'text' => 0,
-    'textarea' => 1,
-    'radio' => 2,
-    'boolean' => 3,
-    'checkbox' => 4,
-    'file' => 5,
-    'dropdown' => 6,
-    'tag' => 7,
-    'richtext' => 8,
-    'date' => 9,
-    'time' => 10,
-    'list' => 11,
+    'text'      => 0,
+    'textarea'  => 1,
+    'radio'     => 2,
+    'boolean'   => 3,
+    'checkbox'  => 4,
+    'file'      => 5,
+    'dropdown'  => 6,
+    'tag'       => 7,
+    'richtext'  => 8,
+    'date'      => 9,
+    'time'      => 10,
+    'list'      => 11,
   ];
   $datatype_map = [
-    'text' => 'varchar',
-    'textarea' => 'text',
-    'richtext' => 'text',
-    'radio' => 'int',
-    'boolean' => 'bool',
-    'checkbox' => 'int',
-    'file' => 'varchar',
-    'dropdown' => 'int',
-    'tag' => 'int',
-    'date' => 'date',
-    'time' => 'varchar',
-    'list' => 'int',
+    'text'      => 'varchar',
+    'textarea'  => 'text',
+    'richtext'  => 'text',
+    'radio'     => 'int',
+    'boolean'   => 'bool',
+    'checkbox'  => 'int',
+    'file'      => 'varchar',
+    'dropdown'  => 'int',
+    'tag'       => 'int',
+    'date'      => 'date',
+    'time'      => 'varchar',
+    'list'      => 'int',
   ];
 
-  // ── 0. Bucket elements by type ────────────────────────────────────────────
-  $sections = [];
+  $sections  = [];
   $questions = [];
-  $options = [];
+  $options   = [];
   $val_rules = [];
 
   foreach ($elements as $id => $el) {
@@ -864,89 +884,86 @@ function modularform_builder_form_submit($form, &$form_state) {
         }
         $sections[$id] = $el;
         break;
+
       case 'question':
-        $sec_id = $el['parent']; // original parent — used to look up submitted values
+        $sec_id  = $el['parent'];
         $new_sec = $values[$sec_id][$id]['parent_sec'] ?? $sec_id;
         if (isset($values[$sec_id][$id]['weight'])) {
           $el['weight'] = (int) $values[$sec_id][$id]['weight'];
         }
-        $el['parent'] = $new_sec;
-        $el['original_parent'] = $sec_id; // store original for values lookup
-        $questions[$id] = $el;
+        $el['parent']          = $new_sec;
+        $el['original_parent'] = $sec_id;
+        $questions[$id]        = $el;
         break;
+
       case 'option':
-        $q_id = $el['parent'];
+        $q_id   = $el['parent'];
         $sec_id = $elements[$q_id]['parent'] ?? NULL;
         if ($sec_id && isset($values[$sec_id][$q_id][$id]['weight'])) {
           $el['weight'] = (int) $values[$sec_id][$q_id][$id]['weight'];
         }
         $options[$id] = $el;
         break;
+
       case 'validation_rule':
         $val_rules[$id] = $el;
         break;
     }
   }
 
-  uasort($sections, fn($a, $b) => $a['weight'] <=> $b['weight']);
+  uasort($sections,  fn($a, $b) => $a['weight'] <=> $b['weight']);
   uasort($questions, fn($a, $b) => $a['weight'] <=> $b['weight']);
-  uasort($options, fn($a, $b) => $a['weight'] <=> $b['weight']);
+  uasort($options,   fn($a, $b) => $a['weight'] <=> $b['weight']);
   uasort($val_rules, fn($a, $b) => $a['weight'] <=> $b['weight']);
 
-  $live_sec_ids = array_keys($sections) ?: [''];
-  $live_q_ids = array_keys($questions) ?: [''];
-  $live_o_ids = array_keys($options) ?: [''];
-  $live_r_ids = array_keys($val_rules) ?: [''];
-
-  // ── 1. Build flat record arrays ───────────────────────────────────────────
   $sec_records = [];
   foreach ($sections as $sec_id => $sec_el) {
-    $sec_records[] = [
-      'sec_id' => $sec_id,
-      'form_id' => $fid,
-      'name' => $values[$sec_id]['title'] ?? $sec_el['title'] ?? '',
-      'weight' => $sec_el['weight'],
+    $sec_records[$sec_id] = [
+      'sec_id'     => $sec_id,
+      'form_id'    => $fid,
+      'name'       => $values[$sec_id]['title'] ?? $sec_el['title'] ?? '',
+      'weight'     => $sec_el['weight'],
       'created_at' => $now,
       'updated_at' => $now,
     ];
   }
 
-  $q_records = [];
+  $q_records        = [];
   $position_counter = [];
   foreach ($questions as $q_id => $q_el) {
-    $sec_id = $q_el['parent'];          // new section — saved to DB
-    $orig_sec = $q_el['original_parent'] ?? $sec_id; // original — used to read $values
-    $q_type_str = $q_el['question_type'] ?? 'text';
-    $q_vals = $values[$orig_sec][$q_id] ?? []; // ← use orig_sec here
+    $sec_id   = $q_el['parent'];
+    $orig_sec = $q_el['original_parent'] ?? $sec_id;
+    $q_type   = $q_el['question_type'] ?? 'text';
+    $q_vals   = $values[$orig_sec][$q_id] ?? [];
     $position = $position_counter[$sec_id] ?? 0;
     $position_counter[$sec_id] = $position + 1;
 
-    $q_records[] = [
-      'q_id' => $q_id,
-      'form_id' => $fid,
-      'sec_id' => $sec_id,             // ← new section
-      'label' => $q_vals['question_text'] ?? '',
-      'type' => $type_map[$q_type_str] ?? 0,
-      'datatype' => $datatype_map[$q_type_str] ?? 'varchar',
+    $q_records[$q_id] = [
+      'q_id'        => $q_id,
+      'form_id'     => $fid,
+      'sec_id'      => $sec_id,
+      'label'       => $q_vals['question_text'] ?? '',
+      'type'        => $type_map[$q_type] ?? 0,
+      'datatype'    => $datatype_map[$q_type] ?? 'varchar',
       'is_required' => (int) ($q_vals['validation']['is_required'] ?? 0),
-      'position' => $position,
-      'created_at' => $now,
-      'updated_at' => $now,
+      'position'    => $position,
+      'created_at'  => $now,
+      'updated_at'  => $now,
     ];
   }
 
   $o_records = [];
   foreach ($options as $o_id => $o_el) {
-    $q_id = $o_el['parent'];
-    $sec_id = $questions[$q_id]['parent'] ?? NULL;
+    $q_id     = $o_el['parent'];
+    $sec_id   = $questions[$q_id]['parent'] ?? NULL;
     $orig_sec = $questions[$q_id]['original_parent'] ?? $sec_id;
 
-    $o_records[] = [
-      'o_id' => $o_id,
-      'q_id' => $q_id,
-      'form_id' => $fid,
-      'option' => $values[$orig_sec][$q_id][$o_id]['option_label'] ?? '',
-      'weight' => $o_el['weight'],
+    $o_records[$o_id] = [
+      'o_id'       => $o_id,
+      'q_id'       => $q_id,
+      'form_id'    => $fid,
+      'option'     => $values[$orig_sec][$q_id][$o_id]['option_label'] ?? '',
+      'weight'     => $o_el['weight'],
       'created_at' => $now,
       'updated_at' => $now,
     ];
@@ -954,46 +971,75 @@ function modularform_builder_form_submit($form, &$form_state) {
 
   $r_records = [];
   foreach ($val_rules as $r_id => $r_el) {
-    $q_id = $r_el['parent'];
-    $sec_id = $questions[$q_id]['parent'] ?? NULL;
+    $q_id     = $r_el['parent'];
+    $sec_id   = $questions[$q_id]['parent'] ?? NULL;
     $orig_sec = $questions[$q_id]['original_parent'] ?? $sec_id;
-    $q_type_str = $questions[$q_id]['question_type'] ?? '';
+    $q_type   = $questions[$q_id]['question_type'] ?? '';
 
     if (str_ends_with($r_id, '_is_multiple')) {
-      $is_multiple = match ($q_type_str) {
+      $is_multiple = match ($q_type) {
         'dropdown' => (int) ($values[$orig_sec][$q_id]['dropdown_multiple'] ?? 0),
-        'file' => (int) ($values[$orig_sec][$q_id]['file_settings']['multiple'] ?? 0),
-        default => 0,
+        'file'     => (int) ($values[$orig_sec][$q_id]['file_settings']['multiple'] ?? 0),
+        default    => 0,
       };
-      $r_records[] = [
-        'r_id' => $r_id,
-        'q_id' => $q_id,
-        'form_id' => $fid,
-        'rule_type' => 'is_multiple',
-        'rule_value' => $is_multiple,
+      $r_records[$r_id] = [
+        'r_id'          => $r_id,
+        'q_id'          => $q_id,
+        'form_id'       => $fid,
+        'rule_type'     => 'is_multiple',
+        'rule_value'    => $is_multiple,
         'error_message' => '',
-        'weight' => 0,
-        'created_at' => $now,
-        'updated_at' => $now,
+        'weight'        => 0,
+        'created_at'    => $now,
+        'updated_at'    => $now,
       ];
       continue;
     }
 
     $r_vals = $values[$orig_sec][$q_id]['validation']['adv_rules'][$r_id] ?? [];
-    $r_records[] = [
-      'r_id' => $r_id,
-      'q_id' => $q_id,
-      'form_id' => $fid,
-      'rule_type' => $r_vals['rule_type'] ?? '',
-      'rule_value' => $r_vals['rule_value_wrapper']['rule_value'] ?? '',
+    $r_records[$r_id] = [
+      'r_id'          => $r_id,
+      'q_id'          => $q_id,
+      'form_id'       => $fid,
+      'rule_type'     => $r_vals['rule_type'] ?? '',
+      'rule_value'    => $r_vals['rule_value_wrapper']['rule_value'] ?? '',
       'error_message' => $r_vals['error_message'] ?? '',
-      'weight' => $r_el['weight'],
-      'created_at' => $now,
-      'updated_at' => $now,
+      'weight'        => $r_el['weight'],
+      'created_at'    => $now,
+      'updated_at'    => $now,
     ];
   }
 
-  // ── 2. Bulk deletes — children before parents ─────────────────────────────
+  return [
+    'sections'         => $sec_records,
+    'questions'        => $q_records,
+    'options'          => $o_records,
+    'validation_rules' => $r_records,
+  ];
+}
+
+function _modularform_create($fid, array $records) {
+  foreach ($records['sections'] as $row) {
+    db_insert('modularform_sections')->fields($row)->execute();
+  }
+  foreach ($records['questions'] as $row) {
+    db_insert('modularform_questions')->fields($row)->execute();
+  }
+  foreach ($records['options'] as $row) {
+    db_insert('modularform_question_options')->fields($row)->execute();
+  }
+  foreach ($records['validation_rules'] as $row) {
+    db_insert('modularform_validation_rules')->fields($row)->execute();
+  }
+}
+
+function _modularform_edit($fid, array $records) {
+  $live_sec_ids = array_keys($records['sections'])         ?: [''];
+  $live_q_ids   = array_keys($records['questions'])        ?: [''];
+  $live_o_ids   = array_keys($records['options'])          ?: [''];
+  $live_r_ids   = array_keys($records['validation_rules']) ?: [''];
+
+  // Delete orphans — children before parents
   db_delete('modularform_validation_rules')
     ->condition('form_id', $fid)
     ->condition('r_id', $live_r_ids, 'NOT IN')
@@ -1011,64 +1057,31 @@ function modularform_builder_form_submit($form, &$form_state) {
     ->condition('sec_id', $live_sec_ids, 'NOT IN')
     ->execute();
 
-  // ── 3. Bulk upserts via INSERT … ON DUPLICATE KEY UPDATE ──────────────────
-  _modularform_bulk_upsert('modularform_sections', $sec_records, [
-    'name',
-    'weight',
-    'updated_at',
+  // Upsert survivors
+  _modularform_bulk_upsert('modularform_sections', array_values($records['sections']), [
+    'name', 'weight', 'updated_at',
   ]);
-  _modularform_bulk_upsert('modularform_questions', $q_records, [
-    'sec_id',
-    'label',
-    'type',
-    'datatype',
-    'is_required',
-    'position',
-    'updated_at',
+  _modularform_bulk_upsert('modularform_questions', array_values($records['questions']), [
+    'sec_id', 'label', 'type', 'datatype', 'is_required', 'position', 'updated_at',
   ]);
-  _modularform_bulk_upsert('modularform_question_options', $o_records, [
-    'option',
-    'weight',
-    'updated_at',
+  _modularform_bulk_upsert('modularform_question_options', array_values($records['options']), [
+    'option', 'weight', 'updated_at',
   ]);
-  _modularform_bulk_upsert('modularform_validation_rules', $r_records, [
-    'rule_type',
-    'rule_value',
-    'error_message',
-    'weight',
-    'updated_at',
+  _modularform_bulk_upsert('modularform_validation_rules', array_values($records['validation_rules']), [
+    'rule_type', 'rule_value', 'error_message', 'weight', 'updated_at',
   ]);
-
-  // ── 4. Touch parent form ──────────────────────────────────────────────────
-  db_update('modularform_forms')
-    ->fields(['updated_at' => $now])
-    ->condition('id', $fid)
-    ->execute();
-
-  drupal_set_message(t('Survey saved successfully.'));
-  $form_state['redirect'] = '/forms/' . $fid . '/builder/preview';
 }
 
-/**
- * @param $table
- * @param array $records
- * @param array $update_cols
- *
- * @return void
- *
- * db save function
- */
 function _modularform_bulk_upsert($table, array $records, array $update_cols) {
   if (empty($records)) {
     return;
   }
   $connection = Database::getConnection();
-  $prefixed = $connection->prefixTables('{' . $table . '}');
-  $cols = array_keys($records[0]);
-  $col_list = implode(', ', $cols);
-  $row_ph = '(' . implode(', ', array_fill(0, count($cols), '?')) . ')';
-
-  $rows_sql = implode(', ', array_fill(0, count($records), $row_ph));
+  $prefixed   = $connection->prefixTables('{' . $table . '}');
+  $cols       = array_keys($records[0]);
+  $col_list   = implode(', ', $cols);
+  $row_ph     = '(' . implode(', ', array_fill(0, count($cols), '?')) . ')';
+  $rows_sql   = implode(', ', array_fill(0, count($records), $row_ph));
   $update_parts = array_map(fn($c) => "$c = VALUES($c)", $update_cols);
 
   $sql = "INSERT INTO $prefixed ($col_list) VALUES $rows_sql"
@@ -1080,6 +1093,7 @@ function _modularform_bulk_upsert($table, array $records, array $update_cols) {
       $args[] = $row[$col];
     }
   }
+
   $stmt = $connection->prepare($sql);
   $stmt->execute($args);
 }
