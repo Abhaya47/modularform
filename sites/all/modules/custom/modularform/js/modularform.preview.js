@@ -51,14 +51,13 @@
             $.ajax({
               url: acUrl,
               dataType: 'json',
-              data: { q: opts.term, page_limit: 20 },
-              // no vid
+              data: { term: opts.term, page_limit: 20 },  // ← q → term
               success: function (data) {
                 opts.callback({ results: data.results, more: data.more });
               },
               error: function () {
                 opts.callback({ results: [] });
-              },
+              }
             });
           },
 

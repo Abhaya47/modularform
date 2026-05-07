@@ -295,6 +295,26 @@ function _dfp_attach_tinymce($element, &$form_state) {
   return $element;
 }
 
+function modularform_tags_autocomplete() {
+  $search = isset($_GET['term']) ? check_plain(trim($_GET['term'])) : '';
+  $limit  = isset($_GET['page_limit']) ? (int) $_GET['page_limit'] : 20;
+  $results = [];
+
+  $query = db_select('modularform_tags', 't')
+    ->fields('t', ['id', 'title']);
+
+  if ($search !== '') {
+    $query->condition('t.title', '%' . db_like($search) . '%', 'LIKE');
+  }
+
+  foreach ($query->orderBy('t.title')->range(0, $limit)->execute() as $row) {
+    $results[] = ['id' => $row->id, 'text' => $row->title];
+  }
+
+  drupal_json_output(['results' => $results, 'more' => FALSE]);
+  drupal_exit();
+}
+
 function modularform_library() {
   $path = drupal_get_path('module', 'modularform');
   $select2_path = 'sites/all/libraries/select2-3.5.4';
@@ -312,24 +332,4 @@ function modularform_library() {
       'dependencies' => [['system', 'jquery']],
     ],
   ];
-}
-
-function modularform_tags_autocomplete() {
-  $search = isset($_GET['q']) ? check_plain(trim($_GET['q'])) : '';
-  $limit  = isset($_GET['page_limit']) ? (int) $_GET['page_limit'] : 20;
-  $results = [];
-
-  $query = db_select('modularform_tags', 't')
-    ->fields('t', ['id', 'title']);
-
-  if ($search !== '') {
-    $query->condition('t.title', '%' . db_like($search) . '%', 'LIKE');
-  }
-
-  foreach ($query->orderBy('t.title')->range(0, $limit)->execute() as $row) {
-    $results[] = ['id' => $row->id, 'text' => $row->title];
-  }
-
-  drupal_json_output(['results' => $results, 'more' => FALSE]);
-  drupal_exit();
 }
