@@ -7,6 +7,9 @@ require_once dirname(__FILE__) . '/includes/load_form_elements.inc';
 require_once dirname(__FILE__) . '/includes/preview.inc';
 require_once dirname(__FILE__) . '/includes/trash.inc';
 require_once dirname(__FILE__) . '/includes/user_registration.inc';
+require_once dirname(__FILE__) . '/includes/answer_view.inc';
+require_once dirname(__FILE__) . '/includes/answer_submit.inc';
+
 //rules file
 require_once dirname(__FILE__) . '/modularform.rules.inc';
 
@@ -21,8 +24,9 @@ function modularform_custom_theme() {
 }
 
 #TODO form members list and restrictions
+#TODO email(this is kinda done just need to check)
+
 #TODO form edit holders
-#TODO email
 #TODO form publishing and removing
 #TODO response saving and viewing
 
@@ -103,12 +107,39 @@ function modularform_menu() {
     'access callback' => TRUE,
   ];
 
+  #TODO change call backs
   $items['register/invite/%'] = [
     'title'            => 'Register via Invite',
     'page callback'    => 'modularform_invite_register_page',
     'page arguments'   => [2],
     'access callback'  => TRUE,
     'type'             => MENU_CALLBACK,
+  ];
+
+  #TODO think about people who are logged out but you already have the unique code soo
+  $items['forms/%/fill'] = [
+    'title'          => 'Fill Form',
+    'page callback'  => 'drupal_get_form',
+    'page arguments' => ['modularform_answer_form', 1],
+    'access callback'=> 'modularform_fill_access',
+    'access arguments'=> [1], // passes the fid (wildcard %)
+    'type'           => MENU_CALLBACK,
+  ];
+
+  $items['forms/response/view/%'] = [
+    'title' => 'View response form',
+    'page callback' => 'modularform_response_view_page',
+    'page arguments' => [3],
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['forms/response/list'] = [
+    'title' => 'Response',
+    'page callback' => 'modularform_response_list_page',
+    'access callback' => TRUE,
+    'type' => MENU_NORMAL_ITEM,
+    'menu_name' => 'main-menu',
   ];
 
   $items['modularform/tags/autocomplete'] = array(
@@ -180,6 +211,25 @@ function form_create_access() {
     return TRUE;
   }
   return FALSE;
+}
+
+function modularform_fill_access($fid) {
+  $token = isset($_GET['token']) ? check_plain($_GET['token']) : '';
+  if (empty($token)) {
+    return FALSE;
+  }
+
+  global $user;
+  $record = db_select('modularform_form_members', 'mfm')
+    ->fields('mfm')
+    ->condition('form_id', $fid)
+    ->condition('token', $token)
+    ->condition('uid', $user->uid)
+    ->condition('status', 0)
+    ->execute()
+    ->fetchObject();
+
+  return !empty($record);
 }
 
 /**
