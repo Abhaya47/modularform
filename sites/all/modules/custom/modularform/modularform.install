@@ -36,6 +36,13 @@ function modularform_schema() {
         'type' => 'varchar',
         'length' => 255,
       ],
+      'visibility'=>[
+        'description' => t('Visibility of the Form 0 is public, 1 is restricted, 2 is private'),
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ],
       'closes' => [
         'description' => t('Whether form closes after a certain time or at a date'),
         'type' => 'int',
@@ -60,7 +67,6 @@ function modularform_schema() {
         'not null' => FALSE,
         'default' => NULL,
       ],
-
       'created_by' => [
         'description' => t('Creator of the Form using drupal user id'),
         'type' => 'int',
@@ -759,3 +765,19 @@ function modularform_update_7002(): void {
     ]);
   }
 }
+
+function modularform_update_7003(): void {
+  $table = 'modularform_forms';
+
+  // Add status field
+  if (!db_field_exists($table, 'visibility')) {
+    db_add_field($table, 'visibility', [
+      'description' => t('Visibility of the Form 0 is public, 1 is restricted, 2 is private'),
+      'type' => 'int',
+      'size' => 'tiny',
+      'not null' => TRUE,
+      'default' => 0,
+    ]);
+  }
+}
+
