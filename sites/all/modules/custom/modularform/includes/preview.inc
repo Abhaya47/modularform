@@ -1,5 +1,6 @@
 <?php
 
+require_once dirname(__FILE__) . '/builder_build_fields.inc';
 
 /**
  * Preview function
