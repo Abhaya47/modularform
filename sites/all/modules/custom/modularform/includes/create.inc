@@ -214,10 +214,6 @@ function modularform_create_form($form, &$form_state, $id = NULL) {
   return $form;
 }
 
-function your_form_add_more_submit($form, &$form_state) {
-  $form_state['num_people']++;
-  $form_state['rebuild'] = TRUE;
-}
 
 function your_form_add_more_callback($form, &$form_state) {
   return $form['visibility_options_wrapper']['people'];
@@ -517,7 +513,7 @@ function _modularform_restricted_people_edit($form_id, array $selected_rids, $en
     db_delete('modularform_form_members')
       ->condition('form_id', $form_id)
       ->condition('uid', $to_remove, 'IN')
-      ->condition('roles', 1)
+      ->condition('roles', 2)
       ->execute();
   }
 
@@ -550,12 +546,9 @@ function _modularform_restricted_people_edit($form_id, array $selected_rids, $en
  */
 function _modularform_restricted_people_add($form_id, array $selected_rids, $entity, $now, array $uids_to_add = []) {
   if (empty($uids_to_add)) {
-    $uids_to_add = _modularform_get_protected_people($selected_rids);
-  }
-
-  if (empty($uids_to_add)) {
     return;
   }
+  $uids_to_add = _modularform_get_protected_people($selected_rids);
 
   $query = db_insert('modularform_form_members')
     ->fields(['form_id', 'uid', 'roles', 'status', 'token', 'created_at', 'updated_at']);
@@ -766,7 +759,7 @@ function _modularform_queue_private_notifications($form_id, $entity, $now) {
         'key'    => 'form_notify_user',
         'to'     => $account->mail,
         'params' => [
-          'form_id'  => $entity->id,
+          'form_id'  => $entity->title,
           'uid'      => $account->uid,
           'form_url' => $form_url,
         ],
@@ -898,7 +891,7 @@ function _modularform_queue_restricted_notifications($form_id, $entity, array $n
       continue;
     }
 
-    $form_url = url('forms/' . $entity->slug . '/fill', [
+    $form_url = url('forms/' . $entity->id . '/fill', [
       'absolute' => TRUE,
       'query'    => ['token' => $row['token']],
     ]);
@@ -907,7 +900,7 @@ function _modularform_queue_restricted_notifications($form_id, $entity, array $n
       'key'    => 'form_notify_user',
       'to'     => $account->mail,
       'params' => [
-        'form'     => $entity,
+        'form'     => $entity->title,
         'account'  => $account,
         'form_url' => $form_url,
       ],
