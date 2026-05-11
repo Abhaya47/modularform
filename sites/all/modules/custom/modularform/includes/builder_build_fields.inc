@@ -67,6 +67,24 @@ function _modularform_build_fields(&$form, $elements, $mode = 'preview'){
   $form['#tree'] = TRUE;
   $form['#attributes']['enctype'] = 'multipart/form-data';
 
+  $is_anonymous_form = !empty($form_record['anonymous_responses']);
+  if (!$is_anonymous_form) {
+    global $user;
+    if (!$user->uid) {
+      $form['_guest_email'] = [
+        '#type' => 'textfield',
+        '#title' => t('Your Email'),
+        '#required' => TRUE,
+        '#maxlength' => 255,
+        '#weight' => -100,
+        '#attributes' => [
+          'type' => 'email',
+          'placeholder' => t('Enter your email address'),
+        ],
+      ];
+    }
+  }
+
   foreach ($sections as $sec_id => $sec) {
     $form[$sec_id] = [
       '#type' => 'container',
@@ -245,7 +263,6 @@ function _modularform_build_fields(&$form, $elements, $mode = 'preview'){
       }
     }
   }
-
 }
 
 function _dynamic_form_preview_maybe_load_tinymce($form_id) {
@@ -315,21 +332,3 @@ function modularform_tags_autocomplete() {
   drupal_exit();
 }
 
-function modularform_library() {
-  $path = drupal_get_path('module', 'modularform');
-  $select2_path = 'sites/all/libraries/select2-3.5.4';
-
-  return [
-    'select2' => [
-      'title' => 'Select2',
-      'version' => '3.5.4',
-      'js' => [
-        $select2_path . '/select2.min.js' => [],
-      ],
-      'css' => [
-        $select2_path . '/select2.css' => [],
-      ],
-      'dependencies' => [['system', 'jquery']],
-    ],
-  ];
-}
