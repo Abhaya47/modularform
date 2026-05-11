@@ -67,6 +67,21 @@ function modularform_schema() {
         'not null' => FALSE,
         'default' => NULL,
       ],
+      'editable' => [
+        'description' => t('Form editable 0 is no 1 is yes'),
+        'type' => 'int',
+        'size' => 'tiny',
+        'default' => 0,
+        'unsigned' => TRUE,
+      ],
+      'anonymous_responses' => [
+        'description' => t('Anonymous Responses 0 is no 1 is yes'),
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ],
       'created_by' => [
         'description' => t('Creator of the Form using drupal user id'),
         'type' => 'int',
@@ -497,6 +512,13 @@ function modularform_schema() {
         'unsigned' => TRUE,
         'not null' => TRUE,
       ],
+      'email' => [
+        'description' => t('Email'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'default' => '',
+      ],
       'user_id' => [
         'description' => t('Drupal user'),
         'type' => 'int',
@@ -526,7 +548,7 @@ function modularform_schema() {
   ];
 
   $schema['modularform_answers'] = [
-    'description' => t('Answers. options and checkboxes answers are stored in int as fk '),
+    'description' => t('Form answers'),
     'fields' => [
       'id' => [
         'type' => 'serial',
@@ -534,7 +556,7 @@ function modularform_schema() {
         'not null' => TRUE,
       ],
       'response_id' => [
-        'description' => t('Response id fk'),
+        'description' => t('Response FK'),
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
@@ -545,19 +567,58 @@ function modularform_schema() {
         'length' => 64,
         'not null' => TRUE,
       ],
-      'answer_id' => [
-        'description' => t('Answer id fk'),
+      'datatype' => [
+        'description' => t('Datatype: 0=varchar 1=text 2=int 3=bool 4=date'),
         'type' => 'int',
+        'size' => 'tiny',
         'unsigned' => TRUE,
         'not null' => TRUE,
+        'default' => 0,
+      ],
+      'value_varchar' => [
+        'description' => t('text, file, time'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+        'default' => NULL,
+      ],
+      'value_text' => [
+        'description' => t('textarea, richtext'),
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => FALSE,
+      ],
+      'value_int' => [
+        'description' => t('radio, dropdown, tag, list — single. FK into answers_multi for multi.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+        'default' => NULL,
+      ],
+      'value_bool' => [
+        'description' => t('boolean'),
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+        'default' => NULL,
+      ],
+      'value_date' => [
+        'description' => t('date, stored as unix timestamp'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+        'default' => NULL,
       ],
       'created_at' => [
         'type' => 'int',
+        'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
       ],
       'updated_at' => [
         'type' => 'int',
+        'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
       ],
@@ -569,8 +630,8 @@ function modularform_schema() {
     ],
   ];
 
-  $schema['modularform_answers_int'] = [
-    'description' => t('Int Answers'),
+  $schema['modularform_answers_multi'] = [
+    'description' => t('Multi-value answers: checkbox, tag, list'),
     'fields' => [
       'id' => [
         'type' => 'serial',
@@ -578,129 +639,17 @@ function modularform_schema() {
         'not null' => TRUE,
       ],
       'answer_id' => [
-        'description' => t('Answer id fk'),
+        'description' => t('FK to modularform_answers.id'),
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
       ],
       'value' => [
-        'description' => t('Value'),
+        'description' => t('Selected option FK'),
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
       ],
-    ],
-    'primary key' => ['id'],
-    'indexes' => [
-      'answer_id' => ['answer_id'],
-    ],
-  ];
-
-  $schema['modularform_answers_bool'] = [
-    'description' => t('Bool Answers'),
-    'fields' => [
-      'id' => [
-        'type' => 'serial',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ],
-      'answer_id' => [
-        'description' => t('Answer id fk'),
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ],
-      'value' => [
-        'description' => t('Value'),
-        'type' => 'int',
-        'size' => 'tiny',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ],
-    ],
-    'primary key' => ['id'],
-    'indexes' => [
-      'answer_id' => ['answer_id'],
-    ],
-  ];
-
-  $schema['modularform_answers_text'] = [
-    'description' => t('Answers'),
-    'fields' => [
-      'id' => [
-        'type' => 'serial',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ],
-      'answer_id' => [
-        'description' => t('Answer id fk'),
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ],
-      'value' => [
-        'description' => t('Value'),
-        'type' => 'text',
-        'size' => 'big',
-        'not null' => TRUE,
-      ],
-    ],
-    'primary key' => ['id'],
-    'indexes' => [
-      'answer_id' => ['answer_id'],
-    ],
-  ];
-
-  $schema['modularform_answers_varchar'] = [
-    'description' => t('Answers varchar'),
-    'fields' => [
-      'id' => [
-        'type' => 'serial',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ],
-      'answer_id' => [
-        'description' => t('Answer id fk'),
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ],
-      'value' => [
-        'description' => t('Value'),
-        'type' => 'varchar',
-        'length' => 100,
-        'not null' => TRUE,
-      ],
-    ],
-    'primary key' => ['id'],
-    'indexes' => [
-      'answer_id' => ['answer_id'],
-    ],
-  ];
-
-  $schema['modularform_answers_date'] = [
-    'description' => t('Date'),
-    'fields' => [
-      'id' => [
-        'type' => 'serial',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ],
-
-      'answer_id' => [
-        'description' => t('Answer id fk'),
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ],
-
-      'value' => [
-        'description' => t('Value'),
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ],
-
     ],
     'primary key' => ['id'],
     'indexes' => [
@@ -781,3 +730,58 @@ function modularform_update_7003(): void {
   }
 }
 
+
+function modularform_update_7004(): void {
+  $table = 'modularform_responses';
+  if (!db_field_exists($table, 'email')) {
+    db_add_field($table, 'email', [
+      'description' => t('Email'),
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => FALSE,
+      'default' => '',
+    ]);
+  }
+}
+
+function modularform_update_7005(): void {
+  $table = 'modularform_forms';
+  if (!db_field_exists($table, 'editable')) {
+    db_add_field($table, 'editable', [
+      'description' => t('Response Editable 0 is no 1 is yes'),
+      'type' => 'int',
+      'size' => 'tiny',
+      'not null' => TRUE,
+      'default' => 0,
+    ]);
+  }
+}
+
+function modularform_update_7006(): void {
+  db_change_field(
+    'modularform_responses',
+    'email',
+    'email',
+    [
+      'description' => t('Email'),
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => FALSE,
+      'default' => '',
+    ]
+  );
+}
+
+
+function modularform_update_7007(): void {
+  $table = 'modularform_forms';
+  if (!db_field_exists($table, 'anonymous_responses')) {
+    db_add_field($table, 'anonymous_responses', [
+      'description' => t('anonymous_responses 0 is no 1 is yes'),
+      'type' => 'int',
+      'size' => 'tiny',
+      'not null' => TRUE,
+      'default' => 0,
+    ]);
+  }
+}

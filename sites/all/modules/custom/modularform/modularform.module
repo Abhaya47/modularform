@@ -1,4 +1,5 @@
 <?php
+
 //function files
 require_once dirname(__FILE__) . '/includes/builder.inc';
 require_once dirname(__FILE__) . '/includes/create.inc';
@@ -9,7 +10,8 @@ require_once dirname(__FILE__) . '/includes/trash.inc';
 require_once dirname(__FILE__) . '/includes/user_registration.inc';
 require_once dirname(__FILE__) . '/includes/answer_view.inc';
 require_once dirname(__FILE__) . '/includes/answer_submit.inc';
-
+require_once dirname(__FILE__) . '/includes/builder_build_fields.inc';
+require_once dirname(__FILE__) . '/includes/response_list.inc';
 //rules file
 require_once dirname(__FILE__) . '/modularform.rules.inc';
 
@@ -17,7 +19,7 @@ require_once dirname(__FILE__) . '/modularform.rules.inc';
  * Implements hook_custom_theme().
  */
 function modularform_custom_theme() {
-//  global $user;
+  //  global $user;
   //  if (isset($user->roles) && in_array('admin', $user->roles)) {
   return 'adminimal';
   //  }
@@ -30,16 +32,15 @@ function modularform_custom_theme() {
 #TODO form publishing and removing
 #TODO response saving and viewing
 
-
 function modularform_menu() {
   $items = [];
 
-  $items['/landing'] = array(
+  $items['/landing'] = [
     'title' => 'Dashboard',
     'page callback' => 'landing_page',
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
-  );
+  ];
 
   $items['forms/manage'] = [
     'title' => 'Dashboard',
@@ -109,21 +110,21 @@ function modularform_menu() {
 
   #TODO change call backs
   $items['register/invite/%'] = [
-    'title'            => 'Register via Invite',
-    'page callback'    => 'modularform_invite_register_page',
-    'page arguments'   => [2],
-    'access callback'  => TRUE,
-    'type'             => MENU_CALLBACK,
+    'title' => 'Register via Invite',
+    'page callback' => 'modularform_invite_register_page',
+    'page arguments' => [2],
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
   ];
 
   #TODO think about people who are logged out but you already have the unique code soo
   $items['forms/%/fill'] = [
-    'title'          => 'Fill Form',
-    'page callback'  => 'drupal_get_form',
+    'title' => 'Fill Form',
+    'page callback' => 'drupal_get_form',
     'page arguments' => ['modularform_answer_form', 1],
-    'access callback'=> 'modularform_fill_access',
-    'access arguments'=> [1], // passes the fid (wildcard %)
-    'type'           => MENU_CALLBACK,
+    'access callback' => 'modularform_fill_access',
+    'access arguments' => [1], // passes the fid (wildcard %)
+    'type' => MENU_CALLBACK,
   ];
 
   $items['forms/response/view/%'] = [
@@ -142,19 +143,27 @@ function modularform_menu() {
     'menu_name' => 'main-menu',
   ];
 
-  $items['modularform/tags/autocomplete'] = array(
-    'title'          => 'Tag autocomplete',
-    'page callback'  => 'modularform_tags_autocomplete',
+  $items['forms/response/delete/%'] = [
+    'title'           => 'Delete Response',
+    'page callback'   => 'modularform_response_delete',
+    'page arguments'  => [3],
     'access callback' => TRUE,
-    'type'           => MENU_CALLBACK,
-  );
+    'type'            => MENU_CALLBACK,
+  ];
 
-  $items['modularform/user-autocomplete'] = array(
-    'title'            => 'User autocomplete',
-    'page callback'    => 'modularform_user_autocomplete',
-    'access arguments' => array('access content'),
-    'type'             => MENU_CALLBACK,
-  );
+  $items['modularform/tags/autocomplete'] = [
+    'title' => 'Tag autocomplete',
+    'page callback' => 'modularform_tags_autocomplete',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['modularform/user-autocomplete'] = [
+    'title' => 'User autocomplete',
+    'page callback' => 'modularform_user_autocomplete',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  ];
   return $items;
 }
 
@@ -186,7 +195,7 @@ function modularform_permission() {
     'view submissions' => [
       'title' => t('View submissions'),
       'description' => t('Allow users to view submissions.'),
-    ]
+    ],
 
   ];
 }
@@ -214,7 +223,18 @@ function form_create_access() {
 }
 
 function modularform_fill_access($fid) {
-  $token = isset($_GET['token']) ? check_plain($_GET['token']) : '';
+  $form = db_select('modularform_forms', 'f')
+    ->fields('f', ['id', 'visibility'])
+    ->execute()
+    ->fetchAssoc();
+
+  if ($form['visibility'] == 0){
+    return True;
+  }
+
+  if ($form) {
+    $token = isset($_GET['token']) ? check_plain($_GET['token']) : '';
+  }
   if (empty($token)) {
     return FALSE;
   }
@@ -354,7 +374,6 @@ function modularform_entity_info() {
   return $info;
 }
 
-
 /**
  * Implements hook_theme().
  */
@@ -380,6 +399,15 @@ function modularform_theme() {
       ],
       'template' => 'modularform-trash',
       'path' => drupal_get_path('module', 'modularform') . '/templates',
+    ],
+    'response_list' => [
+      'variables' => [
+        'form'   => NULL,
+        'header' => [],
+        'rows'   => [],
+      ],
+      'template' => 'modularform-response-list', // → response-list.tpl.php
+      'path'     => drupal_get_path('module', 'modularform') . '/templates',
     ],
   ];
 }
@@ -498,4 +526,21 @@ function modularform_mail($key, &$message, $params) {
 }
 
 
+function modularform_library() {
+  $path = drupal_get_path('module', 'modularform');
+  $select2_path = 'sites/all/libraries/select2-3.5.4';
 
+  return [
+    'select2' => [
+      'title' => 'Select2',
+      'version' => '3.5.4',
+      'js' => [
+        $select2_path . '/select2.min.js' => [],
+      ],
+      'css' => [
+        $select2_path . '/select2.css' => [],
+      ],
+      'dependencies' => [['system', 'jquery']],
+    ],
+  ];
+}
