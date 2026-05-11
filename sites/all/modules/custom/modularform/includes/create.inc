@@ -1,5 +1,7 @@
 <?php
 
+module_load_include('inc', 'modularform', 'modularform.rules');
+
 #TODO role based member addition
 function modularform_create_form($form, &$form_state, $id = NULL) {
   // Load existing form entity if editing.
@@ -53,12 +55,12 @@ function modularform_create_form($form, &$form_state, $id = NULL) {
     '#type' => 'select',
     '#title' => t('Visibility'),
     '#options' => [
-      'public' => t('Public'),
-      'restricted' => t('Restricted (by role)'),
-      'private' => t('Private (specific people)'),
+      0 => t('Public'),
+      1 => t('Restricted (by role)'),
+      2 => t('Private (specific people)'),
     ],
     '#required' => TRUE,
-    '#default_value' => $val('visibility', 'public'),
+    '#default_value' => $val('visibility', 0),
     '#ajax' => [
       'callback' => 'modularform_visibility_ajax',
       'wrapper' => 'visibility-options-wrapper',
@@ -70,9 +72,10 @@ function modularform_create_form($form, &$form_state, $id = NULL) {
     '#attributes' => ['id' => 'visibility-options-wrapper'],
   ];
 
-  $visibility = $val('visibility', 'public');
-
-  if ($visibility === 'restricted') {
+  $visibility = $val('visibility', 0);
+  $text_map = modularform_visibility_get_text_map();
+  $visibility_text = isset($text_map[$visibility]) ? $text_map[$visibility] : 'public';
+  if ($visibility_text === 'restricted') {
     $roles = array_diff_key(user_roles(TRUE), [
       DRUPAL_AUTHENTICATED_RID => TRUE,
     ]);
@@ -86,7 +89,7 @@ function modularform_create_form($form, &$form_state, $id = NULL) {
     ];
   }
 
-  if ($visibility === 'private') {
+  if ($visibility_text === 'private') {
     $form['visibility_options_wrapper']['people_wrapper'] = [
       '#type' => 'container',
       '#tree' => TRUE,
@@ -122,9 +125,13 @@ function modularform_create_form($form, &$form_state, $id = NULL) {
       ],
     ];
 
+    $form['visibility_options_wrapper']['people_wrapper']['#attached']['library'][] = [
+      'modularform', 'select2',  // loads select2 first
+    ];
     $form['visibility_options_wrapper']['people_wrapper']['#attached']['js'][] = [
       'data' => drupal_get_path('module', 'modularform') . '/js/modularform.people.js',
       'type' => 'file',
+      'weight' => 10,
     ];
   }
 
@@ -214,7 +221,6 @@ function modularform_create_form($form, &$form_state, $id = NULL) {
   return $form;
 }
 
-
 function your_form_add_more_callback($form, &$form_state) {
   return $form['visibility_options_wrapper']['people'];
 }
@@ -277,12 +283,15 @@ function modularform_create_form_submit($form, &$form_state) {
   $entity->closes = !empty($values['closes']) ? 1 : 0;
   $entity->closes_at = $closes_at;
 
-
   // ── visibility ────────────────────────────────────────────────────────────
   $visibility = $values['visibility'];
+  $entity->visibility = $visibility;
   $form_id = $entity->id;
 
-  if ($visibility === 'restricted') {
+  $text_map = modularform_visibility_get_text_map();
+  $visibility_text = isset($text_map[$values['visibility']]) ? $text_map[$values['visibility']] : 'public';
+
+  if ($visibility_text === 'restricted') {
     $selected_rids = array_filter($values['visibility_options_wrapper']['roles']);
 
     $uids_to_add = [];
@@ -296,7 +305,7 @@ function modularform_create_form_submit($form, &$form_state) {
     _modularform_restricted_people_add($form_id, $selected_rids, $entity, $now, $uids_to_add);
   }
 
-  elseif ($visibility === 'private') {
+  elseif ($visibility_text === 'private') {
     $raw = isset($values['visibility_options_wrapper']['people_wrapper']['people_value'])
       ? $values['visibility_options_wrapper']['people_wrapper']['people_value']
       : '';
@@ -370,7 +379,7 @@ function modularform_soft_delete($form_id) {
 // Returns Select2 3.5.4 format: { results: [{id, text, uid, email, exists}] }
 
 function modularform_user_autocomplete() {
-  $search = isset($_GET['q']) ? trim(check_plain($_GET['q'])) : '';
+  $search = isset($_GET['people']) ? trim(check_plain($_GET['people'])) : '';
 
   $results = [];
 
@@ -404,7 +413,6 @@ function modularform_user_autocomplete() {
   drupal_json_output(['results' => $results, 'more' => FALSE]);
   drupal_exit();
 }
-
 
 // ── Form field builder (called from modularform_create_form) ──────────────────
 // Drop this block in place of the old $form['visibility_options_wrapper']['people']
@@ -474,7 +482,6 @@ function _modularform_get_protected_people(array $rids) {
   return array_unique(array_map('intval', $uids));
 }
 
-
 /**
  * Syncs role-based members for an existing form.
  *
@@ -482,10 +489,10 @@ function _modularform_get_protected_people(array $rids) {
  * - Updates updated_at for members who remain.
  * - Returns the uids that still need to be inserted (new additions).
  *
- * @param int   $form_id
+ * @param int $form_id
  * @param array $selected_rids
  * @param object $entity
- * @param int   $now
+ * @param int $now
  *
  * @return array
  *   Uids to be inserted by _modularform_restricted_people_add().
@@ -505,11 +512,12 @@ function _modularform_restricted_people_edit($form_id, array $selected_rids, $en
   $existing_uids = array_map('intval', array_keys($existing));
 
   $to_remove = array_diff($existing_uids, $new_uids);
-  $to_keep   = array_intersect($existing_uids, $new_uids);
-  $to_add    = array_diff($new_uids, $existing_uids);
+  $to_keep = array_intersect($existing_uids, $new_uids);
+  $to_add = array_diff($new_uids, $existing_uids);
 
   // Remove members no longer in the role set.
   if (!empty($to_remove)) {
+    #TODO make an apology
     db_delete('modularform_form_members')
       ->condition('form_id', $form_id)
       ->condition('uid', $to_remove, 'IN')
@@ -535,14 +543,16 @@ function _modularform_restricted_people_edit($form_id, array $selected_rids, $en
  * Inserts member rows for uids that are not yet in the form's member table.
  *
  * On a create flow, pass the full uid list.
- * On an edit flow, pass only the diff returned by _modularform_restricted_people_edit().
+ * On an edit flow, pass only the diff returned by
+ * _modularform_restricted_people_edit().
  *
- * @param int    $form_id
- * @param array  $selected_rids  (unused here, kept for signature consistency)
+ * @param int $form_id
+ * @param array $selected_rids (unused here, kept for signature consistency)
  * @param object $entity
- * @param int    $now
- * @param array  $uids_to_add    Explicit uid list; if empty the function
- *                               resolves it from $selected_rids itself (create path).
+ * @param int $now
+ * @param array $uids_to_add Explicit uid list; if empty the function
+ *                               resolves it from $selected_rids itself (create
+ *   path).
  */
 function _modularform_restricted_people_add($form_id, array $selected_rids, $entity, $now, array $uids_to_add = []) {
   if (empty($uids_to_add)) {
@@ -551,7 +561,15 @@ function _modularform_restricted_people_add($form_id, array $selected_rids, $ent
   $uids_to_add = _modularform_get_protected_people($selected_rids);
 
   $query = db_insert('modularform_form_members')
-    ->fields(['form_id', 'uid', 'roles', 'status', 'token', 'created_at', 'updated_at']);
+    ->fields([
+      'form_id',
+      'uid',
+      'roles',
+      'status',
+      'token',
+      'created_at',
+      'updated_at',
+    ]);
 
   $new_rows = [];
   foreach ($uids_to_add as $uid) {
@@ -559,11 +577,11 @@ function _modularform_restricted_people_add($form_id, array $selected_rids, $ent
     $new_rows[] = ['uid' => (int) $uid, 'token' => $token];
 
     $query->values([
-      'form_id'    => $form_id,
-      'uid'        => (int) $uid,
-      'roles'      => 2,
-      'status'     => 0,
-      'token'      => $token,
+      'form_id' => $form_id,
+      'uid' => (int) $uid,
+      'roles' => 2,
+      'status' => 0,
+      'token' => $token,
       'created_at' => $now,
       'updated_at' => $now,
     ]);
@@ -573,8 +591,6 @@ function _modularform_restricted_people_add($form_id, array $selected_rids, $ent
 
   _modularform_queue_restricted_notifications($form_id, $entity, $new_rows);
 }
-
-
 
 /**
  * Parses raw people_value into drupal uids and external emails.
@@ -615,13 +631,12 @@ function _modularform_parse_private_people($raw) {
   return $result;
 }
 
-
 /**
  * Inserts member rows for private Drupal users not already in the table.
  *
- * @param int   $form_id
+ * @param int $form_id
  * @param array $uids
- * @param int   $now
+ * @param int $now
  *
  * @return array
  *   Uids that were actually inserted (not already existing).
@@ -646,17 +661,26 @@ function _modularform_save_private_drupal($form_id, array $uids, $now) {
   }
 
   $query = db_insert('modularform_form_members')
-    ->fields(['form_id', 'uid', 'roles', 'status', 'token', 'notified', 'created_at', 'updated_at']);
+    ->fields([
+      'form_id',
+      'uid',
+      'roles',
+      'status',
+      'token',
+      'notified',
+      'created_at',
+      'updated_at',
+    ]);
 
   foreach ($to_insert as $uid) {
     $token = hash('sha256', $form_id . '_' . $uid . '_' . drupal_random_key(16));
     $query->values([
-      'form_id'    => $form_id,
-      'uid'        => (int) $uid,
-      'roles'      => 2,   // participant
-      'status'     => 0,
-      'token'      => $token,
-      'notified'   => 0,
+      'form_id' => $form_id,
+      'uid' => (int) $uid,
+      'roles' => 2,   // participant
+      'status' => 0,
+      'token' => $token,
+      'notified' => 0,
       'created_at' => $now,
       'updated_at' => $now,
     ]);
@@ -667,13 +691,12 @@ function _modularform_save_private_drupal($form_id, array $uids, $now) {
   return array_values($to_insert);
 }
 
-
 /**
  * Inserts invite rows for external emails not already invited.
  *
- * @param int   $form_id
+ * @param int $form_id
  * @param array $emails
- * @param int   $now
+ * @param int $now
  *
  * @return array
  *   Emails that were actually inserted (not already existing).
@@ -703,11 +726,11 @@ function _modularform_save_private_external($form_id, array $emails, $now) {
   foreach ($to_insert as $email) {
     $token = hash('sha256', $form_id . '_' . $email . '_' . drupal_random_key(16));
     $query->values([
-      'form_id'    => $form_id,
-      'email'      => $email,
-      'token'      => $token,
-      'status'     => 1,   // pending
-      'notified'   => 0,
+      'form_id' => $form_id,
+      'email' => $email,
+      'token' => $token,
+      'status' => 1,   // pending
+      'notified' => 0,
       'created_at' => $now,
     ]);
   }
@@ -717,13 +740,12 @@ function _modularform_save_private_external($form_id, array $emails, $now) {
   return array_values($to_insert);
 }
 
-
 /**
  * Queues notification emails for all unnotified private members and invites.
  *
- * @param int    $form_id
+ * @param int $form_id
  * @param object $entity
- * @param int    $now
+ * @param int $now
  */
 function _modularform_queue_private_notifications($form_id, $entity, $now) {
   if ((int) $entity->status !== 1) {
@@ -752,15 +774,15 @@ function _modularform_queue_private_notifications($form_id, $entity, $now) {
 
       $form_url = url('forms/' . $entity->slug . '/fill', [
         'absolute' => TRUE,
-        'query'    => ['token' => $row['token']],
+        'query' => ['token' => $row['token']],
       ]);
 
       $queue->createItem([
-        'key'    => 'form_notify_user',
-        'to'     => $account->mail,
+        'key' => 'form_notify_user',
+        'to' => $account->mail,
         'params' => [
-          'form_id'  => $entity->title,
-          'uid'      => $account->uid,
+          'form_id' => $entity->title,
+          'uid' => $account->uid,
           'form_url' => $form_url,
         ],
       ]);
@@ -784,10 +806,10 @@ function _modularform_queue_private_notifications($form_id, $entity, $now) {
   if (!empty($invite_rows)) {
     foreach ($invite_rows as $row) {
       $queue->createItem([
-        'key'    => 'form_invite_external',
-        'to'     => $row['email'],
+        'key' => 'form_invite_external',
+        'to' => $row['email'],
         'params' => [
-          'form_id'      => $entity->id,
+          'form_id' => $entity->id,
           'register_url' => url('register/invite/' . $row['token'], ['absolute' => TRUE]),
         ],
       ]);
@@ -801,14 +823,14 @@ function _modularform_queue_private_notifications($form_id, $entity, $now) {
   }
 }
 
-
 /**
- * Saves private people on create or edit, and queues notifications if published.
+ * Saves private people on create or edit, and queues notifications if
+ * published.
  *
- * @param int    $form_id
+ * @param int $form_id
  * @param string $raw
  * @param object $entity
- * @param int    $now
+ * @param int $now
  */
 function _modularform_save_private_people($form_id, $raw, $entity, $now) {
   $parsed = _modularform_parse_private_people($raw);
@@ -817,14 +839,13 @@ function _modularform_save_private_people($form_id, $raw, $entity, $now) {
   _modularform_queue_private_notifications($form_id, $entity, $now);
 }
 
-
 /**
  * Syncs private people on edit — removes dropped members, adds new ones.
  *
- * @param int    $form_id
+ * @param int $form_id
  * @param string $raw
  * @param object $entity
- * @param int    $now
+ * @param int $now
  */
 function _modularform_edit_private_people($form_id, $raw, $entity, $now) {
   $parsed = _modularform_parse_private_people($raw);
@@ -872,9 +893,9 @@ function _modularform_edit_private_people($form_id, $raw, $entity, $now) {
 /**
  * Queues notification emails for newly added restricted members.
  *
- * @param int    $form_id
+ * @param int $form_id
  * @param object $entity
- * @param array  $new_rows
+ * @param array $new_rows
  *   Array of ['uid' => int, 'token' => string] for each inserted member.
  */
 function _modularform_queue_restricted_notifications($form_id, $entity, array $new_rows) {
@@ -893,15 +914,15 @@ function _modularform_queue_restricted_notifications($form_id, $entity, array $n
 
     $form_url = url('forms/' . $entity->id . '/fill', [
       'absolute' => TRUE,
-      'query'    => ['token' => $row['token']],
+      'query' => ['token' => $row['token']],
     ]);
 
     $queue->createItem([
-      'key'    => 'form_notify_user',
-      'to'     => $account->mail,
+      'key' => 'form_notify_user',
+      'to' => $account->mail,
       'params' => [
-        'form'     => $entity->title,
-        'account'  => $account,
+        'form' => $entity->title,
+        'account' => $account,
         'form_url' => $form_url,
       ],
     ]);

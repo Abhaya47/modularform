@@ -189,3 +189,130 @@ function _modularform_rule_value_options($q_type, $rule_type) {
   $defs = _modularform_rule_definitions();
   return $defs[$q_type][$rule_type]['value_options'] ?? [];
 }
+
+
+
+/**
+ * Returns edit permissions for a form based on its state.
+ *
+ * States:
+ *   'draft'                   — no restrictions
+ *   'published_no_responses'  — no restrictions
+ *   'published_has_responses' — structural changes blocked
+ */
+function _modularform_edit_rules($state) {
+  $rules = [
+    'draft' => [
+      'add_section'     => TRUE,
+      'delete_section'  => TRUE,
+      'add_question'    => TRUE,
+      'delete_question' => TRUE,
+      'change_type'     => TRUE,
+      'rename_label'    => TRUE,
+      'reorder'         => TRUE,
+      'edit_options'    => TRUE,
+      'add_option'      => TRUE,
+      'delete_option'   => TRUE,
+      'change_required' => TRUE,
+    ],
+
+    'published_no_responses' => [
+      'add_section'     => TRUE,
+      'delete_section'  => TRUE,
+      'add_question'    => TRUE,
+      'delete_question' => TRUE,
+      'change_type'     => TRUE,
+      'rename_label'    => TRUE,
+      'reorder'         => TRUE,
+      'edit_options'    => TRUE,
+      'add_option'      => TRUE,
+      'delete_option'   => TRUE,
+      'change_required' => TRUE,
+    ],
+
+    'published_has_responses' => [
+      'add_section'     => FALSE,
+      'delete_section'  => FALSE,
+      'add_question'    => TRUE,   // optional only — enforced separately
+      'delete_question' => FALSE,
+      'change_type'     => FALSE,
+      'rename_label'    => TRUE,   // warn in UI but allow
+      'reorder'         => TRUE,
+      'edit_options'    => FALSE,
+      'add_option'      => FALSE,
+      'delete_option'   => FALSE,
+      'change_required' => FALSE,
+    ],
+  ];
+
+  return $rules[$state] ?? $rules['draft'];
+}
+
+function modularform_type_map(): array {
+  return [
+      'text'      => 0,
+      'textarea'  => 1,
+      'radio'     => 2,
+      'boolean'   => 3,
+      'checkbox'  => 4,
+      'file'      => 5,
+      'dropdown'  => 6,
+      'tag'       => 7,
+      'richtext'  => 8,
+      'date'      => 9,
+      'time'      => 10,
+      'list'      => 11,
+  ];
+}
+
+function modularform_datatype_map(): array {
+  return [
+    'text'      => 'varchar',
+    'textarea'  => 'text',
+    'richtext'  => 'text',
+    'radio'     => 'int',
+    'boolean'   => 'bool',
+    'checkbox'  => 'int',    // multi → child table
+    'tag'       => 'int',    // multi → child table
+    'list'      => 'int',    // multi → child table
+    'dropdown'  => 'int',
+    'file'      => 'varchar',
+    'date'      => 'date',
+    'time'      => 'varchar',
+  ];
+}
+
+function modularform_get_type_map(string $type):int {
+  return modularform_type_map()[$type] ?? 0;
+}
+
+function modularform_get_datatype(string $q_type): string {
+  return modularform_datatype_map()[$q_type] ?? 'varchar';
+}
+
+function modularform_datatype_int_map(){
+  return [
+    'varchar' => 0,
+    'text' => 1,
+    'int' => 2,
+    'bool' => 3,
+    'date' => 4,
+  ];
+}
+
+function modularform_get_datatype_int_map(string $q_type) {
+  return modularform_datatype_int_map()[$q_type] ?? '0';
+}
+
+function modularform_visibility_get_int_map() {
+  return [
+    'public'     => 0,
+    'restricted' => 1,
+    'private'    => 2,
+  ];
+}
+
+function modularform_visibility_get_text_map() {
+  return array_flip(modularform_visibility_get_int_map());
+  // result: [0 => 'public', 1 => 'restricted', 2 => 'private']
+}
