@@ -1,0 +1,7 @@
+name = modularform_search
+description = Solr-powered search for Modularform forms, sections, and questions. Falls back to SQL if Solr is unavailable.
+core = 7.x
+package = Modularform
+dependencies[] = modularform
+dependencies[] = apachesolr
+

@@ -115,8 +115,16 @@
       ]);
       ?>
     <?php endif; ?>
-
-
+<!--search bar-->
+    <div class="gform-search-bar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <?php print render($search_bar); ?>
+    </div>
+<!--table-->
     <div class="gform-section-label"><?php print t('All forms'); ?></div>
     <div class="gform-card">
 

@@ -35,6 +35,57 @@
   border-radius: var(--gf-radius) var(--gf-radius) 0 0;
 }
 
+/* ---------- Guest email card (above section 1) ---------- */
+.modularform-preview-form .preview-guest-email {
+  background: var(--gf-surface);
+  border-radius: var(--gf-radius);
+  box-shadow: var(--gf-shadow);
+  margin-bottom: 16px;
+  padding: 20px 24px;
+  border-top: 10px solid var(--gf-purple);
+  transition: box-shadow .2s ease;
+}
+
+.modularform-preview-form .preview-guest-email:hover {
+  box-shadow: var(--gf-shadow-hover);
+}
+
+.modularform-preview-form .preview-guest-email .form-item label {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--gf-text);
+  display: block;
+  margin-bottom: 10px;
+  font-family: var(--gf-font);
+}
+
+.modularform-preview-form .preview-guest-email .form-required {
+  color: var(--gf-danger);
+  margin-left: 2px;
+}
+
+.modularform-preview-form .preview-guest-email input[type="email"],
+.modularform-preview-form .preview-guest-email input[type="text"] {
+  width: 100%;
+  max-width: 480px;
+  border: none;
+  border-bottom: 1px solid var(--gf-border);
+  border-radius: 0;
+  padding: 8px 0;
+  font-size: 15px;
+  font-family: var(--gf-font);
+  color: var(--gf-text);
+  background: transparent;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color .2s;
+}
+
+.modularform-preview-form .preview-guest-email input[type="email"]:focus,
+.modularform-preview-form .preview-guest-email input[type="text"]:focus {
+  border-bottom: 2px solid var(--gf-blue);
+}
+
 /* ---------- Section card ---------- */
 .modularform-preview-form .preview-section {
   background: var(--gf-surface);

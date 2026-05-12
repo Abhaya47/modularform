@@ -8,7 +8,7 @@ module_load_include('inc', 'modularform', 'includes/load_form_elements');
 module_load_include('inc', 'modularform', 'includes/preview');
 module_load_include('inc', 'modularform', 'includes/trash');
 module_load_include('inc', 'modularform', 'includes/user_registration');
-module_load_include('inc', 'modularform', 'includes/answer_submit');
+module_load_include('inc', 'modularform', 'includes/answer_form');
 module_load_include('inc', 'modularform', 'includes/builder_build_fields');
 module_load_include('inc', 'modularform', 'includes/response_list');
 module_load_include('inc', 'modularform', 'includes/response_view');
@@ -131,7 +131,7 @@ function modularform_menu() {
   $items['forms/response/view/%'] = [
     'title' => 'View response form',
     'page callback' => 'drupal_get_form',
-    'page arguments' => ['modularform_response_view_answer',3],
+    'page arguments' => ['modularform_response_view_answer', 3],
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
   ];
@@ -139,7 +139,7 @@ function modularform_menu() {
   $items['forms/response/edit/%'] = [
     'title' => 'View response form',
     'page callback' => 'drupal_get_form',
-    'page arguments' => ['modularform_response_edit_form',3],
+    'page arguments' => ['modularform_response_edit_form', 3],
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
   ];
@@ -153,11 +153,11 @@ function modularform_menu() {
   ];
 
   $items['forms/response/delete/%'] = [
-    'title'           => 'Delete Response',
-    'page callback'   => 'modularform_response_delete',
-    'page arguments'  => [3],
+    'title' => 'Delete Response',
+    'page callback' => 'modularform_response_delete',
+    'page arguments' => [3],
     'access callback' => TRUE,
-    'type'            => MENU_CALLBACK,
+    'type' => MENU_CALLBACK,
   ];
 
   $items['modularform/tags/autocomplete'] = [
@@ -172,6 +172,14 @@ function modularform_menu() {
     'page callback' => 'modularform_user_autocomplete',
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
+  ];
+
+  // Inside your existing hook_menu():
+  $items['modularform/dashboard/search/ajax'] = [
+    'page callback' => 'modularform_search_ajax',
+    'access arguments' => ['access content'],
+    'type' => MENU_CALLBACK,
+    'delivery callback' => 'ajax_deliver',
   ];
   return $items;
 }
@@ -237,8 +245,8 @@ function modularform_fill_access($fid) {
     ->execute()
     ->fetchAssoc();
 
-  if ($form['visibility'] == 0){
-    return True;
+  if ($form['visibility'] == 0) {
+    return TRUE;
   }
 
   if ($form) {
@@ -313,7 +321,7 @@ function modularform_entity_info() {
     'controller class' => 'EntityAPIController',
     'fieldable' => TRUE,
     'entity keys' => [
-      'id' => 'id',
+      'id' => 'q_id',
       'label' => 'label',
     ],
     'bundles' => [
@@ -392,6 +400,8 @@ function modularform_theme() {
       'variables' => [
         'header' => NULL,
         'rows' => NULL,
+        'search_bar' => NULL,
+        // ← this is what makes $search_bar available in tpl
       ],
       'template' => 'modularform-dashboard',
       'path' => drupal_get_path('module', 'modularform') . '/templates',
@@ -411,12 +421,12 @@ function modularform_theme() {
     ],
     'response_list' => [
       'variables' => [
-        'form'   => NULL,
+        'form' => NULL,
         'header' => [],
-        'rows'   => [],
+        'rows' => [],
       ],
       'template' => 'modularform-response-list', // → response-list.tpl.php
-      'path'     => drupal_get_path('module', 'modularform') . '/templates',
+      'path' => drupal_get_path('module', 'modularform') . '/templates',
     ],
   ];
 }
@@ -533,7 +543,6 @@ function modularform_mail($key, &$message, $params) {
       break;
   }
 }
-
 
 function modularform_library() {
   $path = drupal_get_path('module', 'modularform');

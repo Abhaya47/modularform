@@ -144,6 +144,76 @@
   height: 16px;
 }
 
+/*searchbar*/
+/* ── Search bar ── */
+.gform-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 6px 12px;
+  transition: box-shadow 0.15s;
+  position: relative;
+  z-index: 200;
+}
+.gform-search-bar:focus-within {
+  box-shadow: 0 0 0 2px #d1b8f5;
+  border-color: #9c6fdf;
+}
+.gform-search-bar > svg {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: #9aa0a6;
+}
+/* Override Drupal's default form element margins inside the bar */
+.gform-search-bar .modularform-search-input {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  font-size: 14px;
+  color: #202124;
+  width: 100%;
+  background: transparent;
+  margin: 0;
+  padding: 0;
+}
+.gform-search-bar .modularform-search-btn {
+  flex-shrink: 0;
+  background: #673ab7;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+.gform-search-bar .modularform-search-btn:hover {
+  background: #5e35b1;
+}
+.gform-search-bar .modularform-search-clear {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9aa0a6;
+  font-size: 13px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: color 0.1s;
+  text-decoration: none;
+}
+.gform-search-bar .modularform-search-clear:hover {
+  color: #673ab7;
+}
+
+
 /* ── Table card ── */
 .gform-card {
   background: #fff;
@@ -212,8 +282,6 @@
 
 .gform-table tbody tr:hover {
   background: #f8f5ff;
-  position: relative;
-  z-index: 500;
 }
 
 .gform-table tbody tr:last-child {
@@ -277,7 +345,9 @@
 .action-dropdown {
   position: relative;
   display: inline-block;
+  vertical-align: middle;
 }
+
 
 /* Style the "Actions" button to match your theme */
 .action-dropbtn {
@@ -314,6 +384,7 @@
 /* Show the menu when hovering over the container */
 .action-dropdown:hover .action-dropdown-content {
   display: block;
+  z-index: 300;  /* only the open menu needs to float above things */
 }
 
 /* Style the links inside the dropdown */
@@ -338,13 +409,6 @@
 /* Optional: Add a divider between links */
 .action-dropdown-content a:not(:last-child) {
   border-bottom: 1px solid #f0f0f0;
-}
-
-.action-dropdown {
-  position: relative;
-  display: inline-block;
-  vertical-align: middle;
-  z-index: 100; /* Ensure it stays above other rows */
 }
 
 /* Ensure the button itself looks like a separate clickable element */
