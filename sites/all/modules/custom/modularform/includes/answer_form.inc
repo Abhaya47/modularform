@@ -136,12 +136,13 @@ function modularform_answer_form_submit($form, &$form_state) {
 
       // --- 4. Multi-value: parse and insert child rows ---
       if ($is_multi && !empty($raw)) {
+
         foreach (explode(',', $raw) as $part) {
           $part = trim($part);
 
           if ($q_type === 'tag') {
             if (strpos($part, 'new:') === 0) {
-              $resolved = _modularform_insert_new_tag($q_id, substr($part, 4), $now);
+              $resolved = _modularform_insert_new_tags($q_id, substr($part, 4), $now);
             }
             else {
               $resolved = (int) $part; // tag id from modularform_tags
@@ -282,17 +283,32 @@ function modularform_response_edit_form_submit($form, &$form_state) {
             }
             break;
           case 'tag':
-            $parts = array_filter(explode(',', (string) $raw));
+            $parts = array_map('trim', array_filter(explode(',', (string) $raw)));
+
+            $new_tags = [];
+            $existing_ids = [];
+
+            foreach ($parts as $val) {
+              if (strpos($val, 'new:') === 0) {
+                $new_tags[] = substr($val, 4);
+              } else {
+                $existing_ids[] = (int) $val;
+              }
+            }
+
+            $new_ids = !empty($new_tags)
+              ? _modularform_insert_new_tags($q_id, $new_tags, $now)
+              : [];
+
+            $all_ids = array_merge($existing_ids, $new_ids);
+
             db_delete('modularform_answers_multi')
               ->condition('answer_id', $answer->id)
               ->execute();
-            foreach ($parts as $val) {
-              $val = trim($val);
-              if (strpos($val, 'new:') === 0) {
-                $val = _modularform_insert_new_tag($q_id, substr($val, 4), $now);
-              }
+
+            foreach ($all_ids as $tag_id) {
               db_insert('modularform_answers_multi')
-                ->fields(['answer_id' => $answer->id, 'value' => (int) $val]) // int tag id
+                ->fields(['answer_id' => $answer->id, 'value' => $tag_id])
                 ->execute();
             }
             break;
@@ -384,4 +400,20 @@ function _modularform_load_defaults($response_id) {
   return $defaults;
 }
 
-
+function _modularform_insert_new_tags($q_id, string $labels, $now) {
+  $ids = [];
+  foreach ($labels as $label) {
+    $label = trim($label);
+    if ($label === '') {
+      continue;
+    }
+    $ids[] = db_insert('modularform_tags')
+      ->fields([
+        'q_id'       => $q_id,
+        'label'      => $label,
+        'created_at' => $now,
+      ])
+      ->execute();
+  }
+  return $ids;
+}

@@ -76,11 +76,13 @@ function _modularform_build_fields(&$form, $elements, $mode = 'preview', $defaul
         '#title' => t('Your Email'),
         '#required' => TRUE,
         '#maxlength' => 255,
-        '#weight' => -100,
+        '#weight' => -1000,
         '#attributes' => [
           'type' => 'email',
           'placeholder' => t('Enter your email address'),
         ],
+        '#prefix' => '<div class="preview-section preview-guest-email">',
+        '#suffix' => '</div>',
       ];
     }
   }

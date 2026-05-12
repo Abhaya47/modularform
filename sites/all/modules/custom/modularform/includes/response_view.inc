@@ -1,6 +1,6 @@
 <?php
 
-module_load_include('inc', 'modularform', 'answer_submit');
+module_load_include('inc', 'modularform', 'answer_form');
 
 function modularform_response_view_answer($form, &$form_state, $response_id) {
   $response = db_select('modularform_responses', 'r')

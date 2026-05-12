@@ -1,26 +1,13 @@
 <?php
 
+module_load_include('inc', 'modularform', 'modularform.rules');
+
 /**
  * Load all elements for a form from DB into the storage flat-list format.
  * Returns empty array if form has no saved elements (create flow).
  */
 function _modularform_load_elements($fid) {
   $elements = [];
-
-  $type_map_flip = [
-    0 => 'text',
-    1 => 'textarea',
-    2 => 'radio',
-    3 => 'boolean',
-    4 => 'checkbox',
-    5 => 'file',
-    6 => 'dropdown',
-    7 => 'tag',
-    8 => 'richtext',
-    9 => 'date',
-    10 => 'time',
-    11 => 'list',
-  ];
 
   // Sections
   $sections = db_select('modularform_sections', 's')
@@ -64,8 +51,7 @@ function _modularform_load_elements($fid) {
       'type' => 'question',
       'parent' => $row['sec_id'],
       'label' => $row['label'],
-      'question_type' => $type_map_flip[$row['type']] ?? 'text',
-      'is_required' => (bool) $row['is_required'],
+      'question_type' => modularform_get_type_int_map($row['type']),      'is_required' => (bool) $row['is_required'],
       'add_validation' => FALSE,  // overridden below if rules exist
       'weight' => (int) $row['position'],
     ];

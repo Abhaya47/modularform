@@ -286,6 +286,12 @@ function modularform_get_type_map(string $type):int {
   return modularform_type_map()[$type] ?? 0;
 }
 
+function modularform_get_type_int_map(int $type): string {
+  $type_map = array_flip(modularform_type_map());
+
+  return $type_map[$type] ?? 'text';
+}
+
 function modularform_get_datatype(string $q_type): string {
   return modularform_datatype_map()[$q_type] ?? 'varchar';
 }
