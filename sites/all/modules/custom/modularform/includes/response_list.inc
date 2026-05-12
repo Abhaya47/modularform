@@ -60,7 +60,7 @@ function modularform_response_list_page() {
     $links = [
       'view' => [
         'title' => t('View'),
-        'href'  => 'forms/response/' . $response->id,
+        'href'  => 'forms/response/view/' . $response->id,
       ],
       'delete' => [
         'title'      => t('Delete'),
@@ -68,7 +68,13 @@ function modularform_response_list_page() {
       ],
     ];
 
-    $row[] = $links;
+    if ($any_editable) {
+    $links['edit'] = [
+      'title' => t('Edit'),
+      'href'  => 'forms/response/edit/' . $response->id,
+    ];
+    }
+      $row[] = $links;
     $rows[] = $row;
   }
 
@@ -133,3 +139,4 @@ function modularform_response_delete($response_id) {
 
   drupal_goto('forms/response/list');
 }
+

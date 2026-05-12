@@ -270,12 +270,12 @@ function modularform_datatype_map(): array {
     'text'      => 'varchar',
     'textarea'  => 'text',
     'richtext'  => 'text',
-    'radio'     => 'int',
+    'radio'     => 'varchar', //#TODO change the value to int later
     'boolean'   => 'bool',
-    'checkbox'  => 'int',    // multi → child table
+    'checkbox'  => 'varchar',    // multi → child table //#TODO change the value to int later
     'tag'       => 'int',    // multi → child table
-    'list'      => 'int',    // multi → child table
-    'dropdown'  => 'int',
+    'list'      => 'varchar',    // multi → child table //#TODO change the value to int later
+    'dropdown'  => 'varchar', //#TODO change the value to int later
     'file'      => 'varchar',
     'date'      => 'date',
     'time'      => 'varchar',

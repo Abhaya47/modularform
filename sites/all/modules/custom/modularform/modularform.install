@@ -545,6 +545,9 @@ function modularform_schema() {
       'form_id' => ['form_id'],
       'user_id' => ['user_id'],
     ],
+    'unique keys' => [
+      'form_email' => ['form_id', 'email'],
+    ],
   ];
 
   $schema['modularform_answers'] = [
@@ -568,7 +571,7 @@ function modularform_schema() {
         'not null' => TRUE,
       ],
       'datatype' => [
-        'description' => t('Datatype: 0=varchar 1=text 2=int 3=bool 4=date'),
+        'description' => t('tYPE of question not data type look at rules for mapping'),
         'type' => 'int',
         'size' => 'tiny',
         'unsigned' => TRUE,
@@ -783,5 +786,25 @@ function modularform_update_7007(): void {
       'not null' => TRUE,
       'default' => 0,
     ]);
+  }
+}
+
+/**
+ * Add unique composite keys for form_id/email
+ * on modularform_responses to prevent duplicate submissions.
+ */
+function modularform_update_7008() {
+  if (!db_index_exists('modularform_responses', 'form_user')) {
+    db_add_unique_key('modularform_responses', 'form_user', ['form_id', 'user_id']);
+  }
+
+  if (!db_index_exists('modularform_responses', 'form_email')) {
+    db_add_unique_key('modularform_responses', 'form_email', ['form_id', 'email']);
+  }
+}
+
+function modularform_update_7009() {
+  if (db_index_exists('modularform_responses', 'form_user')) {
+    db_drop_unique_key('modularform_responses', 'form_user');
   }
 }

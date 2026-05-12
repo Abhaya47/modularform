@@ -4,7 +4,7 @@
  * @file
  * Shared form field builder. Shared between preview, submit.
  */
-function _modularform_build_fields(&$form, $elements, $mode = 'preview'){
+function _modularform_build_fields(&$form, $elements, $mode = 'preview', $defaults = []) {
   $form['#attributes']['class'][] = 'modularform-preview-form';
   if (empty($elements)) {
     $form['empty'] = ['#markup' => '<p>' . t('No form elements found.') . '</p>'];
@@ -106,9 +106,8 @@ function _modularform_build_fields(&$form, $elements, $mode = 'preview'){
       $q_options = array_filter($options, fn($o) => $o['parent'] === $q_id);
       uasort($q_options, fn($a, $b) => $a['weight'] <=> $b['weight']);
       $options_list = [];
-      foreach ($q_options as $o) {
-        $val = check_plain($o['option']);
-        $options_list[$val] = $val;
+      foreach ($q_options as $o_id => $o) {
+        $options_list[$o_id] = check_plain($o['option']); // key = o_id, value = label
       }
 
       $form[$sec_id][$q_id] = [
@@ -123,122 +122,125 @@ function _modularform_build_fields(&$form, $elements, $mode = 'preview'){
       switch ($q_type) {
         case 'text':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type' => 'textfield',
-            '#title' => $label,
-            '#required' => $required,
-            '#attributes' => ['data-q-id' => $q_id],
+            '#type'         => 'textfield',
+            '#title'        => $label,
+            '#required'     => $required,
+            '#default_value' => $defaults[$q_id] ?? NULL,
+            '#attributes'   => ['data-q-id' => $q_id],
           ];
           break;
 
         case 'textarea':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type' => 'textarea',
-            '#title' => $label,
-            '#rows' => 5,
-            '#required' => $required,
-            '#attributes' => ['data-q-id' => $q_id],
+            '#type'          => 'textarea',
+            '#title'         => $label,
+            '#rows'          => 5,
+            '#required'      => $required,
+            '#default_value' => $defaults[$q_id] ?? NULL,
+            '#attributes'    => ['data-q-id' => $q_id],
           ];
           break;
 
         case 'richtext':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type' => 'textarea',
-            '#title' => $label,
-            '#required' => $required,
-            '#rows' => 8,
-            '#attributes' => [
+            '#type'          => 'textarea',
+            '#title'         => $label,
+            '#required'      => $required,
+            '#rows'          => 8,
+            '#default_value' => $defaults[$q_id] ?? NULL,
+            '#attributes'    => [
               'class' => ['dfp-text-editor-area'],
-              'id' => 'editor-' . $q_id,
+              'id'    => 'editor-' . $q_id,
             ],
-            // Call a wrapper function to load your JS
             '#after_build' => ['_dfp_attach_tinymce'],
           ];
           break;
 
         case 'date':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type' => 'date',
-            '#title' => $label,
-            '#required' => $required,
-            '#attributes' => ['data-q-id' => $q_id],
+            '#type'          => 'date',
+            '#title'         => $label,
+            '#required'      => $required,
+            '#default_value' => $defaults[$q_id] ?? NULL,
+            '#attributes'    => ['data-q-id' => $q_id],
           ];
           break;
 
         case 'time':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type' => 'textfield',
-            '#title' => $label,
-            '#required' => $required,
-            '#attributes' => ['type' => 'time', 'data-q-id' => $q_id],
+            '#type'          => 'textfield',
+            '#title'         => $label,
+            '#required'      => $required,
+            '#default_value' => $defaults[$q_id] ?? NULL,
+            '#attributes'    => ['type' => 'time', 'data-q-id' => $q_id],
           ];
           break;
 
         case 'boolean':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type' => 'radios',
-            '#title' => $label,
-            '#options' => ['yes' => t('Yes'), 'no' => t('No')],
-            '#required' => $required,
-            '#attributes' => ['data-q-id' => $q_id],
+            '#type'          => 'radios',
+            '#title'         => $label,
+            '#options'       => ['yes' => t('Yes'), 'no' => t('No')],
+            '#required'      => $required,
+            '#default_value' => $defaults[$q_id] ?? NULL,
+            '#attributes'    => ['data-q-id' => $q_id],
           ];
           break;
 
         case 'radio':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type' => 'radios',
-            '#title' => $label,
-            '#options' => $options_list,
-            '#required' => $required,
-            '#attributes' => ['data-q-id' => $q_id],
+            '#type'          => 'radios',
+            '#title'         => $label,
+            '#options'       => $options_list,
+            '#required'      => $required,
+            '#default_value' => $defaults[$q_id] ?? NULL,
+            '#attributes'    => ['data-q-id' => $q_id],
           ];
           break;
 
         case 'list':
         case 'checkbox':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type' => 'checkboxes',
-            '#title' => $label,
-            '#options' => $options_list,
-            '#required' => $required,
-            '#attributes' => ['data-q-id' => $q_id],
+            '#type'          => 'checkboxes',
+            '#title'         => $label,
+            '#options'       => $options_list,
+            '#required'      => $required,
+            // checkboxes expects an array of checked keys
+            '#default_value' => $defaults[$q_id] ?? [],
+            '#attributes'    => ['data-q-id' => $q_id],
           ];
           break;
 
         case 'dropdown':
           $is_multiple = !empty($q['dropdown_multiple']);
           $form[$sec_id][$q_id]['answer'] = [
-            '#type' => 'select',
-            '#title' => $label,
-            '#options' => $options_list,
-            '#empty_option' => $is_multiple ? NULL : t('- Select -'),
-            '#required' => $required,
-            '#multiple' => $is_multiple,
-            '#attributes' => [
+            '#type'          => 'select',
+            '#title'         => $label,
+            '#options'       => $options_list,
+            '#empty_option'  => $is_multiple ? NULL : t('- Select -'),
+            '#required'      => $required,
+            '#multiple'      => $is_multiple,
+            // multiple select expects an array too
+            '#default_value' => $defaults[$q_id] ?? ($is_multiple ? [] : NULL),
+            '#attributes'    => [
               'data-q-id' => $q_id,
-              'class' => ['select2-enable'],
+              'class'     => ['select2-enable'],
             ],
           ];
           break;
 
         case 'tag':
-          // Build options list as tid => name for pre-existing tags
-          $tag_options = [];
-          foreach ($options_list as $val => $label_opt) {
-            $tag_options[$val] = $label_opt;
-          }
-          $vid = isset($q['vid']) && $q['vid'] ? (int)$q['vid'] : 0;
           $form[$sec_id][$q_id]['answer'] = [
-            '#type' => 'hidden',
-            '#title' => $label,
-            '#required' => $required,
-            '#attributes' => [
-              'data-q-id' => $q_id,
+            '#type'          => 'hidden',
+            '#title'         => $label,
+            '#required'      => $required,
+            '#default_value' => isset($defaults[$q_id]) ? implode(',', (array) $defaults[$q_id]) : '',
+            '#attributes'    => [
+              'data-q-id'  => $q_id,
               'data-ac-url' => url('modularform/tags/autocomplete'),
-              'class' => ['select2-tags-hidden'],
+              'class'      => ['select2-tags-hidden'],
             ],
           ];
-
-          // Render a visible label manually (hidden fields don't render #title)
           $form[$sec_id][$q_id]['_label'] = [
             '#markup' => '<label>' . check_plain($label) . ($required ? ' <span class="form-required">*</span>' : '') . '</label>',
             '#weight' => -1,
@@ -246,20 +248,25 @@ function _modularform_build_fields(&$form, $elements, $mode = 'preview'){
           break;
 
         case 'file':
+          // Files can't be pre-populated in managed_file, skip default
           $is_multiple = !empty($q['file_multiple']);
           $form[$sec_id][$q_id]['answer'] = [
-            '#type' => 'managed_file',
-            '#title' => $label,
-            '#required' => $required,
-            '#upload_location' => 'temporary://modularform_preview',
-            '#upload_validators' => [
-              'file_validate_size' => [25 * 1024 * 1024],
-            ],
-            '#multiple' => $is_multiple,
-            '#description' => t('Preview only — file will not be saved.'),
-            '#attributes' => ['data-q-id' => $q_id],
+            '#type'             => 'managed_file',
+            '#title'            => $label,
+            '#required'         => $required,
+            '#upload_location'  => 'temporary://modularform_preview',
+            '#upload_validators' => ['file_validate_size' => [25 * 1024 * 1024]],
+            '#multiple'         => $is_multiple,
+            '#description'      => t('Preview only — file will not be saved.'),
+            '#attributes'       => ['data-q-id' => $q_id],
           ];
           break;
+      }
+      if ($mode === 'view') {
+        if (isset($form[$sec_id][$q_id]['answer'])) {
+          $form[$sec_id][$q_id]['answer']['#disabled'] = TRUE;
+          $form[$sec_id][$q_id]['answer']['#attributes']['class'][] = 'answer-readonly';
+        }
       }
     }
   }
