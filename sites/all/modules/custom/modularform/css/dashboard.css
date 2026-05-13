@@ -144,7 +144,6 @@
   height: 16px;
 }
 
-/*searchbar*/
 /* ── Search bar ── */
 .gform-search-bar {
   display: flex;
@@ -159,30 +158,45 @@
   position: relative;
   z-index: 200;
 }
+
 .gform-search-bar:focus-within {
   box-shadow: 0 0 0 2px #d1b8f5;
   border-color: #9c6fdf;
 }
+
 .gform-search-bar > svg {
   flex-shrink: 0;
   width: 18px;
   height: 18px;
   color: #9aa0a6;
 }
-/* Override Drupal's default form element margins inside the bar */
+
+.gform-search-bar form {
+  flex: 1;
+}
+
+.gform-search-bar form > div {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
 .gform-search-bar .modularform-search-input {
+  flex: 1;
+  min-width: 0;
   border: none !important;
   box-shadow: none !important;
   outline: none !important;
+  background: transparent;
   font-size: 14px;
   color: #202124;
-  width: 100%;
-  background: transparent;
   margin: 0;
   padding: 0;
 }
+
 .gform-search-bar .modularform-search-btn {
   flex-shrink: 0;
+  margin-left: auto;
   background: #673ab7;
   color: #fff;
   border: none;
@@ -194,9 +208,11 @@
   transition: background 0.12s;
   white-space: nowrap;
 }
+
 .gform-search-bar .modularform-search-btn:hover {
   background: #5e35b1;
 }
+
 .gform-search-bar .modularform-search-clear {
   flex-shrink: 0;
   background: none;
@@ -209,6 +225,7 @@
   transition: color 0.1s;
   text-decoration: none;
 }
+
 .gform-search-bar .modularform-search-clear:hover {
   color: #673ab7;
 }
