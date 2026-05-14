@@ -1,56 +1,43 @@
 <?php
+
+module_load_include('inc', 'modularform_search', 'includes/modularform_search_forms');
+module_load_include('inc', 'modularform_search', 'includes/modularform_response_index');
+
+
 /**
  * @file modularform_search.module
- * Solr-powered search for Modularform with SQL fallback.
+ * Solr-powered search for Modularform.
  */
 
-/**
- * Implements hook_menu().
- */
-function modularform_search_menu() {
-  $items['modularform/search/ajax'] = [
-    'page callback'    => 'modularform_search_ajax',
-    'access arguments' => ['access content'],
-    'type'             => MENU_CALLBACK,
-    'delivery callback'=> 'ajax_deliver',
-  ];
-  return $items;
-}
 
 /**
- * Implements hook_apachesolr_entity_info_alter().
+ * Implements hook_apachesolr_index_entities_alter().
+ *
+ * Registers modularform_form as an entity type Apache Solr should index.
+ * Without this, Solr ignores the entity entirely — the status/document/reindex
+ * callbacks in modularform_search.forms.inc are never called.
  */
 function modularform_search_apachesolr_entity_info_alter(&$entity_info) {
+  //  forms entity_alter
   $entity_info['modularform_form']['indexable']        = TRUE;
   $entity_info['modularform_form']['index_table']      = 'apachesolr_index_entities_modularform_form';
-  $entity_info['modularform_form']['status callback'][]  = 'modularform_search_status_callback';
-  $entity_info['modularform_form']['document callback'][] = 'modularform_search_document_callback';
-  $entity_info['modularform_form']['reindex callback'] = 'modularform_search_reindex_callback';
+  $entity_info['modularform_form']['status callback'][]  = 'modularform_search_form_status_callback';
+  $entity_info['modularform_form']['document callback'][] = 'modularform_search_form_document_callback';
+  $entity_info['modularform_form']['reindex callback'] = 'modularform_search_form_reindex_callback';
+
+//  response entity_alter
+  $entity_info['modularform_response']['indexable']         = TRUE;
+  $entity_info['modularform_response']['index_table']       = 'modularform_response_solr_queue';
+  $entity_info['modularform_response']['status callback'][] = 'modularform_search_response_status_callback';
+  $entity_info['modularform_response']['document callback'][] = 'modularform_search_response_document_callback';
+  $entity_info['modularform_response']['reindex callback']  = 'modularform_search_response_reindex_callback';
 }
 
-function modularform_search_status_callback($entity, $entity_type) {
-  return empty($entity->deleted_at);
-}
 
-function modularform_search_document_callback($document, $entity, $entity_type, $env_id) {
-  $document->title = $entity->title;
-  if (!empty($entity->description)) {
-    $document->setField('ts_form_description', strip_tags($entity->description));
-  }
-  return [$document];
-}
 
-function modularform_search_reindex_callback($env_id) {
-  db_update('apachesolr_index_entities_modularform_form')
-    ->fields(['changed' => REQUEST_TIME, 'status' => 1])
-    ->execute();
-}
 
-/**
- * Implements hook_apachesolr_index_bundles().
- */
-function modularform_search_apachesolr_index_bundles($env_id, $entity_type) {
-  if ($entity_type === 'modularform_form') {
-    return ['modularform_form'];
-  }
-}
+
+
+
+
+

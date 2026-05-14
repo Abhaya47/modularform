@@ -11,24 +11,19 @@ function form_dashboard_page() {
     t('Name'), t('Owner'), t('Status'), t('Created'), t('Operations'),
   ];
   $rows = [];
-  if($current_search){
+  if ($current_search) {
     if (module_exists('modularform_search')) {
-      // TODO: Solr search
-      module_load_include('inc', 'modularform_search', 'includes/modularform_search.solr');
-      $forms = modularform_search_solr_title($current_search);
+      module_load_include('inc', 'modularform_search', 'includes/modularform_search_forms');
+      $forms = modularform_search_forms_by_title($current_search);
+
+      if (isset($forms['error'])) {
+        // Solr is down — fall back to SQL
+        $forms = _modularform_dashboard_search_sql($current_search);
+      }
     }
     else {
-      // Fallback: plain SQL LIKE on title
-      $query = db_select('modularform_forms', 'f')
-        ->fields('f', ['id', 'title', 'status', 'created_by', 'created_at'])
-        ->isNull('f.deleted_at')
-        ->orderBy('f.created_at', 'DESC');
-
-      if (!empty($current_search)) {
-        $query->condition('f.title', '%' . db_like($current_search) . '%', 'LIKE');
-      }
-
-      $forms = $query->execute()->fetchAll();
+      // Module not enabled — SQL only
+      $forms = _modularform_dashboard_search_sql($current_search);
     }
   }
   else{
@@ -39,7 +34,6 @@ function form_dashboard_page() {
       ->execute()
       ->fetchAll();
   }
-
 
   $uids  = array_unique(array_column((array) $forms, 'created_by'));
   $users = user_load_multiple($uids);
@@ -67,5 +61,15 @@ function form_dashboard_page() {
   $build['#attached']['css'][] = drupal_get_path('module', 'modularform') . '/css/dashboard.css';
 
   return $build;
+}
+
+function _modularform_dashboard_search_sql($search) {
+  return db_select('modularform_forms', 'f')
+    ->fields('f', ['id', 'title', 'status', 'created_by', 'created_at'])
+    ->isNull('f.deleted_at')
+    ->condition('f.title', '%' . db_like($search) . '%', 'LIKE')
+    ->orderBy('f.created_at', 'DESC')
+    ->execute()
+    ->fetchAll();
 }
 

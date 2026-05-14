@@ -296,20 +296,6 @@ function modularform_get_datatype(string $q_type): string {
   return modularform_datatype_map()[$q_type] ?? 'varchar';
 }
 
-function modularform_datatype_int_map(){
-  return [
-    'varchar' => 0,
-    'text' => 1,
-    'int' => 2,
-    'bool' => 3,
-    'date' => 4,
-  ];
-}
-
-function modularform_get_datatype_int_map(string $q_type) {
-  return modularform_datatype_int_map()[$q_type] ?? '0';
-}
-
 function modularform_visibility_get_int_map() {
   return [
     'public'     => 0,

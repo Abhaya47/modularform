@@ -310,7 +310,7 @@ function modularform_entity_info() {
         'label' => t('Form Section'),
       ],
     ],
-    'module' => 'modularform',
+    'module' => 'modularform'
   ];
 
   // 3. Question Entity
@@ -341,7 +341,7 @@ function modularform_entity_info() {
     'controller class' => 'EntityAPIController',
     'fieldable' => FALSE,
     'entity keys' => [
-      'id' => 'id',
+      'id' => 'o_id',
       'label' => 'option',
     ],
     'bundles' => [
@@ -361,6 +361,7 @@ function modularform_entity_info() {
     'fieldable' => TRUE,
     'entity keys' => [
       'id' => 'id',
+      'label' => 'email',
     ],
     'bundles' => [
       'modularform_response' => [

@@ -1,57 +1,42 @@
 <?php
 /**
  * @file modularform_search.solr.inc
- * Solr title search for modularform forms.
+ *
+ * Raw Solr engine — shared by all entity .inc files.
+ *
+ * PRIVATE. Other modules must NOT call these functions directly.
+ * Call the public API in .forms.inc / .responses.inc instead.
+ *
+ * Functions:
+ *   _modularform_search_solr_query()   — execute a Solr search
+ *   _modularform_search_sql_fallback() — LIKE-based fallback when Solr is down
  */
 
-function modularform_search_solr_title($search) {
+/**
+ * Execute a Solr query and return raw Solr docs.
+ *
+ * @param string $search
+ *   The user's search string.
+ * @param array $params
+ *   Solr params: qf, fq, fl, rows, defType, etc.
+ *   Callers build these — this function just fires the query.
+ *
+ * @return array
+ *   Array of Solr doc objects, or empty array on no results.
+ *
+ * @throws Exception
+ *   Re-throws if Solr is unreachable — caller handles fallback.
+ */
+function _modularform_search_solr_query($search, array $params) {
   try {
     $env_id = apachesolr_default_environment();
     $solr   = apachesolr_get_solr($env_id);
-    $solr->ping();
-
-    $params = [
-      'defType' => 'edismax',
-      'qf'      => 'title^3.0 ts_form_description^1.0', //answer hierarchy so title ranks above description match
-      'fq'      => 'bundle:modularform_form',
-      'fl'      => 'entity_id,title',
-      'rows'    => 50,
-    ];
-
+    $solr->ping();  // ← if this throws, Solr is down
     $response = $solr->search($search, $params);
-
-    if (empty($response->response->docs)) {
-      return [];
-    }
-
-    // Get matching IDs from Solr
-    $ids = [];
-    foreach ($response->response->docs as $doc) {
-      $ids[] = (int) $doc->entity_id;
-    }
-
-    // Load full rows from DB so we have all fields the dashboard needs
-    return db_select('modularform_forms', 'f')
-      ->fields('f', ['id', 'title', 'status', 'created_by', 'created_at'])
-      ->condition('f.id', $ids, 'IN')
-      ->isNull('f.deleted_at')
-      ->orderBy('f.created_at', 'DESC')
-      ->execute()
-      ->fetchAll();
+    return $response->response->docs ?: [];
   }
   catch (Exception $e) {
-    // Solr down — fall back to SQL
-    watchdog('modularform_search', 'Solr unavailable: @msg', ['@msg' => $e->getMessage()], WATCHDOG_WARNING);
-    return _modularform_search_sql_fallback($search);
+    watchdog('modularform_search', 'Solr is down: @msg', ['@msg' => $e->getMessage()], WATCHDOG_ERROR);
+    return NULL;  // ← means "Solr down", not "no results"
   }
-}
-
-function _modularform_search_sql_fallback($search) {
-  return db_select('modularform_forms', 'f')
-    ->fields('f', ['id', 'title', 'created_by', 'created_at'])
-    ->isNull('f.deleted_at')
-    ->condition('f.title', '%' . db_like($search) . '%', 'LIKE')
-    ->orderBy('f.created_at', 'DESC')
-    ->execute()
-    ->fetchAll();
 }
