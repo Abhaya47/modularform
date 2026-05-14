@@ -80,33 +80,58 @@ function modularform_perma_delete($form_id) {
     ->isNotNull('deleted_at')
     ->execute()
     ->fetchObject();
-
   if (!$form) {
     drupal_set_message(t('Form not found or has not been deleted first.'), 'error');
     drupal_goto('forms/deleted');
   }
-
   // Wrap everything in a transaction so it's all-or-nothing.
   $txn = db_transaction();
-
   try {
-    // Child tables first (leaf nodes of the relationship tree).
+    // 1. Collect all answer IDs for this form's responses.
+    $response_ids = db_select('modularform_responses', 'r')
+      ->fields('r', ['id'])
+      ->condition('r.form_id', $form_id)
+      ->execute()
+      ->fetchCol();
+
+    if (!empty($response_ids)) {
+      $answer_ids = db_select('modularform_answers', 'a')
+        ->fields('a', ['id'])
+        ->condition('a.response_id', $response_ids, 'IN')
+        ->execute()
+        ->fetchCol();
+
+      // 2. Delete multi-value answers.
+      if (!empty($answer_ids)) {
+        db_delete('modularform_answers_multi')
+          ->condition('answer_id', $answer_ids, 'IN')
+          ->execute();
+      }
+
+      // 3. Delete answers.
+      db_delete('modularform_answers')
+        ->condition('response_id', $response_ids, 'IN')
+        ->execute();
+
+      // 4. Delete responses.
+      db_delete('modularform_responses')
+        ->condition('form_id', $form_id)
+        ->execute();
+    }
+
+    // 5. Child tables first (leaf nodes of the relationship tree).
     db_delete('modularform_question_options')
       ->condition('form_id', $form_id)
       ->execute();
-
     db_delete('modularform_validation_rules')
       ->condition('form_id', $form_id)
       ->execute();
-
     db_delete('modularform_questions')
       ->condition('form_id', $form_id)
       ->execute();
-
     db_delete('modularform_sections')
       ->condition('form_id', $form_id)
       ->execute();
-
     db_delete('modularform_forms')
       ->condition('id', $form_id)
       ->execute();
@@ -122,10 +147,8 @@ function modularform_perma_delete($form_id) {
     ], WATCHDOG_ERROR);
     drupal_set_message(t('Failed to permanently delete the form. Please try again.'), 'error');
   }
-
   drupal_goto('forms/manage');
 }
-
 /**
  * Restore a form
  */
