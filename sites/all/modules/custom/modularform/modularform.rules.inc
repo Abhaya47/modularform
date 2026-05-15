@@ -190,8 +190,6 @@ function _modularform_rule_value_options($q_type, $rule_type) {
   return $defs[$q_type][$rule_type]['value_options'] ?? [];
 }
 
-
-
 /**
  * Returns edit permissions for a form based on its state.
  *
@@ -203,44 +201,44 @@ function _modularform_rule_value_options($q_type, $rule_type) {
 function _modularform_edit_rules($state) {
   $rules = [
     'draft' => [
-      'add_section'     => TRUE,
-      'delete_section'  => TRUE,
-      'add_question'    => TRUE,
+      'add_section' => TRUE,
+      'delete_section' => TRUE,
+      'add_question' => TRUE,
       'delete_question' => TRUE,
-      'change_type'     => TRUE,
-      'rename_label'    => TRUE,
-      'reorder'         => TRUE,
-      'edit_options'    => TRUE,
-      'add_option'      => TRUE,
-      'delete_option'   => TRUE,
+      'change_type' => TRUE,
+      'rename_label' => TRUE,
+      'reorder' => TRUE,
+      'edit_options' => TRUE,
+      'add_option' => TRUE,
+      'delete_option' => TRUE,
       'change_required' => TRUE,
     ],
 
     'published_no_responses' => [
-      'add_section'     => TRUE,
-      'delete_section'  => TRUE,
-      'add_question'    => TRUE,
+      'add_section' => TRUE,
+      'delete_section' => TRUE,
+      'add_question' => TRUE,
       'delete_question' => TRUE,
-      'change_type'     => TRUE,
-      'rename_label'    => TRUE,
-      'reorder'         => TRUE,
-      'edit_options'    => TRUE,
-      'add_option'      => TRUE,
-      'delete_option'   => TRUE,
+      'change_type' => TRUE,
+      'rename_label' => TRUE,
+      'reorder' => TRUE,
+      'edit_options' => TRUE,
+      'add_option' => TRUE,
+      'delete_option' => TRUE,
       'change_required' => TRUE,
     ],
 
     'published_has_responses' => [
-      'add_section'     => FALSE,
-      'delete_section'  => FALSE,
-      'add_question'    => TRUE,   // optional only — enforced separately
+      'add_section' => FALSE,
+      'delete_section' => FALSE,
+      'add_question' => TRUE,   // optional only — enforced separately
       'delete_question' => FALSE,
-      'change_type'     => FALSE,
-      'rename_label'    => TRUE,   // warn in UI but allow
-      'reorder'         => TRUE,
-      'edit_options'    => FALSE,
-      'add_option'      => FALSE,
-      'delete_option'   => FALSE,
+      'change_type' => FALSE,
+      'rename_label' => TRUE,   // warn in UI but allow
+      'reorder' => TRUE,
+      'edit_options' => FALSE,
+      'add_option' => FALSE,
+      'delete_option' => FALSE,
       'change_required' => FALSE,
     ],
   ];
@@ -250,39 +248,44 @@ function _modularform_edit_rules($state) {
 
 function modularform_type_map(): array {
   return [
-      'text'      => 0,
-      'textarea'  => 1,
-      'radio'     => 2,
-      'boolean'   => 3,
-      'checkbox'  => 4,
-      'file'      => 5,
-      'dropdown'  => 6,
-      'tag'       => 7,
-      'richtext'  => 8,
-      'date'      => 9,
-      'time'      => 10,
-      'list'      => 11,
+    'text' => 0,
+    'textarea' => 1,
+    'radio' => 2,
+    'boolean' => 3,
+    'checkbox' => 4,
+    'file' => 5,
+    'dropdown' => 6,
+    'tag' => 7,
+    'richtext' => 8,
+    'date' => 9,
+    'time' => 10,
+    'list' => 11,
   ];
 }
 
 function modularform_datatype_map(): array {
   return [
-    'text'      => 'varchar',
-    'textarea'  => 'text',
-    'richtext'  => 'text',
-    'radio'     => 'varchar', //#TODO change the value to int later
-    'boolean'   => 'bool',
-    'checkbox'  => 'varchar',    // multi → child table //#TODO change the value to int later
-    'tag'       => 'int',    // multi → child table
-    'list'      => 'varchar',    // multi → child table //#TODO change the value to int later
-    'dropdown'  => 'varchar', //#TODO change the value to int later
-    'file'      => 'varchar',
-    'date'      => 'date',
-    'time'      => 'varchar',
+    'text' => 'varchar',
+    'textarea' => 'text',
+    'richtext' => 'text',
+    'radio' => 'varchar',
+    //#TODO change the value to int later
+    'boolean' => 'bool',
+    'checkbox' => 'varchar',
+    // multi → child table //#TODO change the value to int later
+    'tag' => 'int',
+    // multi → child table
+    'list' => 'varchar',
+    // multi → child table //#TODO change the value to int later
+    'dropdown' => 'varchar',
+    //#TODO change the value to int later
+    'file' => 'varchar',
+    'date' => 'date',
+    'time' => 'varchar',
   ];
 }
 
-function modularform_get_type_map(string $type):int {
+function modularform_get_type_map(string $type): int {
   return modularform_type_map()[$type] ?? 0;
 }
 
@@ -298,13 +301,43 @@ function modularform_get_datatype(string $q_type): string {
 
 function modularform_visibility_get_int_map() {
   return [
-    'public'     => 0,
+    'public' => 0,
     'restricted' => 1,
-    'private'    => 2,
+    'private' => 2,
   ];
 }
 
 function modularform_visibility_get_text_map() {
   return array_flip(modularform_visibility_get_int_map());
   // result: [0 => 'public', 1 => 'restricted', 2 => 'private']
+}
+
+function solr_field_map() {
+  static $map;
+
+  if (!isset($map)) {
+    $map = [
+      'varchar' => 'ss_val',
+      'text' => 'ts_val',
+      'int' => 'is_val',
+      'bool' => 'bs_val',
+      'date' => 'ds_val',
+    ];
+  }
+
+  return $map;
+}
+
+function value_col_map() {
+  static $map;
+  if (!isset($map)) {
+    return [
+      'varchar' => 'value_varchar',
+      'text' => 'value_text',
+      'int' => 'value_int',
+      'bool' => 'value_bool',
+      'date' => 'value_date',
+    ];
+  }
+  return $map;
 }
