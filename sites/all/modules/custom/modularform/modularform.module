@@ -208,6 +208,30 @@ function modularform_menu() {
     'file' => 'includes/dashboard.inc',
   ];
 
+  $items['modularform/filter/form-search'] = [
+    'title'          => 'Filter form search',
+    'page callback'  => 'modularform_filter_form_search',
+    'access callback'=> TRUE,
+    'file'           => 'includes/response_list.inc',
+    'type'           => MENU_CALLBACK,
+  ];
+
+  $items['modularform/filter/questions'] = [
+    'title'          => 'Filter question search',
+    'page callback'  => 'modularform_filter_questions',
+    'access callback'=> TRUE,
+    'file'           => 'includes/response_list.inc',
+    'type'           => MENU_CALLBACK,
+  ];
+
+  $items['modularform/filter/answer-values'] = [
+    'title'            => 'Filter answer values',
+    'page callback'    => 'modularform_filter_answer_values',
+    'access callback'  => TRUE,
+    'file'             => 'includes/response_list.inc',
+    'type'             => MENU_CALLBACK,
+  ];
+
   return $items;
 }
 

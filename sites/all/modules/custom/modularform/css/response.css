@@ -1,0 +1,639 @@
+/* ============================================================
+   response.css — Response list page (standalone)
+   Module: modularform
+   ============================================================ */
+
+/* ── Page wrapper ────────────────────────────────────────────────────────── */
+
+.gform-wrapper {
+  min-height: 100vh;
+  padding: 28px 20px 64px;
+  font-family: 'Google Sans', Roboto, Arial, sans-serif;
+  box-sizing: border-box;
+}
+
+.gform-container {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.gform-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+  padding: 0 2px;
+}
+
+.gform-header-icon {
+  width: 32px;
+  height: 32px;
+  background: #673ab7;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.gform-header-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.gform-title {
+  font-size: 20px;
+  font-weight: 400;
+  color: #202124;
+  margin: 0;
+  letter-spacing: .01em;
+}
+
+/* ── Section label ───────────────────────────────────────────────────────── */
+
+.gform-section-label {
+  font-size: 13px;
+  color: #5f6368;
+  font-weight: 500;
+  letter-spacing: .02em;
+  margin-bottom: 12px;
+  padding: 0 2px;
+}
+
+/* ── Filter bar ──────────────────────────────────────────────────────────── */
+
+.gform-filter-bar {
+  display: flex;
+  flex-direction: column;  /* was row */
+  align-items: stretch;    /* was flex-start */
+  gap: 10px;
+  padding: 12px 0;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+/* ── Gform Filter Bar ──────────────────────────────────────────────────── */
+
+.gform-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+/* ── Active filter tags ─────────────────────────────────────────────────── */
+
+.gform-filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 28px;
+}
+
+/* Base tag */
+.gform-filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  padding: 4px 10px 4px 12px;
+  max-width: 360px;
+}
+
+/* Form tag */
+.gform-filter-tag--form {
+  background: #f7f7f7;
+}
+
+/* Pair tag (question › answer) — light purple tint */
+.gform-filter-tag--pair {
+  background: #f7f7f7;
+  color: #3C3489;
+  border: 1px solid #CECBF6;
+}
+
+.gform-filter-tag__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gform-filter-tag--pair .gform-filter-tag__label {
+  color: #3C3489;  /* was #f7f7f7 */
+}
+
+.gform-filter-tag__remove {
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0.6;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.gform-filter-tag__remove:hover {
+  opacity: 1;
+}
+
+/* ── Steps ──────────────────────────────────────────────────────────────── */
+
+.gform-filter-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;            /* add this */
+  max-width: none;        /* remove the 340px cap */
+}
+
+.gform-filter-step__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.gform-filter-step__num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #EEEDFE;
+  color: #534AB7;
+  font-size: 11px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.gform-filter-step__title {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #888;
+}
+
+/* Dim the label too when the step is locked */
+.gform-filter-step--locked .gform-filter-step__num {
+  background: #f0f0f0;
+  color: #bbb;
+}
+
+.gform-filter-step--locked .gform-filter-step__title {
+  color: #bbb;
+}
+
+/* ── Text inputs ────────────────────────────────────────────────────────── */
+
+.gform-filter-step input[type="text"] {
+  width: 100%;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #1a1a1a;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+}
+
+.gform-filter-step input[type="text"]::placeholder {
+  color: #aaa;
+}
+
+.gform-filter-step input[type="text"]:focus {
+  border-color: #7B6FD0;
+  box-shadow: 0 0 0 3px rgba(123, 111, 208, 0.15);
+}
+
+.gform-filter-step input[type="text"]:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  background: #f5f5f5;
+}
+
+/* ── Dropdown panels ────────────────────────────────────────────────────── */
+
+.gform-filter-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 200;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
+  overflow: hidden;
+}
+
+.gform-filter-panel[hidden] {
+  display: none;
+}
+
+.gform-filter-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.gform-filter-list li {
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #1a1a1a;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.gform-filter-list li:last-child {
+  border-bottom: none;
+}
+
+.gform-filter-list li:hover {
+  background: #EEEDFE;
+  color: #3C3489;
+}
+
+.gform-filter-list li.gform-filter-list--empty {
+  color: #aaa;
+  cursor: default;
+}
+
+.gform-filter-list li.gform-filter-list--empty:hover {
+  background: none;
+  color: #aaa;
+}
+
+/* ── Chosen value display ───────────────────────────────────────────────── */
+
+.gform-filter-chosen {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  background: #EEEDFE;
+  border: 1px solid #CECBF6;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: #3C3489;
+  line-height: 1.5;
+}
+
+.gform-filter-chosen[hidden] {
+  display: none;
+}
+
+.gform-filter-chosen__text {
+  flex: 1;
+}
+
+.gform-filter-chosen__change {
+  font-size: 11px;
+  color: #7B6FD0;
+  cursor: pointer;
+  white-space: nowrap;
+  padding-top: 2px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  font-family: inherit;
+  text-decoration: none;
+}
+
+.gform-filter-chosen__change:hover {
+  text-decoration: underline;
+}
+
+/* ── Add filter button ──────────────────────────────────────────────────── */
+
+.gform-filter-add {
+  align-self: flex-end;
+  background: #7B6FD0;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.gform-filter-add:hover:not(:disabled) {
+  background: #534AB7;
+}
+
+.gform-filter-add:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
+
+/* ── Clear all button ───────────────────────────────────────────────────── */
+
+.gform-filter-clear {
+  align-self: flex-end;
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #666;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.gform-filter-clear:hover {
+  border-color: #aaa;
+  color: #1a1a1a;
+}
+
+/* ── Locked state (steps 2 & 3 before unlocked) ─────────────────────────── */
+
+.gform-filter-step--locked {
+  opacity: 0.38;
+  pointer-events: none;
+}
+/* ── Table card ──────────────────────────────────────────────────────────── */
+
+.gform-card {
+  background: #fff;
+  border-radius: 4px;
+  border: 1px solid #e0e0e0;
+  overflow: hidden;
+  margin-bottom: 32px;
+}
+
+.gform-table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid #f1f3f4;
+}
+
+.gform-table-count {
+  font-size: 14px;
+  font-weight: 500;
+  color: #202124;
+}
+
+.gform-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Table ───────────────────────────────────────────────────────────────── */
+
+.gform-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  min-width: 480px;
+  margin-bottom: 60px;
+}
+
+.gform-table thead th:nth-child(1) { width: 28%; } /* Respondent */
+.gform-table thead th:nth-child(2) { width: 22%; } /* Form */
+.gform-table thead th:nth-child(3) { width: 20%; } /* Submitted */
+.gform-table thead th:nth-child(4) { width: 20%; } /* Updated (conditional) */
+.gform-table thead th:last-child   { width: 10%; } /* Operations */
+
+.gform-table thead th {
+  font-size: 11px;
+  font-weight: 600;
+  color: #5f6368;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 10px 18px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+  background: #fff;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.gform-table tbody tr {
+  border-bottom: 1px solid #f1f3f4;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.gform-table tbody tr:hover {
+  background: #f8f5ff;
+}
+
+.gform-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.gform-table tbody td {
+  padding: 11px 18px;
+  font-size: 13px;
+  color: #3c4043;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* ── Respondent cell ─────────────────────────────────────────────────────── */
+
+.gform-td-name {
+  color: #202124 !important;
+}
+
+.gform-name-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.gform-form-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  background: #673ab7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.gform-form-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.gform-form-icon--anon {
+  background: #bdbdbd;
+}
+
+.gform-name-text {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gform-name-text--muted {
+  color: #9aa0a6;
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* ── Operations cell ─────────────────────────────────────────────────────── */
+
+.gform-td-ops {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: nowrap;
+  position: relative;
+}
+
+.action-dropdown {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.action-dropbtn {
+  font-size: 12px;
+  font-weight: 600;
+  color: #673ab7;
+  background: #f3e5f5;
+  border: 1px solid #d1b8f5;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.action-dropbtn:hover {
+  background: #e8d5f5;
+  border-color: #b399e8;
+}
+
+.action-dropdown-content {
+  display: none;
+  position: absolute;
+  right: 0;
+  background: #fff;
+  min-width: 140px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid #d1d1d1;
+  border-radius: 4px;
+  z-index: 300;
+  margin-top: 2px;
+}
+
+.action-dropdown:hover .action-dropdown-content {
+  display: block;
+}
+
+.action-dropdown-content a {
+  color: #333;
+  padding: 8px 12px;
+  text-decoration: none;
+  display: block;
+  font-size: 13px;
+  transition: background 0.1s;
+}
+
+.action-dropdown-content a:hover {
+  background: #f3e5f5;
+  color: #673ab7;
+}
+
+.action-dropdown-content a:not(:last-child) {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.gform-link--danger {
+  color: #c62828 !important;
+}
+
+.gform-link--danger:hover {
+  background: #ffebee !important;
+  color: #b71c1c !important;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+
+.gform-empty-row td {
+  text-align: center;
+  padding: 40px 18px;
+  color: #9aa0a6;
+  font-size: 14px;
+  font-style: italic;
+}
+
+.gform-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 0;
+  color: #9e9e9e;
+}
+
+/* ── Back link / pager ───────────────────────────────────────────────────── */
+
+.gform-back-link {
+  margin-top: 18px;
+  font-size: 0.92em;
+}
+
+.gform-back-link a {
+  color: #673ab7;
+  text-decoration: none;
+}
+
+.gform-back-link a:hover {
+  text-decoration: underline;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .gform-wrapper {
+    padding: 16px 10px 40px;
+  }
+
+  .gform-filter-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .gform-filter-clear {
+    margin-left: 0;
+  }
+
+  .gform-table thead th:nth-child(2),
+  .gform-table tbody td:nth-child(2) {
+    display: none;
+  }
+}
