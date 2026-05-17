@@ -38,6 +38,8 @@
         // ── Initial state ──────────────────────────────────────────────────────
         $stepA.addClass('gform-filter-step--locked');
 
+        $stepQ.addClass('gform-filter-step--locked');
+        $qSearch.prop('disabled', true);
         // ── State ──────────────────────────────────────────────────────────
 
         var state = {
@@ -61,15 +63,14 @@
             state.form = form;
             state.form.total = params.form_total || null;
             lockFormStep(form);
+            unlockStep($stepQ, $qSearch);  // ← add this line
 
-            // Need question labels — fetch all questions for this form first
             searchQuestions(form.id, '', function () {
-              // questionCache[form.id] is now populated
               var i = 0;
               while (params['filters[' + i + '][solr_key]']) {
                 var solrKey = params['filters[' + i + '][solr_key]'];
-                var answer = params['filters[' + i + '][answer]'] || '';
-                var qLabel = solrKeyToLabel(solrKey, form.id);
+                var answer  = params['filters[' + i + '][answer]'] || '';
+                var qLabel  = solrKeyToLabel(solrKey, form.id);
                 state.pairs.push({ solrKey: solrKey, qLabel: qLabel, answer: answer });
                 i++;
               }
