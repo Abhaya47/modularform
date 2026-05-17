@@ -69,8 +69,18 @@
       <button class="gform-filter-add" id="filter-add-btn" disabled>
         <?php print t('Add filter'); ?>
       </button>
-
     </div>
+
+    <div id="mf-filters">
+
+      <select id="mf-filter-sort" aria-label="<?php print t('Sort by'); ?>">
+        <option value="created_desc"><?php print t('Newest first'); ?></option>
+        <option value="created_asc"><?php print t('Oldest first'); ?></option>
+        <option value="respondent_asc"><?php print t('Name A–Z'); ?></option>
+        <option value="respondent_desc"><?php print t('Name Z–A'); ?></option>
+      </select>
+
+    </div><!-- /mf-filters -->
 
     <div class="gform-section-label">
       <?php print t('Responses'); ?>

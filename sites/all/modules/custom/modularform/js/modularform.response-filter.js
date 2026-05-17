@@ -11,29 +11,29 @@
 
         // ── Element refs ───────────────────────────────────────────────────
 
-        var $bar          = $(this);
-        var $tagArea      = $bar.find('#filter-tags');
+        var $bar = $(this);
+        var $tagArea = $bar.find('#filter-tags');
 
-        var $stepForm     = $bar.find('#filter-step-form');
-        var $formSearch   = $bar.find('#filter-form-search');
-        var $formPanel    = $bar.find('#filter-form-panel');
-        var $formList     = $bar.find('#filter-form-list');
-        var $formChosen   = $bar.find('#filter-form-chosen');
+        var $stepForm = $bar.find('#filter-step-form');
+        var $formSearch = $bar.find('#filter-form-search');
+        var $formPanel = $bar.find('#filter-form-panel');
+        var $formList = $bar.find('#filter-form-list');
+        var $formChosen = $bar.find('#filter-form-chosen');
 
-        var $stepQ        = $bar.find('#filter-step-question');
-        var $qSearch      = $bar.find('#filter-question-search');
-        var $qPanel       = $bar.find('#filter-question-panel');
-        var $qList        = $bar.find('#filter-question-list');
-        var $qChosen      = $bar.find('#filter-question-chosen');
+        var $stepQ = $bar.find('#filter-step-question');
+        var $qSearch = $bar.find('#filter-question-search');
+        var $qPanel = $bar.find('#filter-question-panel');
+        var $qList = $bar.find('#filter-question-list');
+        var $qChosen = $bar.find('#filter-question-chosen');
 
-        var $stepA        = $bar.find('#filter-step-answer');
-        var $aSearch      = $bar.find('#filter-answer-search');
-        var $aPanel       = $bar.find('#filter-answer-panel');
-        var $aList        = $bar.find('#filter-answer-list');
-        var $aChosen      = $bar.find('#filter-answer-chosen');
+        var $stepA = $bar.find('#filter-step-answer');
+        var $aSearch = $bar.find('#filter-answer-search');
+        var $aPanel = $bar.find('#filter-answer-panel');
+        var $aList = $bar.find('#filter-answer-list');
+        var $aChosen = $bar.find('#filter-answer-chosen');
 
-        var $addBtn       = $bar.find('#filter-add-btn');
-        var $clearAll     = $bar.find('#filter-clear-all');
+        var $addBtn = $bar.find('#filter-add-btn');
+        var $clearAll = $bar.find('#filter-clear-all');
 
         // ── Initial state ──────────────────────────────────────────────────────
         $stepA.addClass('gform-filter-step--locked');
@@ -41,11 +41,11 @@
         // ── State ──────────────────────────────────────────────────────────
 
         var state = {
-          form:    null,   // { id, title }
-          qKey:    null,   // solr field key string
-          qLabel:  null,   // full question text
-          aVal:    null,   // chosen answer string
-          pairs:   []      // [{ solrKey, qLabel, answer }, …]
+          form: null,   // { id, title }
+          qKey: null,   // solr field key string
+          qLabel: null,   // full question text
+          aVal: null,   // chosen answer string
+          pairs: [],      // [{ solrKey, qLabel, answer }, …]
         };
 
         // ── Boot: read URL params and restore state ────────────────────────
@@ -59,6 +59,7 @@
           fetchFormById(params.form_id, function (form) {
             if (!form) { return; }
             state.form = form;
+            state.form.total = params.form_total || null;
             lockFormStep(form);
 
             // Need question labels — fetch all questions for this form first
@@ -67,8 +68,8 @@
               var i = 0;
               while (params['filters[' + i + '][solr_key]']) {
                 var solrKey = params['filters[' + i + '][solr_key]'];
-                var answer  = params['filters[' + i + '][answer]'] || '';
-                var qLabel  = solrKeyToLabel(solrKey, form.id);
+                var answer = params['filters[' + i + '][answer]'] || '';
+                var qLabel = solrKeyToLabel(solrKey, form.id);
                 state.pairs.push({ solrKey: solrKey, qLabel: qLabel, answer: answer });
                 i++;
               }
@@ -82,7 +83,10 @@
         $formSearch.on('input', function () {
           if (state.form) { return; }
           var term = $.trim($(this).val());
-          if (!term) { closePanel($formPanel); return; }
+          if (!term) {
+            closePanel($formPanel);
+            return;
+          }
           searchForms(term, function (results) {
             populateList($formList, results, function (item) {
               pickForm(item);
@@ -151,8 +155,8 @@
           if (state.qKey && state.aVal) {
             state.pairs.push({
               solrKey: state.qKey,
-              qLabel:  state.qLabel,
-              answer:  state.aVal
+              qLabel: state.qLabel,
+              answer: state.aVal,
             });
           }
 
@@ -172,28 +176,34 @@
         // ── Close panels on outside click ──────────────────────────────────
 
         $(document).on('click.modularform-filter', function (e) {
-          if (!$(e.target).closest('#filter-step-form').length)     { closePanel($formPanel); }
+          if (!$(e.target).closest('#filter-step-form').length) { closePanel($formPanel); }
           if (!$(e.target).closest('#filter-step-question').length) { closePanel($qPanel); }
-          if (!$(e.target).closest('#filter-step-answer').length)   { closePanel($aPanel); }
+          if (!$(e.target).closest('#filter-step-answer').length) { closePanel($aPanel); }
         });
 
         // ── Pick handlers ──────────────────────────────────────────────────
 
         function pickForm(item) {
-          // Normalise: search results return { id, label }, fetchFormById returns { id, title }
-          state.form = { id: item.id, title: item.title || item.label };
+          state.form = { id: item.id, title: item.title || item.label, total: null };
           closePanel($formPanel);
           lockFormStep(state.form);
           unlockStep($stepQ, $qSearch);
-          $addBtn.prop('disabled', false);  // ← add this
+          $addBtn.prop('disabled', false);
+
+          // Capture total count at the moment the form is picked
+          var $count = $('.gform-table-count');
+          if ($count.length) {
+            var m = $.trim($count.text()).match(/(\d+)/);
+            state.form.total = m ? m[1] + ' responses' : null;
+          }
           renderTags();
           updateUrl();
         }
 
         function pickQuestion(item) {
-          state.qKey   = item.id;
+          state.qKey = item.id;
           state.qLabel = item.label;
-          state.aVal   = null;
+          state.aVal = null;
           closePanel($qPanel);
           showChosen($qSearch, $qChosen, item.label, function () {
             resetQuestionStep();
@@ -227,7 +237,7 @@
             $('<span class="gform-filter-chosen__text">').text(form.title),
             $('<button type="button" class="gform-filter-chosen__change">')
               .text(Drupal.t('Change'))
-              .on('click', function () { clearAll(); })
+              .on('click', function () { clearAll(); }),
           );
         }
 
@@ -242,7 +252,7 @@
         }
 
         function resetQuestionStep() {
-          state.qKey   = null;
+          state.qKey = null;
           state.qLabel = null;
           $qSearch.val('').show().prop('disabled', false);
           $qChosen.hide().empty();
@@ -290,25 +300,29 @@
 
         function renderTags() {
           $tagArea.empty();
-
           if (!state.form && !state.pairs.length) { return; }
 
           if (state.form) {
+            // Always shows total for the form — stored when form was first picked
             var $formTag = $('<span class="gform-filter-tag gform-filter-tag--form">')
               .append(
-                $('<span class="gform-filter-tag__label">').text(state.form.title),
+                $('<span class="gform-filter-tag__label">').text(state.form.title + ' (' + (state.form.total || '?') + ' responses)'),
                 $('<button type="button" class="gform-filter-tag__remove" aria-label="' + Drupal.t('Remove form filter') + '">')
                   .text('×')
-                  .on('click', function () { clearAll(); })
+                  .on('click', function () { clearAll(); }),
               );
             $tagArea.append($formTag);
           }
 
+          // Current filtered count from the page
+          var $count = $('.gform-table-count');
+          var filteredText = $count.length ? ' (' + $.trim($count.text()) + ')' : '';
+
           $.each(state.pairs, function (i, pair) {
-            var shortLabel = pair.qLabel.length > 48
-              ? pair.qLabel.slice(0, 45) + '…'
-              : pair.qLabel;
-            var tagText = shortLabel + ' › ' + pair.answer;
+            var shortLabel = pair.qLabel.length > 48 ? pair.qLabel.slice(0, 45) + '…' : pair.qLabel;
+            // Only last pair gets the live count — earlier pairs don't reflect current filter alone
+            var countSuffix = (i === state.pairs.length - 1) ? filteredText : '';
+            var tagText = shortLabel + ' › ' + pair.answer + countSuffix;
 
             var $pairTag = $('<span class="gform-filter-tag gform-filter-tag--pair">')
               .append(
@@ -318,7 +332,7 @@
                   .text('×')
                   .on('click', (function (idx) {
                     return function () { removePair(idx); };
-                  }(i)))
+                  }(i))),
               );
             $tagArea.append($pairTag);
           });
@@ -338,7 +352,7 @@
           $list.empty();
           if (!items || !items.length) {
             $list.append(
-              $('<li class="gform-filter-list--empty">').text(Drupal.t('No matches found'))
+              $('<li class="gform-filter-list--empty">').text(Drupal.t('No matches found')),
             );
             return;
           }
@@ -360,7 +374,7 @@
                 $chosen.hide().empty();
                 $input.val('').show().prop('disabled', false).trigger('focus');
                 if (typeof onClear === 'function') { onClear(); }
-              })
+              }),
           );
         }
 
@@ -370,12 +384,13 @@
           var params = {};
 
           if (state.form) {
-            params.form_id = state.form.id;
+            params.form_id    = state.form.id;
+            params.form_total = state.form.total || '';  // ← add
           }
 
           $.each(state.pairs, function (i, pair) {
             params['filters[' + i + '][solr_key]'] = pair.solrKey;
-            params['filters[' + i + '][answer]']   = pair.answer;
+            params['filters[' + i + '][answer]'] = pair.answer;
           });
 
           var qs = $.param(params);
@@ -420,7 +435,7 @@
             dataType: 'json',
             data: { term: term },
             success: function (data) { cb(data.results || []); },
-            error: function () { cb([]); }
+            error: function () { cb([]); },
           });
         }
 
@@ -433,7 +448,7 @@
               var r = data.results || [];
               cb(r.length ? { id: r[0].id, title: r[0].label } : null);
             },
-            error: function () { cb(null); }
+            error: function () { cb(null); },
           });
         }
 
@@ -452,7 +467,7 @@
               questionCache[formId] = data.results || [];
               cb(filterByTerm(questionCache[formId], term));
             },
-            error: function () { cb([]); }
+            error: function () { cb([]); },
           });
         }
 
@@ -469,9 +484,9 @@
             url: Drupal.settings.basePath + 'modularform/filter/answer-values',
             dataType: 'json',
             data: {
-              key:     solrKey,
+              key: solrKey,
               form_id: state.form.id,
-              term:    term
+              term: term,
             },
             success: function (data) {
               if (data.error === 'solr_unavailable') {
@@ -482,7 +497,7 @@
             },
             error: function () {
               cb([]);
-            }
+            },
           });
         }
 
@@ -493,7 +508,45 @@
         }
 
       }); // end .once()
+    },
+  };
+
+  Drupal.behaviors.modularformSort = {
+    attach: function (context, settings) {
+      $('#mf-filter-sort', context).once('modularform-sort').on('change', function () {
+        var val    = $(this).val();
+        var $tbody = $('table.gform-table tbody');
+        if (!$tbody.length) { return; }
+
+        var $rows = $tbody.find('tr:not(.gform-empty-row)').get();
+        if (!$rows.length) { return; }
+
+        $rows.sort(function (a, b) {
+          var aVal, bVal;
+
+          if (val === 'created_asc' || val === 'created_desc') {
+            // Submitted is td:nth-child(3) — Respondent, Form, Submitted
+            aVal = new Date($.trim($(a).find('td:nth-child(3)').text()));
+            bVal = new Date($.trim($(b).find('td:nth-child(3)').text()));
+            return val === 'created_asc' ? aVal - bVal : bVal - aVal;
+          }
+
+          if (val === 'respondent_asc' || val === 'respondent_desc') {
+            aVal = $.trim($(a).find('td.gform-td-name .gform-name-text').text()).toLowerCase();
+            bVal = $.trim($(b).find('td.gform-td-name .gform-name-text').text()).toLowerCase();
+            if (aVal < bVal) { return val === 'respondent_asc' ? -1 :  1; }
+            if (aVal > bVal) { return val === 'respondent_asc' ?  1 : -1; }
+            return 0;
+          }
+
+          return 0;
+        });
+
+        $.each($rows, function (i, row) { $tbody.append(row); });
+      });
     }
   };
 
 }(jQuery, Drupal));
+
+
