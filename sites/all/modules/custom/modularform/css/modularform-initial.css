@@ -1,88 +1,316 @@
-.header {
-  display: flex;
-  justify-content: center;
-  align-items: center;       /* vertically center if the header has multiple lines */
-  margin-top: 5vh;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* modern, clean font */
-  font-size: 2rem;          /* larger, prominent header text */
-  font-weight: 600;         /* slightly bold */
-  color: #333;              /* dark gray, softer than pure black */
-  text-align: center;
-  padding: 10px 20px;
-  border-radius: 12px;      /* rounded corners for a softer look */
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2); /* subtle shadow for depth */
-  letter-spacing: 1px;      /* slightly spaced letters for elegance */
+/* ── Page layout ─────────────────────────────────────────────────────────── */
+
+.mf-create-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+  font-family: sans-serif;
 }
 
-/* page background */
-.modularform-initial-page {
+.mf-page-header {
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.mf-page-header h1 {
+  font-size: 22px;
+  font-weight: 600;
+  color: #111;
+  margin: 0 0 4px;
+}
+
+.mf-page-header p {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+}
+
+/* ── Section card ─────────────────────────────────────────────────────────── */
+
+.mf-section {
+  background: #fff;
+  border: 1px solid #e4e4e4;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.mf-section-head {
   display: flex;
-  justify-content: center;
   align-items: center;
-  min-height: 80vh;
+  gap: 12px;
+  padding: 14px 20px;
+  background: #f9f9f9;
+  border-bottom: 1px solid #e4e4e4;
 }
 
-/* form card */
-.modularform-initial-wrapper {
-  width: 700px;
-  background: #ffffff;
-  padding: 30px 35px;
+.mf-section-icon {
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-}
-
-/* title */
-.modularform-initial-wrapper h2 {
-  text-align: center;
-  margin-bottom: 25px;
-  color: #2c3e50;
-}
-
-/* rows */
-.form-row {
   display: flex;
-  gap: 20px;
-  margin-bottom: 18px;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
 }
 
-/* fields */
-.form-field {
+.mf-icon-purple { background: #EEEDFE; color: #534AB7; }
+.mf-icon-teal   { background: #E1F5EE; color: #0F6E56; }
+.mf-icon-amber  { background: #FAEEDA; color: #854F0B; }
+.mf-icon-blue   { background: #E6F1FB; color: #185FA5; }
+
+.mf-section-head-text h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111;
+  margin: 0;
+}
+
+.mf-section-head-text p {
+  font-size: 12px;
+  color: #888;
+  margin: 2px 0 0;
+}
+
+.mf-section-body {
+  padding: 20px;
+}
+
+/* ── Field grid ───────────────────────────────────────────────────────────── */
+
+.mf-field-grid {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.mf-col-2 { grid-template-columns: 1fr 1fr; }
+
+.mf-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.mf-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.mf-field-hint {
+  font-size: 12px;
+  color: #999;
+  margin: 4px 0 8px;
+  line-height: 1.5;
+}
+
+/* ── Drupal field overrides ───────────────────────────────────────────────── */
+
+.mf-create-page .form-item {
+  margin: 0;
+}
+
+.mf-create-page .form-item label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 6px;
+}
+
+.mf-create-page input[type="text"],
+.mf-create-page input[type="date"],
+.mf-create-page select,
+.mf-create-page textarea {
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 14px;
+  color: #111;
+  background: #fff;
+  transition: border-color 0.15s;
+}
+
+.mf-create-page input[type="text"]:focus,
+.mf-create-page input[type="date"]:focus,
+.mf-create-page select:focus,
+.mf-create-page textarea:focus {
+  outline: none;
+  border-color: #534AB7;
+  box-shadow: 0 0 0 3px rgba(83,74,183,0.1);
+}
+
+/* Status radios ── display side by side as pill buttons */
+
+.mf-field--status .form-type-radios .form-item {
+  display: inline-block;
+  margin-right: 8px;
+}
+
+.mf-field--status input[type="radio"] {
+  display: none;
+}
+
+.mf-field--status input[type="radio"] + label {
+  display: inline-block;
+  padding: 7px 18px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #444;
+  background: #fff;
+  text-transform: none;
+  letter-spacing: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.mf-field--status input[type="radio"]:checked + label {
+  background: #EEEDFE;
+  border-color: #534AB7;
+  color: #3C3489;
+  font-weight: 600;
+}
+
+/* Visibility select */
+
+.mf-visibility-extra {
+  margin-top: 4px;
+}
+
+.mf-visibility-extra .form-item {
+  margin-top: 12px;
+  padding: 14px;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+/* ── Toggle rows (scheduled, closes, editable, anonymous) ────────────────── */
+
+.mf-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.mf-toggle-row:last-of-type {
+  border-bottom: none;
+}
+
+.mf-toggle-info {
   flex: 1;
 }
 
-.form-field.full {
-  flex: 100%;
-}
-
-/* inputs */
-.modularform-initial-wrapper input,
-.modularform-initial-wrapper textarea,
-.modularform-initial-wrapper select {
-  transition: border 0.2s, box-shadow 0.2s;
-}
-
-.modularform-initial-wrapper input:focus,
-.modularform-initial-wrapper textarea:focus,
-.modularform-initial-wrapper select:focus {
-  box-shadow: 0 0 0 2px rgba(78,115,223,0.2);
-}
-
-/* submit button */
-.form-actions {
-  text-align: center;
-  margin-top: 25px;
-}
-
-.form-actions input {
-  background: #4e73df;
-  color: white;
-  padding: 10px 25px;
-  border: none;
-  border-radius: 5px;
+.mf-toggle-info h4 {
   font-size: 14px;
-  cursor: pointer;
+  font-weight: 600;
+  color: #111;
+  margin: 0 0 3px;
 }
 
-.form-actions input:hover {
-  background: #2e59d9;
+.mf-toggle-info p {
+  font-size: 13px;
+  color: #888;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.mf-toggle-field {
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+/* Style Drupal checkbox as a toggle switch */
+.mf-toggle-field .form-item {
+  margin: 0;
+}
+
+.mf-toggle-field label {
+  display: none; /* label shown in mf-toggle-info h4 instead */
+}
+
+.mf-toggle-field input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: #ccc;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s;
+  border: none;
+}
+
+.mf-toggle-field input[type="checkbox"]::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.mf-toggle-field input[type="checkbox"]:checked {
+  background: #1D9E75;
+}
+
+.mf-toggle-field input[type="checkbox"]:checked::after {
+  left: 21px;
+}
+
+/* Date wrappers that AJAX shows/hides */
+
+#scheduled-date-wrapper-styled .form-item,
+#closes-at-wrapper-styled .form-item {
+  margin: 0 0 4px;
+  padding: 14px;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+/* ── Actions ──────────────────────────────────────────────────────────────── */
+
+.mf-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+}
+
+.mf-actions input[type="submit"] {
+  padding: 10px 26px;
+  background: #534AB7;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.mf-actions input[type="submit"]:hover {
+  background: #3C3489;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 560px) {
+  .mf-col-2 { grid-template-columns: 1fr; }
+  .mf-toggle-row { flex-direction: column; gap: 10px; }
 }

@@ -20,7 +20,7 @@ module_load_include('inc', 'modularform_search', 'includes/modularform_response_
 function modularform_search_apachesolr_entity_info_alter(&$entity_info) {
   //  forms entity_alter
   $entity_info['modularform_form']['indexable']        = TRUE;
-  $entity_info['modularform_form']['index_table']      = 'apachesolr_index_entities_modularform_form';
+  $entity_info['modularform_form']['index_table']      = 'apachesolr_index_entities';
   $entity_info['modularform_form']['status callback'][]  = 'modularform_search_form_status_callback';
   $entity_info['modularform_form']['document callback'][] = 'modularform_search_form_document_callback';
   $entity_info['modularform_form']['reindex callback'] = 'modularform_search_form_reindex_callback';

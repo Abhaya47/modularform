@@ -12,6 +12,7 @@ module_load_include('inc', 'modularform', 'includes/answer_form');
 module_load_include('inc', 'modularform', 'includes/builder_build_fields');
 module_load_include('inc', 'modularform', 'includes/response_list');
 module_load_include('inc', 'modularform', 'includes/response_view');
+module_load_include('inc', 'modularform_search', 'includes/modularform_response_search');
 
 // Rules file.
 module_load_include('inc', 'modularform', 'modularform.rules');
@@ -37,7 +38,7 @@ function modularform_menu() {
   $items = [];
 
   $items['/landing'] = [
-    'title' => 'Dashboard',
+    'title' => 'Landing',
     'page callback' => 'landing_page',
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
@@ -46,8 +47,11 @@ function modularform_menu() {
   $items['forms/manage'] = [
     'title' => 'Dashboard',
     'page callback' => 'form_dashboard_page',
-    'access arguments' => ['view forms'],
-    'access callback' => 'form_view_page',
+    'access callback' => 'form_view_access',
+    // was 'form_view_page' (misnamed)
+    'access arguments' => [],
+    'type' => MENU_NORMAL_ITEM,
+    // was missing type
     'menu_name' => 'main-menu',
   ];
 
@@ -55,35 +59,49 @@ function modularform_menu() {
     'title' => 'Create Form',
     'page callback' => 'drupal_get_form',
     'page arguments' => ['modularform_create_form'],
-    'access arguments' => ['create content'],
     'access callback' => 'form_create_access',
+    'access arguments' => [],
+    // was ['create content'] — wrong permission string
+    'type' => MENU_CALLBACK,
   ];
 
   $items['forms/edit/%'] = [
     'title' => 'Edit Form',
     'page callback' => 'drupal_get_form',
     'page arguments' => ['modularform_create_form', 2],
-    'access arguments' => ['edit forms'],
+    'access callback' => 'form_edit_access',
+    // was missing access callback
+    'access arguments' => [2],
+    // was using permission string, not wildcard index
+    'type' => MENU_CALLBACK,
   ];
 
   $items['forms/delete/%'] = [
     'title' => 'Delete Form',
     'page callback' => 'modularform_soft_delete',
     'page arguments' => [2],
-    'access arguments' => ['delete forms'],
+    'access callback' => 'form_delete_access',
+    // was missing access callback
+    'access arguments' => [2],
+    // was using permission string, not wildcard index
+    'type' => MENU_CALLBACK,
   ];
 
   $items['forms/permanent_delete/%'] = [
     'title' => 'Delete Form Permanently',
     'page callback' => 'modularform_perma_delete',
     'page arguments' => [2],
-    'access arguments' => ['delete forms'],
+    'access callback' => 'form_delete_access', // was missing access callback
+    'access arguments' => [2],
+    'type' => MENU_CALLBACK,
   ];
 
   $items['forms/trash'] = [
     'title' => 'Trash',
     'page callback' => 'form_deleted_dashboard_page',
-    'access arguments' => ['delete forms'],
+    'access callback' => 'form_delete_access', // was missing access callback
+    'access arguments' => [],
+    'type' => MENU_NORMAL_ITEM,
     'menu_name' => 'main-menu',
   ];
 
@@ -91,15 +109,20 @@ function modularform_menu() {
     'title' => 'Restore Form',
     'page callback' => 'modularform_restore',
     'page arguments' => [2],
-    'access arguments' => ['delete forms'],
+    'access callback' => 'form_delete_access', // was missing access callback
+    'access arguments' => [2],
+    'type' => MENU_CALLBACK,
   ];
 
   $items['forms/%/builder'] = [
     'title' => 'Form Builder',
     'page callback' => 'drupal_get_form',
     'page arguments' => ['modularform_builder_form', 1],
-    'access arguments' => ['access content'],
-    'access callback' => 'form_create_access',
+    'access callback' => 'form_edit_access',
+    // was 'form_create_access' — builder = editing
+    'access arguments' => [1],
+    // was ['access content'] — wrong
+    'type' => MENU_CALLBACK,
   ];
 
   $items['forms/%/builder/preview'] = [
@@ -107,9 +130,9 @@ function modularform_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => ['modularform_preview_form', 1],
     'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
   ];
 
-  #TODO change call backs
   $items['register/invite/%'] = [
     'title' => 'Register via Invite',
     'page callback' => 'modularform_invite_register_page',
@@ -118,36 +141,38 @@ function modularform_menu() {
     'type' => MENU_CALLBACK,
   ];
 
-  #TODO think about people who are logged out but you already have the unique code soo
   $items['forms/%/fill'] = [
     'title' => 'Fill Form',
     'page callback' => 'drupal_get_form',
     'page arguments' => ['modularform_answer_form', 1],
     'access callback' => 'modularform_fill_access',
-    'access arguments' => [1], // passes the fid (wildcard %)
+    'access arguments' => [1],
     'type' => MENU_CALLBACK,
   ];
 
   $items['forms/response/view/%'] = [
-    'title' => 'View response form',
+    'title' => 'View Response',
     'page callback' => 'drupal_get_form',
     'page arguments' => ['modularform_response_view_answer', 3],
-    'access callback' => TRUE,
+    'access callback' => 'response_view_access',
+    'access arguments' => [3],
     'type' => MENU_CALLBACK,
   ];
 
   $items['forms/response/edit/%'] = [
-    'title' => 'View response form',
+    'title' => 'Edit Response',
     'page callback' => 'drupal_get_form',
     'page arguments' => ['modularform_response_edit_form', 3],
-    'access callback' => TRUE,
+    'access callback' => 'response_edit_access',
+    'access arguments' => [3],
     'type' => MENU_CALLBACK,
   ];
 
   $items['forms/response/list'] = [
-    'title' => 'Response',
+    'title' => 'Responses',
     'page callback' => 'modularform_response_list_page',
-    'access callback' => TRUE,
+    'access callback' => 'response_list_access',
+    'access arguments' => [],
     'type' => MENU_NORMAL_ITEM,
     'menu_name' => 'main-menu',
   ];
@@ -156,7 +181,8 @@ function modularform_menu() {
     'title' => 'Delete Response',
     'page callback' => 'modularform_response_delete',
     'page arguments' => [3],
-    'access callback' => TRUE,
+    'access callback' => 'response_delete_access',
+    'access arguments' => [3],
     'type' => MENU_CALLBACK,
   ];
 
@@ -174,13 +200,14 @@ function modularform_menu() {
     'type' => MENU_CALLBACK,
   ];
 
-  // Inside your existing hook_menu():
-  $items['modularform/dashboard/search/ajax'] = [
-    'page callback' => 'modularform_search_ajax',
-    'access arguments' => ['access content'],
+  $items['forms/ajax/search'] = [
+    'title' => '',
+    'page callback' => 'modularform_dashboard_ajax',
+    'access callback' => TRUE,
     'type' => MENU_CALLBACK,
-    'delivery callback' => 'ajax_deliver',
+    'file' => 'includes/dashboard.inc',
   ];
+
   return $items;
 }
 
@@ -205,53 +232,194 @@ function modularform_permission() {
       'title' => t('Delete forms'),
       'description' => t('Allow users to delete forms.'),
     ],
-    'answer_forms' => [
-      'title' => t('Answer Forms'),
+    'answer forms' => [
+      'title' => t('Answer forms'),
       'description' => t('Allow users to answer forms.'),
     ],
-    'view submissions' => [
-      'title' => t('View submissions'),
-      'description' => t('Allow users to view submissions.'),
+    'view responses' => [
+      'title' => t('View responses'),
+      'description' => t('Allow users to view form responses.'),
     ],
-
+    'edit responses' => [
+      'title' => t('Edit responses'),
+      'description' => t('Allow users to edit form responses.'),
+    ],
+    'delete responses' => [
+      'title' => t('Delete responses'),
+      'description' => t('Allow users to delete form responses.'),
+    ],
   ];
 }
 
-function form_view_page() {
+// =====================
+// HELPERS
+// =====================
+
+/**
+ * TRUE if the current user is a site-level administrator (access to
+ * everything).
+ */
+function _modularform_is_site_admin() {
   global $user;
-  if (isset($user->roles) && in_array('administrator', $user->roles)) {
-    return TRUE;
-  }
-  if (isset($user->roles) && in_array('admin', $user->roles)) {
-    return TRUE;
-  }
-  return FALSE;
+  return isset($user->roles) && in_array('administrator', $user->roles);
 }
 
+/**
+ * TRUE if the current user has the 'admin' role (form owner — can CRUD
+ * own/member forms).
+ */
+function _modularform_is_form_admin() {
+  global $user;
+  return isset($user->roles) && in_array('admin', $user->roles);
+}
+
+/**
+ * Returns the current user's membership role for a given form, or FALSE if not
+ * a member. Roles: 0 = creator, 1 = viewer, 2 = participant.
+ */
+function _modularform_form_member_role($fid) {
+  global $user;
+
+  // Site admin has implicit creator-level access on every form.
+  if (_modularform_is_site_admin()) {
+    return 0;
+  }
+
+  // Check created_by first.
+  $form = db_select('modularform_forms', 'f')
+    ->fields('f', ['created_by'])
+    ->condition('f.id', $fid)
+    ->execute()
+    ->fetchObject();
+
+  if ($form && $form->created_by == $user->uid) {
+    return 0;
+  }
+
+  // Fall back to modularform_form_members.
+  $member = db_select('modularform_form_members', 'fm')
+    ->fields('fm', ['roles'])
+    ->condition('fm.form_id', $fid)
+    ->condition('fm.uid', $user->uid)
+    ->execute()
+    ->fetchObject();
+
+  return $member ? (int) $member->roles : FALSE;
+}
+
+// =====================
+// FORM ACCESS CALLBACKS
+// =====================
+
+/**
+ * Access callback: view forms list / dashboard.
+ *
+ * - administrator: always.
+ * - admin: yes (they manage their own forms).
+ * - others: requires 'view forms' permission.
+ */
+function form_view_access() {
+  if (_modularform_is_site_admin()) {
+    return TRUE;
+  }
+  if (_modularform_is_form_admin()) {
+    return user_access('view forms');
+  }
+  return user_access('view forms');  // regular users can still be granted this
+}
+
+/**
+ * Access callback: create a new form.
+ *
+ * - administrator: always.
+ * - admin: yes if they have 'create forms' permission.
+ * - others: no.
+ */
 function form_create_access() {
-  global $user;
-  if (isset($user->roles) && in_array('administrator', $user->roles)) {
+  if (_modularform_is_site_admin()) {
     return TRUE;
   }
-  if (isset($user->roles) && in_array('admin', $user->roles)) {
-    return TRUE;
+  if (_modularform_is_form_admin()) {
+    return user_access('create forms');
   }
   return FALSE;
 }
 
+/**
+ * Access callback: edit/build a form.
+ *
+ * - administrator: always.
+ * - admin: only if they are the form creator (role 0) or a member.
+ * - others: no.
+ *
+ * @param int $fid Form ID from the URL wildcard.
+ */
+function form_edit_access($fid) {
+  if (_modularform_is_site_admin()) {
+    return TRUE;
+  }
+  if (_modularform_is_form_admin() && user_access('edit forms')) {
+    return _modularform_form_member_role($fid) === 0; // must be creator
+  }
+  return FALSE;
+}
+
+/**
+ * Access callback: delete / restore / trash / permanent-delete a form.
+ *
+ * - administrator: always.
+ * - admin: only if they are the form creator (role 0).
+ * - others: no.
+ *
+ * @param int $fid Form ID (NULL for list pages like trash).
+ */
+function form_delete_access($fid = NULL) {
+  if (_modularform_is_site_admin()) {
+    return TRUE;
+  }
+  if (_modularform_is_form_admin() && user_access('delete forms')) {
+    if ($fid === NULL) {
+      return TRUE; // trash list page — just needs the role+permission
+    }
+    return _modularform_form_member_role($fid) === 0; // must be creator
+  }
+  return FALSE;
+}
+
+/**
+ * Access callback: fill / answer a form.
+ *
+ * - administrator: always.
+ * - Public forms (visibility == 0): any user with 'answer forms' permission.
+ * - Private forms: requires a valid unused invitation token.
+ *
+ * @param int $fid Form ID from the URL wildcard.
+ */
 function modularform_fill_access($fid) {
+  if (_modularform_is_site_admin()) {
+    return TRUE;
+  }
+  if (!user_access('answer forms')) {
+    return FALSE;
+  }
+
   $form = db_select('modularform_forms', 'f')
     ->fields('f', ['id', 'visibility'])
+    ->condition('f.id', $fid)
     ->execute()
-    ->fetchAssoc();
+    ->fetchObject();
 
-  if ($form['visibility'] == 0) {
+  if (!$form) {
+    return FALSE;
+  }
+
+  // Public form — open to anyone with the permission.
+  if ((int) $form->visibility === 0) {
     return TRUE;
   }
 
-  if ($form) {
-    $token = isset($_GET['token']) ? check_plain($_GET['token']) : '';
-  }
+  // Private form — validate invitation token.
+  $token = isset($_GET['token']) ? check_plain($_GET['token']) : '';
   if (empty($token)) {
     return FALSE;
   }
@@ -267,6 +435,159 @@ function modularform_fill_access($fid) {
     ->fetchObject();
 
   return !empty($record);
+}
+
+// =====================
+// RESPONSE ACCESS CALLBACKS
+// =====================
+
+/**
+ * Access callback: list responses.
+ *
+ * - administrator: sees all responses.
+ * - admin: sees responses for forms they created (role 0) or are a viewer on
+ * (role 1).
+ * - others: requires 'view responses' permission (sees only own responses —
+ * filtered in page callback).
+ */
+function response_list_access() {
+  if (_modularform_is_site_admin()) {
+    return TRUE;
+  }
+  if (_modularform_is_form_admin()) {
+    return user_access('view responses');
+  }
+  return user_access('view responses');
+}
+
+/**
+ * Access callback: view a single response.
+ *
+ * - administrator: always.
+ * - admin (role 0 creator or role 1 viewer on the form): yes.
+ * - Response owner: yes.
+ * - Anonymous response / someone else's response: no.
+ *
+ * @param int $id Response ID from the URL wildcard.
+ */
+function response_view_access($id) {
+  if (_modularform_is_site_admin()) {
+    return TRUE;
+  }
+  if (!user_access('view responses')) {
+    return FALSE;
+  }
+
+  $response = db_select('modularform_responses', 'r')
+    ->fields('r', ['form_id', 'user_id'])
+    ->condition('r.id', $id)
+    ->execute()
+    ->fetchObject();
+
+  if (!$response) {
+    return FALSE;
+  }
+
+  // admin role: can view if they are creator (0) or viewer (1) on this form.
+  if (_modularform_is_form_admin()) {
+    $role = _modularform_form_member_role($response->form_id);
+    if ($role !== FALSE && in_array($role, [0, 1])) {
+      return TRUE;
+    }
+  }
+
+  // Any user: can view their own response.
+  global $user;
+  if ($response->user_id == 0 || $response->user_id != $user->uid) {
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+/**
+ * Access callback: edit a response.
+ *
+ * - administrator: always.
+ * - admin (role 0 creator on the form): yes.
+ * - Response owner (non-anonymous): yes.
+ *
+ * @param int $id Response ID from the URL wildcard.
+ */
+function response_edit_access($id) {
+  if (_modularform_is_site_admin()) {
+    return TRUE;
+  }
+  if (!user_access('edit responses')) {
+    return FALSE;
+  }
+
+  $response = db_select('modularform_responses', 'r')
+    ->fields('r', ['form_id', 'user_id'])
+    ->condition('r.id', $id)
+    ->execute()
+    ->fetchObject();
+
+  if (!$response) {
+    return FALSE;
+  }
+
+  // admin role: only the form creator can edit responses.
+  if (_modularform_is_form_admin()) {
+    if (_modularform_form_member_role($response->form_id) === 0) {
+      return TRUE;
+    }
+  }
+
+  // Any user: can edit their own non-anonymous response.
+  global $user;
+  if ($response->user_id == 0 || $response->user_id != $user->uid) {
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+/**
+ * Access callback: delete a response.
+ *
+ * - administrator: always.
+ * - admin (role 0 creator on the form): yes.
+ * - Response owner (non-anonymous): yes.
+ *
+ * @param int $id Response ID from the URL wildcard.
+ */
+function response_delete_access($id) {
+  if (_modularform_is_site_admin()) {
+    return TRUE;
+  }
+  if (!user_access('delete responses')) {
+    return FALSE;
+  }
+
+  $response = db_select('modularform_responses', 'r')
+    ->fields('r', ['form_id', 'user_id'])
+    ->condition('r.id', $id)
+    ->execute()
+    ->fetchObject();
+
+  if (!$response) {
+    return FALSE;
+  }
+
+  // Form creator (role 0) can delete any response on their form —
+  // applies to both 'admin' role users and regular users who created a form.
+  if (_modularform_form_member_role($response->form_id) === 0) {
+    return TRUE;
+  }
+
+  // Any user: can delete their own non-anonymous response.
+  global $user;
+  if ($response->user_id == 0 || $response->user_id != $user->uid) {
+    return FALSE;
+  }
+
+  return TRUE;
 }
 
 /**
@@ -310,7 +631,7 @@ function modularform_entity_info() {
         'label' => t('Form Section'),
       ],
     ],
-    'module' => 'modularform'
+    'module' => 'modularform',
   ];
 
   // 3. Question Entity
@@ -401,8 +722,6 @@ function modularform_theme() {
       'variables' => [
         'header' => NULL,
         'rows' => NULL,
-        'search_bar' => NULL,
-        // ← this is what makes $search_bar available in tpl
       ],
       'template' => 'modularform-dashboard',
       'path' => drupal_get_path('module', 'modularform') . '/templates',
@@ -562,4 +881,55 @@ function modularform_library() {
       'dependencies' => [['system', 'jquery']],
     ],
   ];
+}
+
+/**
+ * Implements hook_entity_insert().
+ */
+function modularform_entity_insert($entity, $type) {
+  if ($type !== 'modularform_form') {
+    return;
+  }
+  if (module_exists('modularform_search')) {
+    modularform_search_solr_sync($entity, $type);
+  }
+}
+
+/**
+ * Implements hook_entity_update().
+ */
+function modularform_entity_update($entity, $type) {
+  if ($type !== 'modularform_form') {
+    return;
+  }
+
+  // Solr sync
+  if (module_exists('modularform_search')) {
+    modularform_search_solr_sync($entity, $type);
+  }
+
+  // Notifications — only when status transitions to active (1 -> was not 1)
+  if ((int) $entity->status === 1 && (int) $entity->original->status !== 1) {
+    $now = (new DateTime('now', new DateTimeZone('UTC')))->getTimestamp();
+    $rows = db_select('modularform_form_members', 'm')
+      ->fields('m', ['uid', 'token'])
+      ->condition('m.form_id', $entity->id)
+      ->condition('m.roles', 2)
+      ->execute()
+      ->fetchAll(PDO::FETCH_ASSOC);
+    _modularform_queue_restricted_notifications($entity->id, $entity, $rows);
+    _modularform_queue_private_notifications($entity->id, $entity, $now);
+  }
+}
+
+/**
+ * Implements hook_entity_delete().
+ */
+function modularform_entity_delete($entity, $type) {
+  if ($type !== 'modularform_form') {
+    return;
+  }
+  if (module_exists('modularform_search')) {
+    modularform_search_solr_remove($entity->id, $type);
+  }
 }

@@ -11,19 +11,26 @@ function form_deleted_dashboard_page() {
   ];
   $rows = [];
 
-  $forms = db_select('modularform_forms', 'f')
-    ->fields('f', [
-      'id',
-      'title',
-      'status',
-      'created_by',
-      'created_at',
-      'deleted_at',
-    ])
-    ->isNotNull('deleted_at')               // Only fetch soft-deleted forms
-    ->orderBy('deleted_at', 'DESC')
-    ->execute()
-    ->fetchAll();
+  // Get form IDs where user is a creator member (role 0).
+  if (_modularform_is_site_admin()) {
+    $query = db_select('modularform_forms', 'f');
+    $query->fields('f', ['id', 'title', 'status', 'created_by', 'created_at', 'deleted_at']);
+    $query->isNotNull('f.deleted_at');
+    $query->orderBy('f.deleted_at', 'DESC');
+    $forms = $query->execute()->fetchAll();
+  } else {
+    global $user;
+    $query = db_select('modularform_forms', 'f');
+    $query->fields('f', ['id', 'title', 'status', 'created_by', 'created_at', 'deleted_at']);
+    $query->leftJoin('modularform_form_members', 'fm', 'fm.form_id = f.id AND fm.uid = :uid AND fm.roles = :role', [':uid' => $user->uid, ':role' => 0]);
+    $query->isNotNull('f.deleted_at');
+    $query->orderBy('f.deleted_at', 'DESC');
+    $or = db_or();
+    $or->condition('f.created_by', $user->uid);
+    $or->isNotNull('fm.form_id');
+    $query->condition($or);
+    $forms = $query->execute()->fetchAll();
+  }
 
   if (empty($forms)) {
     return '<p>' . t('No deleted forms found.') . '</p>';
@@ -149,6 +156,7 @@ function modularform_perma_delete($form_id) {
   }
   drupal_goto('forms/manage');
 }
+
 /**
  * Restore a form
  */

@@ -49,6 +49,24 @@ function modularform_create_form($form, &$form_state, $id = NULL) {
     '#default_value' => $val('status', 0),
   ];
 
+  // ── Editable ──────────────────────────────────────────────────────────────
+
+  $form['editable'] = [
+    '#type' => 'checkbox',
+    '#title' => t('Allow respondents to edit their submission?'),
+    '#default_value' => $val('editable', 0),
+    '#weight' => 13,
+  ];
+
+  // ── Anonymous responses ───────────────────────────────────────────────────
+
+  $form['anonymous_responses'] = [
+    '#type' => 'checkbox',
+    '#title' => t('Collect responses anonymously?'),
+    '#default_value' => $val('anonymous_responses', 0),
+    '#weight' => 14,
+  ];
+
   // ── Visibility ────────────────────────────────────────────────────────────
 
   $form['visibility'] = [
@@ -209,11 +227,24 @@ function modularform_create_form($form, &$form_state, $id = NULL) {
 
   // ── Submit ────────────────────────────────────────────────────────────────
 
-  $form['submit'] = [
-    '#type' => 'submit',
-    '#value' => t('Start Building'),
-    '#weight' => 200,
-  ];
+  if ($id) {
+    $form['submit'] = [
+      '#type' => 'submit',
+      '#value' => t('Save settings'),
+      '#weight' => 200,
+    ];
+  }
+  else{
+    $form['submit'] = [
+      '#type' => 'submit',
+      '#value' => t('Start Building'),
+      '#weight' => 200,
+    ];
+  }
+
+
+
+
 
   $form['#theme'] = ['modularform_initial_template'];
   $form['#attached']['css'][] = drupal_get_path('module', 'modularform') . '/css/modularform-initial.css';
@@ -282,7 +313,8 @@ function modularform_create_form_submit($form, &$form_state) {
   }
   $entity->closes = !empty($values['closes']) ? 1 : 0;
   $entity->closes_at = $closes_at;
-
+  $entity->editable          = !empty($values['editable']) ? 1 : 0;
+  $entity->anonymous_responses = !empty($values['anonymous_responses']) ? 1 : 0;
   // ── visibility ────────────────────────────────────────────────────────────
   $visibility = $values['visibility'];
   $entity->visibility = $visibility;
@@ -320,6 +352,9 @@ function modularform_create_form_submit($form, &$form_state) {
 
   $message = !empty($id) ? 'Form %title updated.' : 'Form %title saved in draft.';
   drupal_set_message(t($message, ['%title' => $entity->title]));
+  if($id){
+    drupal_goto('forms/manage');
+  }
   drupal_goto('forms/' . $entity->id . '/builder');
 }
 
@@ -932,23 +967,4 @@ function _modularform_queue_restricted_notifications($form_id, $entity, array $n
 /**
  * Implements hook_entity_update().
  */
-function modularform_entity_update($entity, $type) {
-  if ($type !== 'modularform_form') {
-    return;
-  }
-  if ((int) $entity->status !== 1 || (int) $entity->original->status === 1) {
-    return;
-  }
 
-  $now = (new DateTime('now', new DateTimeZone('UTC')))->getTimestamp();
-  $rows = db_select('modularform_form_members', 'm')
-    ->fields('m', ['uid', 'token'])
-    ->condition('m.form_id', $entity->id)
-    ->condition('m.roles', 2)        // participant
-    ->execute()
-    ->fetchAll(PDO::FETCH_ASSOC);
-
-  _modularform_queue_restricted_notifications($entity->id, $entity, $rows);
-
-  _modularform_queue_private_notifications($entity->id, $entity, $now);
-}
