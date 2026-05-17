@@ -146,12 +146,16 @@
         // ── Add filter ─────────────────────────────────────────────────────
 
         $addBtn.on('click', function () {
-          if (!state.qKey || !state.aVal) { return; }
-          state.pairs.push({
-            solrKey: state.qKey,
-            qLabel:  state.qLabel,
-            answer:  state.aVal
-          });
+          if (!state.form) { return; }
+
+          if (state.qKey && state.aVal) {
+            state.pairs.push({
+              solrKey: state.qKey,
+              qLabel:  state.qLabel,
+              answer:  state.aVal
+            });
+          }
+
           resetQuestionStep();
           resetAnswerStep();
           $addBtn.prop('disabled', true);
@@ -181,6 +185,7 @@
           closePanel($formPanel);
           lockFormStep(state.form);
           unlockStep($stepQ, $qSearch);
+          $addBtn.prop('disabled', false);  // ← add this
           renderTags();
           updateUrl();
         }
