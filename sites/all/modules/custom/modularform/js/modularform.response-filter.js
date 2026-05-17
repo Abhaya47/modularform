@@ -69,11 +69,25 @@
               var i = 0;
               while (params['filters[' + i + '][solr_key]']) {
                 var solrKey = params['filters[' + i + '][solr_key]'];
-                var answer  = params['filters[' + i + '][answer]'] || '';
-                var qLabel  = solrKeyToLabel(solrKey, form.id);
-                state.pairs.push({ solrKey: solrKey, qLabel: qLabel, answer: answer });
+                var answer = params['filters[' + i + '][answer]'] || '';
+                var qLabel = solrKeyToLabel(solrKey, form.id);
+                state.pairs.push({
+                  solrKey: solrKey,
+                  qLabel: qLabel,
+                  answer: answer,
+                  count: params['filters[' + i + '][count]'] || null,
+                });
                 i++;
               }
+
+              // ← Overwrite the last pair's count with what's actually on the page now
+              if (state.pairs.length) {
+                var $count = $('.gform-table-count');
+                if ($count.length) {
+                  state.pairs[state.pairs.length - 1].count = $.trim($count.text());
+                }
+              }
+
               renderTags();
             });
           });
@@ -154,10 +168,14 @@
           if (!state.form) { return; }
 
           if (state.qKey && state.aVal) {
+            var $count = $('.gform-table-count');
+            var countStr = $count.length ? $.trim($count.text()) : null;
+
             state.pairs.push({
               solrKey: state.qKey,
               qLabel: state.qLabel,
               answer: state.aVal,
+              count: null,   // ← snapshot at time of adding
             });
           }
 
@@ -321,10 +339,8 @@
 
           $.each(state.pairs, function (i, pair) {
             var shortLabel = pair.qLabel.length > 48 ? pair.qLabel.slice(0, 45) + '…' : pair.qLabel;
-            // Only last pair gets the live count — earlier pairs don't reflect current filter alone
-            var countSuffix = (i === state.pairs.length - 1) ? filteredText : '';
+            var countSuffix = pair.count ? ' (' + pair.count + ')' : '';
             var tagText = shortLabel + ' › ' + pair.answer + countSuffix;
-
             var $pairTag = $('<span class="gform-filter-tag gform-filter-tag--pair">')
               .append(
                 $('<span class="gform-filter-tag__label">').text(tagText),
@@ -385,13 +401,14 @@
           var params = {};
 
           if (state.form) {
-            params.form_id    = state.form.id;
+            params.form_id = state.form.id;
             params.form_total = state.form.total || '';  // ← add
           }
 
           $.each(state.pairs, function (i, pair) {
             params['filters[' + i + '][solr_key]'] = pair.solrKey;
             params['filters[' + i + '][answer]'] = pair.answer;
+            params['filters[' + i + '][count]'] = pair.count || '';  // ← add
           });
 
           var qs = $.param(params);
@@ -515,7 +532,7 @@
   Drupal.behaviors.modularformSort = {
     attach: function (context, settings) {
       $('#mf-filter-sort', context).once('modularform-sort').on('change', function () {
-        var val    = $(this).val();
+        var val = $(this).val();
         var $tbody = $('table.gform-table tbody');
         if (!$tbody.length) { return; }
 
@@ -535,8 +552,8 @@
           if (val === 'respondent_asc' || val === 'respondent_desc') {
             aVal = $.trim($(a).find('td.gform-td-name .gform-name-text').text()).toLowerCase();
             bVal = $.trim($(b).find('td.gform-td-name .gform-name-text').text()).toLowerCase();
-            if (aVal < bVal) { return val === 'respondent_asc' ? -1 :  1; }
-            if (aVal > bVal) { return val === 'respondent_asc' ?  1 : -1; }
+            if (aVal < bVal) { return val === 'respondent_asc' ? -1 : 1; }
+            if (aVal > bVal) { return val === 'respondent_asc' ? 1 : -1; }
             return 0;
           }
 
@@ -545,7 +562,7 @@
 
         $.each($rows, function (i, row) { $tbody.append(row); });
       });
-    }
+    },
   };
 
 }(jQuery, Drupal));
