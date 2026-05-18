@@ -166,9 +166,18 @@ function modularform_answer_form_submit($form, &$form_state) {
 
         foreach ($parts as $part) {
           $part = trim($part);
+
           if ($q_type === 'tag') {
             if (strpos($part, 'new:') === 0) {
-              $resolved = _modularform_insert_new_tags($q_id, substr($part, 4), $now);
+              $tag_labels = explode(',', substr($part, 4));
+              $resolved_ids = _modularform_insert_new_tags($q_id, $tag_labels, $now);
+
+              foreach ($resolved_ids as $tag_id) {
+                db_insert('modularform_answers_multi')
+                  ->fields(['answer_id' => $answer_id, 'value' => $tag_id])
+                  ->execute();
+              }
+              continue; // ← skip the single insert below
             }
             else {
               $resolved = (int) $part;
@@ -177,6 +186,8 @@ function modularform_answer_form_submit($form, &$form_state) {
           else {
             $resolved = $part;
           }
+
+          // Only reached for non-"new:" cases
           db_insert('modularform_answers_multi')
             ->fields(['answer_id' => $answer_id, 'value' => $resolved])
             ->execute();
@@ -344,22 +355,21 @@ function modularform_response_edit_form_submit($form, &$form_state) {
               ->execute();
           }
         }
-
         elseif ($q_type === 'tag') {
-          $parts = array_map(
-            'trim',
-            array_filter(explode(',', (string) $raw))
-          );
+          $parts = is_array($raw)
+            ? array_values(array_filter($raw, fn($v) => $v !== '' && $v !== NULL))
+            : array_filter(array_map('trim', explode(',', (string) $raw)), fn($v) => $v !== '');
 
           $new_tags = [];
           $existing_ids = [];
 
-          foreach ($parts as $val) {
-            if (strpos($val, 'new:') === 0) {
-              $new_tags[] = substr($val, 4);
+          foreach ($parts as $part) {
+            $part = trim($part);
+            if (strpos($part, 'new:') === 0) {
+              $new_tags[] = substr($part, 4); // collect, don't insert yet
             }
             else {
-              $existing_ids[] = (int) $val;
+              $existing_ids[] = (int) $part;
             }
           }
 
@@ -375,10 +385,7 @@ function modularform_response_edit_form_submit($form, &$form_state) {
 
           foreach ($all_ids as $tag_id) {
             db_insert('modularform_answers_multi')
-              ->fields([
-                'answer_id' => $answer_id,
-                'value' => $tag_id,
-              ])
+              ->fields(['answer_id' => $answer_id, 'value' => $tag_id])
               ->execute();
           }
         }
@@ -480,20 +487,24 @@ function _modularform_load_defaults($response_id) {
   return $defaults;
 }
 
-function _modularform_insert_new_tags($q_id, string $labels, $now) {
+// Helper now correctly accepts an array
+function _modularform_insert_new_tags($q_id, array $labels, $now) {
   $ids = [];
   foreach ($labels as $label) {
     $label = trim($label);
     if ($label === '') {
       continue;
     }
-    $ids[] = db_insert('modularform_tags')
+    $id = db_insert('modularform_tags')
       ->fields([
-        'q_id' => $q_id,
-        'label' => $label,
+        'title' => $label,
         'created_at' => $now,
       ])
-      ->execute();
+      ->execute(); // returns last insert ID (int) in Drupal 7
+
+    if ($id) {
+      $ids[] = (int) $id;
+    }
   }
   return $ids;
 }

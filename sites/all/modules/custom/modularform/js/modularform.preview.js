@@ -15,6 +15,7 @@
 
         // Select2 3.5.4 uses a plain <input type="hidden"> as its anchor
         var $input = $('<input type="hidden" style="width:100%" />');
+        $input.val($hidden.val());  // ← ADD THIS
         $container.append($input);
 
         $input.select2({
@@ -23,46 +24,45 @@
           placeholder: Drupal.t('Search or add tags\u2026'),
           minimumInputLength: 0,
 
-          // Called on init if there's a pre-existing value in $hidden
           initSelection: function (element, callback) {
             var val = $hidden.val();
-            if (!val) {
-              callback([]);
-              return;
-            }
+            console.log(Drupal.settings.modularformDefaultTags);
+
+            if (!val) { callback([]); return; }
+
+            var qId = $hidden.data('q-id');
+            var defaultTags = (settings.modularformDefaultTags && settings.modularformDefaultTags[qId]) || [];
+            console.log(Drupal.settings.modularformDefaultTags);
+            var lookup = {};
+            $.each(defaultTags, function (i, t) { lookup[String(t.id)] = t.text; });
+
             var items = [];
             $.each(val.split(','), function (i, part) {
               part = $.trim(part);
-              if (!part) {
-                return;
-              }
+              if (!part) { return; }
               if (part.indexOf('new:') === 0) {
-                var name = part.slice(4);
-                items.push({ id: part, text: name });
+                items.push({ id: part, text: part.slice(4) });
               } else {
-                items.push({ id: part, text: part });
+                items.push({ id: part, text: lookup[part] || part });
               }
             });
             callback(items);
           },
 
-          // AJAX query against our Drupal callback
           query: function (opts) {
             $.ajax({
               url: acUrl,
               dataType: 'json',
-              data: { term: opts.term, page_limit: 20 },  // ← q → term
+              data: { term: opts.term, page_limit: 20, vid: vid },
               success: function (data) {
                 opts.callback({ results: data.results, more: data.more });
               },
               error: function () {
                 opts.callback({ results: [] });
-              }
+              },
             });
           },
 
-          // FIX 3: use native Array.filter instead of $(data).filter()
-          // which is unreliable with plain object arrays in older jQuery
           createSearchChoice: function (term, data) {
             var termLower = term.toLowerCase();
             var match = data.filter(function (item) {
@@ -73,18 +73,33 @@
             }
           },
 
-          // Format the display of selected items (strip the "(add new)" suffix)
-          formatSelection: function (item) {
-            return item.text.replace(/\s*\(add new\)\s*$/, '');
+          formatSelection: function (item, $container, escapeMarkup) {
+            // Render the label then a clickable × that deselects this item
+            var text = item.text.replace(/\s*\(add new\)\s*$/, '');
+            return escapeMarkup(text) +
+              ' <a class="select2-tag-remove" data-id="' + escapeMarkup(item.id) + '" ' +
+              'style="cursor:pointer;margin-left:4px;color:#999;">&times;</a>';
           },
+
+          escapeMarkup: function (m) { return m; },  // allow the <a> tag through
         });
 
         // Sync Select2 value back to the hidden field Drupal will submit
         // FIX 2: also trigger change on $hidden so validation listeners fire
+        // Single source of truth — always sync from here
         $input.on('change', function () {
           var val = $input.select2('val');
           $hidden.val(val ? val.join(',') : '');
           $hidden.trigger('change');
+        });
+
+        // × click just updates Select2; the change handler above does the rest
+        $container.on('click', '.select2-tag-remove', function (e) {
+          e.stopPropagation();
+          var removeId = $(this).data('id');
+          var current = $input.select2('val') || [];
+          var updated = current.filter(function (v) { return v !== removeId; });
+          $input.select2('val', updated);  // triggers change → syncs $hidden
         });
       });
 
@@ -281,6 +296,6 @@
         $container.removeClass('preview-question--error');
         $container.find('.preview-inline-error').remove();
       }
-    }
+    },
   };
 }(jQuery, Drupal));

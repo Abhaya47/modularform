@@ -232,21 +232,49 @@ function _modularform_build_fields(&$form, $elements, $mode = 'preview', $defaul
           break;
 
         case 'tag':
+          $default_ids = isset($defaults[$q_id]) ? (array) $defaults[$q_id] : [];
+          $default_tags = [];
+          if (!empty($default_ids)) {
+            $rows = db_select('modularform_tags', 't')
+              ->fields('t', ['id', 'title'])
+              ->condition('t.id', $default_ids, 'IN')
+              ->execute()
+              ->fetchAllAssoc('id');
+
+            // after fetching, re-key by string just to be safe
+            $rows = array_combine(
+              array_map('strval', array_keys($rows)),
+              array_values($rows)
+            );
+
+            foreach ($default_ids as $tid) {
+              $tid = (string) $tid;
+              if (isset($rows[$tid])) {
+                $default_tags[] = (object) [
+                  'id'   => $tid,
+                  'text' => $rows[$tid]->title,
+                ];
+              }
+            }
+          }
           $form[$sec_id][$q_id]['answer'] = [
-            '#type'          => 'hidden',
+            '#type'          => 'textfield',
             '#title'         => $label,
             '#required'      => $required,
-            '#default_value' => isset($defaults[$q_id]) ? implode(',', (array) $defaults[$q_id]) : '',
+            '#default_value' => implode(',', $default_ids),
             '#attributes'    => [
-              'data-q-id'  => $q_id,
+              'data-q-id'   => $q_id,
               'data-ac-url' => url('modularform/tags/autocomplete'),
-              'class'      => ['select2-tags-hidden'],
+              'class'       => ['select2-tags-hidden'],
             ],
           ];
-          $form[$sec_id][$q_id]['_label'] = [
-            '#markup' => '<label>' . check_plain($label) . ($required ? ' <span class="form-required">*</span>' : '') . '</label>',
-            '#weight' => -1,
-          ];
+          drupal_add_js(
+            ['modularformDefaultTags' => [$q_id => $default_tags]],
+            ['type' => 'setting']
+          );
+          drupal_add_js(
+            drupal_get_path('module', 'modularform') . '/js/modularform.preview.js'
+          );
           break;
 
         case 'file':
@@ -322,21 +350,36 @@ function _dfp_attach_tinymce($element, &$form_state) {
 }
 
 function modularform_tags_autocomplete() {
+  // Resolve IDs to labels for initSelection
+  if (!empty($_GET['ids'])) {
+    $id_list = array_filter(array_map('trim', explode(',', $_GET['ids'])));
+    $rows = db_select('modularform_tags', 't')
+      ->fields('t', ['id', 'title'])
+      ->condition('t.id', $id_list, 'IN')
+      ->execute()
+      ->fetchAllAssoc('id');
+    $results = [];
+    foreach ($id_list as $id) {
+      if (isset($rows[$id])) {
+        $results[] = ['id' => $id, 'text' => $rows[$id]->title];
+      }
+    }
+    drupal_json_output(['results' => $results, 'more' => FALSE]);
+    drupal_exit();
+  }
+
+  // Existing search code unchanged
   $search = isset($_GET['term']) ? check_plain(trim($_GET['term'])) : '';
   $limit  = isset($_GET['page_limit']) ? (int) $_GET['page_limit'] : 20;
   $results = [];
-
   $query = db_select('modularform_tags', 't')
     ->fields('t', ['id', 'title']);
-
   if ($search !== '') {
     $query->condition('t.title', '%' . db_like($search) . '%', 'LIKE');
   }
-
   foreach ($query->orderBy('t.title')->range(0, $limit)->execute() as $row) {
     $results[] = ['id' => $row->id, 'text' => $row->title];
   }
-
   drupal_json_output(['results' => $results, 'more' => FALSE]);
   drupal_exit();
 }

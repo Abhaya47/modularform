@@ -800,7 +800,7 @@ function modularform_builder_form_submit($form, &$form_state) {
   if ($is_new) {
     _modularform_create($fid, $records);
   } else {
-    _modularform_edit($fid, $records);
+    _modularform_edit($fid, $records, $rules);
   }
 
   db_update('modularform_forms')
@@ -987,43 +987,83 @@ function _modularform_create($fid, array $records) {
   }
 }
 
-function _modularform_edit($fid, array $records) {
+function _modularform_edit($fid, array $records, array $rules = []) {
   $live_sec_ids = array_keys($records['sections'])         ?: [''];
   $live_q_ids   = array_keys($records['questions'])        ?: [''];
   $live_o_ids   = array_keys($records['options'])          ?: [''];
   $live_r_ids   = array_keys($records['validation_rules']) ?: [''];
 
-  // Delete orphans — children before parents
-  db_delete('modularform_validation_rules')
-    ->condition('form_id', $fid)
-    ->condition('r_id', $live_r_ids, 'NOT IN')
-    ->execute();
-  db_delete('modularform_question_options')
-    ->condition('form_id', $fid)
-    ->condition('o_id', $live_o_ids, 'NOT IN')
-    ->execute();
-  db_delete('modularform_questions')
-    ->condition('form_id', $fid)
-    ->condition('q_id', $live_q_ids, 'NOT IN')
-    ->execute();
-  db_delete('modularform_sections')
-    ->condition('form_id', $fid)
-    ->condition('sec_id', $live_sec_ids, 'NOT IN')
-    ->execute();
+  // Only delete orphans when structural changes are permitted
+  if ($rules['delete_section'] ?? TRUE) {
+    db_delete('modularform_sections')
+      ->condition('form_id', $fid)
+      ->condition('sec_id', $live_sec_ids, 'NOT IN')
+      ->execute();
+  }
+  if ($rules['delete_question'] ?? TRUE) {
+    // children before parent
+    db_delete('modularform_validation_rules')
+      ->condition('form_id', $fid)
+      ->condition('r_id', $live_r_ids, 'NOT IN')
+      ->execute();
+    db_delete('modularform_question_options')
+      ->condition('form_id', $fid)
+      ->condition('o_id', $live_o_ids, 'NOT IN')
+      ->execute();
+    db_delete('modularform_questions')
+      ->condition('form_id', $fid)
+      ->condition('q_id', $live_q_ids, 'NOT IN')
+      ->execute();
+  } elseif ($rules['delete_option'] ?? TRUE) {
+    // questions are locked but options might still be deletable
+    // (only reaches here if delete_question=FALSE, delete_option=TRUE,
+    //  which doesn't exist in your current rule set — but keeps it honest)
+    db_delete('modularform_validation_rules')
+      ->condition('form_id', $fid)
+      ->condition('r_id', $live_r_ids, 'NOT IN')
+      ->execute();
+    db_delete('modularform_question_options')
+      ->condition('form_id', $fid)
+      ->condition('o_id', $live_o_ids, 'NOT IN')
+      ->execute();
+  }
 
-  // Upsert survivors
-  _modularform_bulk_upsert('modularform_sections', array_values($records['sections']), [
-    'name', 'weight', 'updated_at',
-  ]);
-  _modularform_bulk_upsert('modularform_questions', array_values($records['questions']), [
-    'sec_id', 'label', 'type', 'datatype', 'is_required', 'position', 'updated_at',
-  ]);
-  _modularform_bulk_upsert('modularform_question_options', array_values($records['options']), [
-    'option', 'weight', 'updated_at',
-  ]);
-  _modularform_bulk_upsert('modularform_validation_rules', array_values($records['validation_rules']), [
-    'rule_type', 'rule_value', 'error_message', 'weight', 'updated_at',
-  ]);
+  // Upsert sections — gate what columns are writable
+  $sec_update_cols = ['weight', 'updated_at'];
+  if ($rules['rename_label'] ?? TRUE) {
+    $sec_update_cols[] = 'name';
+  }
+  if ($rules['reorder'] ?? TRUE) {
+    // weight already in there
+  }
+  _modularform_bulk_upsert('modularform_sections', array_values($records['sections']), $sec_update_cols);
+
+  // Questions
+  $q_update_cols = ['position', 'updated_at'];
+  if ($rules['rename_label']    ?? TRUE) { $q_update_cols[] = 'label'; }
+  if ($rules['reorder']         ?? TRUE) { $q_update_cols[] = 'sec_id'; }  // moving between sections
+  if ($rules['change_required'] ?? TRUE) { $q_update_cols[] = 'is_required'; }
+  if ($rules['change_type']     ?? TRUE) {
+    $q_update_cols[] = 'type';
+    $q_update_cols[] = 'datatype';
+  }
+  _modularform_bulk_upsert('modularform_questions', array_values($records['questions']), $q_update_cols);
+
+  // Options
+  $o_update_cols = ['updated_at'];
+  if ($rules['edit_options'] ?? TRUE) { $o_update_cols[] = 'option'; }
+  if ($rules['reorder']      ?? TRUE) { $o_update_cols[] = 'weight'; }
+  _modularform_bulk_upsert('modularform_question_options', array_values($records['options']), $o_update_cols);
+
+  // Validation rules — structural, locked when change_type or change_required is locked
+  $r_update_cols = ['updated_at'];
+  if ($rules['change_required'] ?? TRUE) {
+    $r_update_cols[] = 'rule_type';
+    $r_update_cols[] = 'rule_value';
+    $r_update_cols[] = 'error_message';
+    $r_update_cols[] = 'weight';
+  }
+  _modularform_bulk_upsert('modularform_validation_rules', array_values($records['validation_rules']), $r_update_cols);
 }
 
 function _modularform_bulk_upsert($table, array $records, array $update_cols) {

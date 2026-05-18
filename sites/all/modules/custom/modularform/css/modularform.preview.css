@@ -360,3 +360,8 @@
   color: var(--gf-text-muted);
   margin-top: 4px;
 }
+
+/*select two */
+.select2-tags-hidden {
+  display: none;
+}
