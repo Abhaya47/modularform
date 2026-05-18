@@ -4,7 +4,7 @@ module_load_include('inc', 'modularform', 'modularform.rules');
 
 function modularform_response_list_page() {
   $form_id_filter = isset($_GET['form_id']) ? (int) $_GET['form_id'] : NULL;
-  $pair_filters   = isset($_GET['filters']) && is_array($_GET['filters'])
+  $pair_filters = isset($_GET['filters']) && is_array($_GET['filters'])
     ? array_values($_GET['filters'])
     : [];
 
@@ -19,16 +19,24 @@ function modularform_response_list_page() {
   }
 
   // ── Pair filters via Solr ──────────────────────────────────────────────────
-  if ($form_id_filter && !empty($pair_filters)) {
-    $fq = [
-      'bundle:modularform_response',
-      'is_form_id:' . $form_id_filter,
-    ];
+  // ── Solr filters (pairs + email) ───────────────────────────────────────────
+  $email_filter = isset($_GET['email']) ? check_plain(trim($_GET['email'])) : '';
+
+  if (!empty($pair_filters) || $email_filter) {
+    $fq = ['bundle:modularform_response'];
+
+    if ($form_id_filter) {
+      $fq[] = 'is_form_id:' . $form_id_filter;
+    }
 
     foreach ($pair_filters as $pair) {
       if (!empty($pair['solr_key']) && isset($pair['answer'])) {
         $fq[] = $pair['solr_key'] . ':"' . addslashes($pair['answer']) . '"';
       }
+    }
+
+    if ($email_filter) {
+      $fq[] = 'ss_email:"' . addslashes($email_filter) . '"';
     }
 
     $params = [
@@ -40,11 +48,9 @@ function modularform_response_list_page() {
     $docs = _modularform_search_solr_query('*:*', $params);
 
     if ($docs === NULL) {
-      // Solr down — show unfiltered form results with a warning
       drupal_set_message(t('Filter service temporarily unavailable. Showing unfiltered results.'), 'warning');
     }
     elseif (empty($docs)) {
-      // Solr healthy, zero matches — force empty result set
       $query->condition('r.id', [0], 'IN');
     }
     else {
@@ -58,7 +64,7 @@ function modularform_response_list_page() {
   $forms = [];
   if ($form_id_filter) {
     $loaded = entity_get_controller('modularform_form')->load([$form_id_filter]);
-    $form   = reset($loaded);
+    $form = reset($loaded);
     if ($form) {
       $forms[$form->id] = $form;
     }
@@ -76,26 +82,31 @@ function modularform_response_list_page() {
 
   $any_editable = FALSE;
   foreach ($forms as $f) {
-    if ($f->editable) { $any_editable = TRUE; break; }
+    if ($f->editable) {
+      $any_editable = TRUE;
+      break;
+    }
   }
 
   // ── Pager ──────────────────────────────────────────────────────────────────
-  $query    = $query->extend('PagerDefault')->limit(25);
+  $query = $query->extend('PagerDefault')->limit(25);
   $responses = $query->execute()->fetchAll();
 
   // ── Header ─────────────────────────────────────────────────────────────────
   $header = [t('Respondent'), t('Form'), t('Submitted')];
-  if ($any_editable) { $header[] = t('Updated'); }
+  if ($any_editable) {
+    $header[] = t('Updated');
+  }
   $header[] = t('Operations');
 
   // ── Rows ───────────────────────────────────────────────────────────────────
   $rows = [];
   foreach ($responses as $response) {
-    $form       = isset($forms[$response->form_id]) ? $forms[$response->form_id] : NULL;
+    $form = isset($forms[$response->form_id]) ? $forms[$response->form_id] : NULL;
     $form_title = $form ? check_plain($form->title) : t('Unknown form');
-    $is_anon    = $form && $form->anonymous_responses;
-    $email      = $is_anon ? t('Anonymous response') : check_plain($response->email ?: t('N/A'));
-    $submitted  = format_date($response->submitted_at, 'custom', 'M j Y, g:i a');
+    $is_anon = $form && $form->anonymous_responses;
+    $email = $is_anon ? t('Anonymous response') : check_plain($response->email ?: t('N/A'));
+    $submitted = format_date($response->submitted_at, 'custom', 'M j Y, g:i a');
 
     $row = [$email, $form_title, $submitted];
 
@@ -106,11 +117,20 @@ function modularform_response_list_page() {
     }
 
     $links = [
-      'view'   => ['title' => t('View'),   'href' => 'forms/response/view/'   . $response->id],
-      'delete' => ['title' => t('Delete'), 'href' => 'forms/response/delete/' . $response->id],
+      'view' => [
+        'title' => t('View'),
+        'href' => 'forms/response/view/' . $response->id,
+      ],
+      'delete' => [
+        'title' => t('Delete'),
+        'href' => 'forms/response/delete/' . $response->id,
+      ],
     ];
     if ($any_editable) {
-      $links['edit'] = ['title' => t('Edit'), 'href' => 'forms/response/edit/' . $response->id];
+      $links['edit'] = [
+        'title' => t('Edit'),
+        'href' => 'forms/response/edit/' . $response->id,
+      ];
     }
 
     $row[] = $links;
@@ -118,15 +138,15 @@ function modularform_response_list_page() {
   }
 
   return [
-    '#theme'  => 'response_list',
+    '#theme' => 'response_list',
     '#header' => $header,
-    '#rows'   => $rows,
+    '#rows' => $rows,
     '#attached' => [
       'css' => [drupal_get_path('module', 'modularform') . '/css/response.css'],
-      'js'  => [
+      'js' => [
         [
           'data' => drupal_get_path('module', 'modularform') . '/js/modularform.response-filter.js',
-          'type'   => 'file',
+          'type' => 'file',
           'weight' => 10,
         ],
         [
@@ -205,8 +225,8 @@ function modularform_response_delete($response_id) {
  *   { error: "solr_unavailable" }          — Solr is down
  */
 function modularform_filter_answer_values() {
-  $solr_key = isset($_GET['key'])     ? check_plain($_GET['key'])     : '';
-  $form_id  = isset($_GET['form_id']) ? (int) $_GET['form_id']        : 0;
+  $solr_key = isset($_GET['key']) ? check_plain($_GET['key']) : '';
+  $form_id = isset($_GET['form_id']) ? (int) $_GET['form_id'] : 0;
   $term = isset($_GET['term']) ? check_plain($_GET['term']) : '';
 
   // Basic validation — key must look like ss_val_q_{id}_{hash}
@@ -223,7 +243,7 @@ function modularform_filter_answer_values() {
   }
 
   // Shape into { id, label } pairs the JS expects
-  $results = array_map(function ($v) {
+  $results = array_map(function($v) {
     return ['id' => $v, 'label' => $v];
   }, $values);
 
@@ -251,22 +271,22 @@ function modularform_filter_questions() {
   $query->orderBy('q.q_id');
   $query->range(0, 50);
 
-  $type_map       = array_flip(modularform_type_map());
-  $datatype_map   = modularform_datatype_map();
+  $type_map = array_flip(modularform_type_map());
+  $datatype_map = modularform_datatype_map();
   $solr_field_map = solr_field_map();
 
   $results = [];
   foreach ($query->execute() as $row) {
-    $type_name = isset($type_map[$row->datatype])   ? $type_map[$row->datatype]   : NULL;
-    $storage   = isset($datatype_map[$type_name])   ? $datatype_map[$type_name]   : NULL;
-    $prefix    = isset($solr_field_map[$storage])   ? $solr_field_map[$storage]   : NULL;
+    $type_name = isset($type_map[$row->datatype]) ? $type_map[$row->datatype] : NULL;
+    $storage = isset($datatype_map[$type_name]) ? $datatype_map[$type_name] : NULL;
+    $prefix = isset($solr_field_map[$storage]) ? $solr_field_map[$storage] : NULL;
 
     if (!$prefix || $storage !== 'varchar') {
       continue;
     }
 
     $results[] = [
-      'id'    => $prefix . '_' . $row->q_id,
+      'id' => $prefix . '_' . $row->q_id,
       'label' => $row->label,
     ];
   }
@@ -277,12 +297,12 @@ function modularform_filter_questions() {
 
 function modularform_filter_form_search() {
   $term = isset($_GET['term']) ? check_plain($_GET['term']) : '';
-  $form_id = isset($_GET['id']) ? (int) $_GET['id']             : 0;
+  $form_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
   // Single form lookup — restore from URL on page load
   if ($form_id) {
     $forms = entity_get_controller('modularform_form')->load([$form_id]);
-    $form  = reset($forms);
+    $form = reset($forms);
     if (!$form) {
       drupal_json_output(['results' => []]);
       drupal_exit();
@@ -309,7 +329,7 @@ function modularform_filter_form_search() {
     drupal_exit();
   }
 
-  $results = array_map(function ($row) {
+  $results = array_map(function($row) {
     return ['id' => (int) $row->id, 'label' => $row->title];
   }, $rows);
 

@@ -20,7 +20,10 @@ function _modularform_filter_get_answer_values($solr_key, $form_id, $term = '') 
     $solr->ping();
 
     $params = [
-      'fq'            => 'is_form_id:' . (int) $form_id,
+      'fq' => [
+        'is_form_id:' . (int) $form_id,
+        // additional fq entries added here get ANDed automatically by Solr
+      ],
       'facet'         => 'true',
       'facet.field'   => $solr_key,
       'facet.limit'   => -1,      // all values

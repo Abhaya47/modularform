@@ -353,6 +353,25 @@
               );
             $tagArea.append($pairTag);
           });
+
+          var emailParams = parseQueryString(window.location.search);
+          if (emailParams.email) {
+            var $emailTag = $('<span class="gform-filter-tag gform-filter-tag--pair" id="tag-email">')
+              .append(
+                $('<span class="gform-filter-tag__label">').text('Email: ' + emailParams.email),
+                $('<button type="button" class="gform-filter-tag__remove">')
+                  .attr('aria-label', Drupal.t('Remove email filter'))
+                  .text('×')
+                  .on('click', function () {
+                    var p = parseQueryString(window.location.search);
+                    delete p.email;
+                    var qs = $.param(p);
+                    window.history.pushState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
+                    window.location.reload();
+                  }),
+              );
+            $tagArea.append($emailTag);
+          }
         }
 
         // ── Panel helpers ──────────────────────────────────────────────────
@@ -562,6 +581,95 @@
 
         $.each($rows, function (i, row) { $tbody.append(row); });
       });
+    },
+  };
+
+  Drupal.behaviors.modularformQuickFilters = {
+    attach: function (context, settings) {
+      var $chip = $('#quick-filter-email', context).once('quick-filter-email');
+      var $inputWrap = $('#quick-filter-email-input');
+      var $input = $('#quick-filter-email-value');
+      var $apply = $('#quick-filter-email-apply');
+      var $clear = $('#quick-filter-email-clear');
+      if (!$chip.length) { return; }
+
+      // Restore from URL on load
+      var params = parseQS(window.location.search);
+      if (params.email) {
+        $input.val(params.email);
+        $chip.addClass('gform-quick-filter--active');
+        $inputWrap.show();
+        // appendEmailTag(params.email);
+      }
+
+      $chip.on('click', function () {
+        if ($inputWrap.is(':visible')) {
+          $inputWrap.hide();
+        } else {
+          $inputWrap.show();
+          $input.trigger('focus');
+        }
+      });
+
+      $apply.on('click', function () {
+        var val = $.trim($input.val());
+        if (!val) { return; }
+        $chip.addClass('gform-quick-filter--active');
+        pushEmail(val);
+      });
+
+      $input.on('keydown', function (e) {
+        if (e.which === 13) { $apply.trigger('click'); }
+      });
+
+      $clear.on('click', function () {
+        clearEmail();
+      });
+
+      function pushEmail(val) {
+        var params = parseQS(window.location.search);
+        params.email = val;
+        var qs = $.param(params);
+        window.history.pushState(null, '', window.location.pathname + '?' + qs);
+        window.location.reload();
+      }
+
+      function clearEmail() {
+        $chip.removeClass('gform-quick-filter--active');
+        $input.val('');
+        $inputWrap.hide();
+        var params = parseQS(window.location.search);
+        delete params.email;
+        var qs = $.param(params);
+        window.history.pushState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
+        window.location.reload();
+      }
+
+      // function appendEmailTag(val) {
+      //   var $tagArea = $('#filter-tags');
+      //   var $tag = $('<span class="gform-filter-tag gform-filter-tag--pair" id="tag-email">')
+      //     .append(
+      //       $('<span class="gform-filter-tag__label">').text('Email: ' + val),
+      //       $('<button type="button" class="gform-filter-tag__remove">')
+      //         .attr('aria-label', Drupal.t('Remove email filter'))
+      //         .text('×')
+      //         .on('click', function () { clearEmail(); }),
+      //     );
+      //   $tagArea.append($tag);
+      // }
+
+      function parseQS(search) {
+        var params = {};
+        var str = search.replace(/^\?/, '');
+        if (!str) { return params; }
+        $.each(str.split('&'), function (i, part) {
+          var eq = part.indexOf('=');
+          if (eq === -1) { return; }
+          params[decodeURIComponent(part.slice(0, eq).replace(/\+/g, ' '))] =
+            decodeURIComponent(part.slice(eq + 1).replace(/\+/g, ' '));
+        });
+        return params;
+      }
     },
   };
 

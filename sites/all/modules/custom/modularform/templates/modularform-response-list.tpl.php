@@ -71,8 +71,20 @@
       </button>
     </div>
 
-    <div id="mf-filters">
+    <div id="gform-quick-filters">
+      <button type="button" class="gform-quick-filter" data-type="email" id="quick-filter-email">
+        <i class="ti ti-mail"></i> <?php print t('Email'); ?>
+      </button>
+      <div id="quick-filter-email-input" style="display:none">
+        <input type="text" id="quick-filter-email-value"
+               placeholder="<?php print t('Enter email…'); ?>"
+               autocomplete="off" />
+        <button type="button" id="quick-filter-email-apply"><?php print t('Apply'); ?></button>
+        <button type="button" id="quick-filter-email-clear"><?php print t('Clear'); ?></button>
+      </div>
+    </div>
 
+    <div id="mf-filters">
       <select id="mf-filter-sort" aria-label="<?php print t('Sort by'); ?>">
         <option value="created_desc"><?php print t('Newest first'); ?></option>
         <option value="created_asc"><?php print t('Oldest first'); ?></option>
