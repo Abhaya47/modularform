@@ -808,3 +808,17 @@ function modularform_update_7009() {
     db_drop_unique_key('modularform_responses', 'form_user');
   }
 }
+
+function  modularform_update_7010(){
+  db_change_field(
+    'modularform_answers_multi',
+    'value',
+    'value',
+    [
+      'description' => t('Options fk'),
+      'type' => 'varchar',
+      'length' => 64,
+      'not null' => TRUE,
+    ]
+  );
+}

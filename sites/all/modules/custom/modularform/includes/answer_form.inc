@@ -125,7 +125,29 @@ function modularform_answer_form_submit($form, &$form_state) {
 
           case 'date':
           case 'time':
-            $answer_row['value_date'] = !empty($raw) ? strtotime($raw) : NULL;
+
+            if (is_array($raw)) {
+              if (!empty($raw['date'])) {
+                $raw = $raw['date'];
+              }
+              elseif (!empty($raw['value'])) {
+                $raw = $raw['value'];
+              }
+              else {
+                $raw = implode(' ', array_filter($raw));
+              }
+            }
+
+            $raw = trim((string) $raw);
+
+            // Parse the date first
+            $parsed_date = strtotime($raw);
+
+            // Check that it's not empty AND that strtotime didn't fail (return false)
+            $answer_row['value_date'] = ($raw !== '' && $parsed_date !== FALSE)
+              ? $parsed_date
+              : NULL;
+
             break;
         }
       }
@@ -136,23 +158,25 @@ function modularform_answer_form_submit($form, &$form_state) {
 
       // --- 4. Multi-value: parse and insert child rows ---
       if ($is_multi && !empty($raw)) {
+        // Form API may deliver $raw as an array (checkboxes, multi-select)
+        // or as a comma-separated string (hidden/text fields). Normalise first.
+        $parts = is_array($raw)
+          ? array_values(array_filter($raw, fn($v) => $v !== '' && $v !== NULL))
+          : array_filter(array_map('trim', explode(',', $raw)), fn($v) => $v !== '');
 
-        foreach (explode(',', $raw) as $part) {
+        foreach ($parts as $part) {
           $part = trim($part);
-
           if ($q_type === 'tag') {
             if (strpos($part, 'new:') === 0) {
               $resolved = _modularform_insert_new_tags($q_id, substr($part, 4), $now);
             }
             else {
-              $resolved = (int) $part; // tag id from modularform_tags
+              $resolved = (int) $part;
             }
           }
           else {
-            // checkbox, list — o_id varchar from modularform_question_options
             $resolved = $part;
           }
-
           db_insert('modularform_answers_multi')
             ->fields(['answer_id' => $answer_id, 'value' => $resolved])
             ->execute();
@@ -208,10 +232,10 @@ function modularform_response_edit_form($form, &$form_state, $response_id) {
 
 function modularform_response_edit_form_submit($form, &$form_state) {
   $response_id = $form_state['storage']['response_id'];
-  $elements = _modularform_load_elements($form_state['storage']['form_id']);
+  $form_id = $form_state['storage']['form_id'];
+  $elements = _modularform_load_elements($form_id);
   $values = $form_state['values'];
   $now = REQUEST_TIME;
-
 
   $sections = array_filter($elements, fn($el) => $el['type'] === 'section');
   $questions = array_filter($elements, fn($el) => $el['type'] === 'question');
@@ -220,125 +244,181 @@ function modularform_response_edit_form_submit($form, &$form_state) {
 
   try {
     foreach ($sections as $sec_id => $sec) {
-      $sec_questions = array_filter($questions, fn($q) => $q['parent'] === $sec_id);
+      $sec_questions = array_filter(
+        $questions,
+        fn($q) => $q['parent'] === $sec_id
+      );
 
       foreach ($sec_questions as $q_id => $q) {
-
         if (!isset($values[$sec_id][$q_id]['answer'])) {
           continue;
         }
 
         $raw = $values[$sec_id][$q_id]['answer'];
-
         $q_type = $q['question_type'];
 
-        $answer = db_select('modularform_answers', 'a')
-          ->fields('a', ['id'])
-          ->condition('a.response_id', $response_id)
-          ->condition('a.q_id', $q_id)
-          ->execute()
-          ->fetchObject();
-
-        if (!$answer) {
-          continue;
-        }
-
-        $update = ['updated_at' => $now];
+        // Base row values.
+        $update = [
+          'updated_at' => $now,
+          'value_varchar' => NULL,
+          'value_text' => NULL,
+          'value_int' => NULL,
+          'value_bool' => NULL,
+          'value_date' => NULL,
+        ];
 
         switch ($q_type) {
           case 'text':
-          case 'time':
+          case 'radio':
+          case 'dropdown':
             $update['value_varchar'] = (string) $raw;
             break;
+
           case 'textarea':
           case 'richtext':
             $update['value_text'] = (string) $raw;
             break;
-          case 'date':
-            $update['value_date'] = $raw ? strtotime($raw) : NULL;
-            break;
+
           case 'boolean':
             $update['value_bool'] = ($raw === 'yes') ? 1 : 0;
             break;
-          case 'radio':
-          case 'dropdown':
-            $update['value_varchar'] = $raw; // o_id varchar
-            break;
 
-          case 'checkbox':
-          case 'list':
-            $parts = is_array($raw)
-              ? array_keys(array_filter($raw))
-              : array_filter(explode(',', (string) $raw));
-            db_delete('modularform_answers_multi')
-              ->condition('answer_id', $answer->id)
-              ->execute();
-            foreach ($parts as $val) {
-              db_insert('modularform_answers_multi')
-                ->fields([
-                  'answer_id' => $answer->id,
-                  'value' => trim($val),
-                ]) // varchar o_id
-                ->execute();
-            }
-            break;
-          case 'tag':
-            $parts = array_map('trim', array_filter(explode(',', (string) $raw)));
+          case 'date':
+          case 'time':
 
-            $new_tags = [];
-            $existing_ids = [];
-
-            foreach ($parts as $val) {
-              if (strpos($val, 'new:') === 0) {
-                $new_tags[] = substr($val, 4);
-              } else {
-                $existing_ids[] = (int) $val;
-              }
+            if (is_array($raw)) {
+              $raw = $raw['date']
+                ?? $raw['value']
+                ?? implode(' ', array_filter($raw));
             }
 
-            $new_ids = !empty($new_tags)
-              ? _modularform_insert_new_tags($q_id, $new_tags, $now)
-              : [];
+            $raw = trim((string) $raw);
+            $parsed = strtotime($raw);
 
-            $all_ids = array_merge($existing_ids, $new_ids);
+            $update['value_date'] = (
+              $raw !== '' && $parsed !== FALSE
+            ) ? $parsed : NULL;
 
-            db_delete('modularform_answers_multi')
-              ->condition('answer_id', $answer->id)
-              ->execute();
-
-            foreach ($all_ids as $tag_id) {
-              db_insert('modularform_answers_multi')
-                ->fields(['answer_id' => $answer->id, 'value' => $tag_id])
-                ->execute();
-            }
             break;
         }
 
-        db_update('modularform_answers')
-          ->fields($update)
-          ->condition('id', $answer->id)
+        // Save main answer row first.
+        db_merge('modularform_answers')
+          ->key([
+            'response_id' => $response_id,
+            'q_id' => $q_id,
+          ])
+          ->insertFields([
+              'response_id' => $response_id,
+              'q_id' => $q_id,
+              'datatype' => modularform_type_map()[$q_type],
+              'created_at' => $now,
+            ] + $update)
+          ->updateFields($update)
           ->execute();
+
+        // Get answer ID after merge.
+        $answer_id = db_select('modularform_answers', 'a')
+          ->fields('a', ['id'])
+          ->condition('a.response_id', $response_id)
+          ->condition('a.q_id', $q_id)
+          ->execute()
+          ->fetchField();
+
+        // Handle multi-value fields.
+        if (in_array($q_type, ['checkbox', 'list'])) {
+          $parts = is_array($raw)
+            ? array_keys(array_filter($raw))
+            : array_filter(explode(',', (string) $raw));
+
+          db_delete('modularform_answers_multi')
+            ->condition('answer_id', $answer_id)
+            ->execute();
+
+          foreach ($parts as $val) {
+            db_insert('modularform_answers_multi')
+              ->fields([
+                'answer_id' => $answer_id,
+                'value' => trim($val),
+              ])
+              ->execute();
+          }
+        }
+
+        elseif ($q_type === 'tag') {
+          $parts = array_map(
+            'trim',
+            array_filter(explode(',', (string) $raw))
+          );
+
+          $new_tags = [];
+          $existing_ids = [];
+
+          foreach ($parts as $val) {
+            if (strpos($val, 'new:') === 0) {
+              $new_tags[] = substr($val, 4);
+            }
+            else {
+              $existing_ids[] = (int) $val;
+            }
+          }
+
+          $new_ids = !empty($new_tags)
+            ? _modularform_insert_new_tags($q_id, $new_tags, $now)
+            : [];
+
+          $all_ids = array_merge($existing_ids, $new_ids);
+
+          db_delete('modularform_answers_multi')
+            ->condition('answer_id', $answer_id)
+            ->execute();
+
+          foreach ($all_ids as $tag_id) {
+            db_insert('modularform_answers_multi')
+              ->fields([
+                'answer_id' => $answer_id,
+                'value' => $tag_id,
+              ])
+              ->execute();
+          }
+        }
       }
     }
 
     db_update('modularform_responses')
-      ->fields(['updated_at' => $now])
+      ->fields([
+        'updated_at' => $now,
+      ])
       ->condition('id', $response_id)
       ->execute();
 
     drupal_set_message(t('Response updated successfully.'));
     $form_state['redirect'] = 'forms/response/list';
   }
+
   catch (Exception $e) {
     $transaction->rollback();
+
     watchdog_exception('modularform', $e);
-    drupal_set_message(t('An error occurred while saving. Please try again.'), 'error');
+
+    drupal_set_message(
+      t('An error occurred while saving. Please try again.'),
+      'error'
+    );
   }
 }
 
 function _modularform_load_defaults($response_id) {
   $answers = db_select('modularform_answers', 'a')
-    ->fields('a', ['id', 'q_id', 'datatype', 'value_varchar', 'value_text', 'value_bool', 'value_date'])
+    ->fields('a', [
+      'id',
+      'q_id',
+      'datatype',
+      'value_varchar',
+      'value_text',
+      'value_bool',
+      'value_date',
+    ])
     ->condition('a.response_id', $response_id)
     ->execute()
     ->fetchAllAssoc('q_id');
@@ -409,8 +489,8 @@ function _modularform_insert_new_tags($q_id, string $labels, $now) {
     }
     $ids[] = db_insert('modularform_tags')
       ->fields([
-        'q_id'       => $q_id,
-        'label'      => $label,
+        'q_id' => $q_id,
+        'label' => $label,
         'created_at' => $now,
       ])
       ->execute();
