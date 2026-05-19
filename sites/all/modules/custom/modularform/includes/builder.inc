@@ -289,7 +289,7 @@ function _modularform_render_question(&$form, &$form_state, $sec_id, $q_id, $q_e
       'date'      => t('Date'),
       'time'      => t('Time'),
       'list'      => t('List'),
-      'radio'     => t('Multiple Choice'),
+      'radio'     => t('Radio'),
       'boolean'   => t('Yes / No'),
       'checkbox'  => t('Checkbox'),
       'dropdown'  => t('Dropdown'),
@@ -497,6 +497,13 @@ function _modularform_render_question_validation(&$form, &$form_state, $sec_id, 
       'wrapper'  => 'adv-validation-wrapper-' . $q_id,
       'event'    => 'change',
     ],
+  ];
+
+  $form['elements_container'][$sec_id][$q_id]['validation']['is_filterable'] = [
+    '#type'          => 'checkbox',
+    '#title'         => t('Allow filtering by this question'),
+    '#default_value' => $q_el['is_filterable'] ?? 0,
+    '#description'   => t('Analysts can use this question as a filter dimension when viewing responses.'),
   ];
 }
 
@@ -900,6 +907,7 @@ function _modularform_build_records($fid, &$form_state) {
       'type'        => modularform_get_type_map($q_type) ?? 0,
       'datatype'    => modularform_get_datatype($q_type) ?? 'varchar',
       'is_required' => (int) ($q_vals['validation']['is_required'] ?? 0),
+      'is_filterable' => (int) ($q_vals['validation']['is_filterable'] ?? 0),
       'position'    => $position,
       'created_at'  => $now,
       'updated_at'  => $now,
@@ -1047,6 +1055,7 @@ function _modularform_edit($fid, array $records, array $rules = []) {
     $q_update_cols[] = 'type';
     $q_update_cols[] = 'datatype';
   }
+  $q_update_cols[] = 'is_filterable'; // always writable, no rule gate needed
   _modularform_bulk_upsert('modularform_questions', array_values($records['questions']), $q_update_cols);
 
   // Options

@@ -4,10 +4,12 @@
     <div class="gform-header">
       <div class="gform-header-icon">
         <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="3" y="2" width="16" height="18" rx="2" fill="white" opacity=".9"/>
+          <rect x="3" y="2" width="16" height="18" rx="2" fill="white"
+                opacity=".9"/>
           <rect x="6" y="6" width="10" height="2" rx="1" fill="#673ab7"/>
           <rect x="6" y="10" width="10" height="2" rx="1" fill="#673ab7"/>
-          <rect x="6" y="14" width="6"  height="2" rx="1" fill="#673ab7" opacity=".5"/>
+          <rect x="6" y="14" width="6" height="2" rx="1" fill="#673ab7"
+                opacity=".5"/>
         </svg>
       </div>
       <h1 class="gform-title"><?php print t('Responses'); ?></h1>
@@ -23,11 +25,12 @@
       <div class="gform-filter-step" id="filter-step-form">
         <div class="gform-filter-step__head">
           <span class="gform-filter-step__num">1</span>
-          <span class="gform-filter-step__title"><?php print t('Form'); ?></span>
+          <span
+            class="gform-filter-step__title"><?php print t('Form'); ?></span>
         </div>
         <input type="text" id="filter-form-search"
                placeholder="<?php print t('Search a form…'); ?>"
-               autocomplete="off" />
+               autocomplete="off"/>
         <div class="gform-filter-panel" id="filter-form-panel" hidden>
           <ul class="gform-filter-list" id="filter-form-list"></ul>
         </div>
@@ -39,26 +42,29 @@
       <div class="gform-filter-step" id="filter-step-question" hidden>
         <div class="gform-filter-step__head">
           <span class="gform-filter-step__num">2</span>
-          <span class="gform-filter-step__title"><?php print t('Question'); ?></span>
+          <span
+            class="gform-filter-step__title"><?php print t('Question'); ?></span>
         </div>
         <input type="text" id="filter-question-search"
                placeholder="<?php print t('Search questions…'); ?>"
-               autocomplete="off" />
+               autocomplete="off"/>
         <div class="gform-filter-panel" id="filter-question-panel" hidden>
           <ul class="gform-filter-list" id="filter-question-list"></ul>
         </div>
-        <div class="gform-filter-chosen" id="filter-question-chosen" hidden></div>
+        <div class="gform-filter-chosen" id="filter-question-chosen"
+             hidden></div>
       </div>
 
       <?php // Step 3: answer — hidden until question is locked ?>
       <div class="gform-filter-step" id="filter-step-answer" hidden>
         <div class="gform-filter-step__head">
           <span class="gform-filter-step__num">3</span>
-          <span class="gform-filter-step__title"><?php print t('Option'); ?></span>
+          <span
+            class="gform-filter-step__title"><?php print t('Option'); ?></span>
         </div>
         <input type="text" id="filter-answer-search"
                placeholder="<?php print t('Search answers…'); ?>"
-               autocomplete="off" />
+               autocomplete="off"/>
         <div class="gform-filter-panel" id="filter-answer-panel" hidden>
           <ul class="gform-filter-list" id="filter-answer-list"></ul>
         </div>
@@ -72,16 +78,33 @@
     </div>
 
     <div id="gform-quick-filters">
-      <button type="button" class="gform-quick-filter" data-type="email" id="quick-filter-email">
+      <button type="button" class="gform-quick-filter" data-type="email"
+              id="quick-filter-email">
         <i class="ti ti-mail"></i> <?php print t('Email'); ?>
       </button>
       <div id="quick-filter-email-input" style="display:none">
         <input type="text" id="quick-filter-email-value"
                placeholder="<?php print t('Enter email…'); ?>"
-               autocomplete="off" />
-        <button type="button" id="quick-filter-email-apply"><?php print t('Apply'); ?></button>
-        <button type="button" id="quick-filter-email-clear"><?php print t('Clear'); ?></button>
+               autocomplete="off"/>
+        <button type="button"
+                id="quick-filter-email-apply"><?php print t('Apply'); ?></button>
+        <button type="button"
+                id="quick-filter-email-clear"><?php print t('Clear'); ?></button>
       </div>
+      <button type="button" class="gform-quick-filter" id="configured-filters-toggle">
+        <i class="ti ti-filter"></i> <?php print t('Configured Filters'); ?>
+      </button>
+    </div>
+
+    <div id="configured-filters-dropdown">
+      <?php foreach ($filterable_questions as $q_id => $q_label): ?>
+        <label class="configured-filter-item">
+          <input type="checkbox" class="configured-filter-checkbox"
+                 data-q-id="<?php print $q_id; ?>"
+                 value="<?php print $q_id; ?>" />
+          <?php print check_plain($q_label); ?>
+        </label>
+      <?php endforeach; ?>
     </div>
 
     <div id="mf-filters">
@@ -91,7 +114,6 @@
         <option value="respondent_asc"><?php print t('Name A–Z'); ?></option>
         <option value="respondent_desc"><?php print t('Name Z–A'); ?></option>
       </select>
-
     </div><!-- /mf-filters -->
 
     <div class="gform-section-label">
@@ -103,7 +125,7 @@
       <?php if (!empty($rows)): ?>
         <div class="gform-table-toolbar">
           <span class="gform-table-count">
-            <?php print count($rows); ?> <?php print t('responses'); ?>
+            <?php print count($rows); ?><?php print t('responses'); ?>
           </span>
         </div>
       <?php endif; ?>
@@ -121,25 +143,31 @@
           <?php if (!empty($rows)): ?>
             <?php foreach ($rows as $row): ?>
               <?php
-              $ops  = end($row);
+              $ops = end($row);
               $cols = array_slice($row, 0, -1);
               $is_anon = ($cols[0] === t('Anonymous response'));
               ?>
               <tr>
                 <td class="gform-td-name">
                   <div class="gform-name-inner">
-                      <span class="gform-form-icon <?php print $is_anon ? 'gform-form-icon--anon' : ''; ?>">
-                        <svg viewBox="0 0 13 13" fill="white" xmlns="http://www.w3.org/2000/svg">
+                      <span
+                        class="gform-form-icon <?php print $is_anon ? 'gform-form-icon--anon' : ''; ?>">
+                        <svg viewBox="0 0 13 13" fill="white"
+                             xmlns="http://www.w3.org/2000/svg">
                           <?php if ($is_anon): ?>
                             <circle cx="6.5" cy="4" r="2.2"/>
-                            <path d="M1.5 11.5c0-2.8 2.2-4.5 5-4.5s5 1.7 5 4.5" stroke="white" stroke-width="1.4" fill="none"/>
+                            <path d="M1.5 11.5c0-2.8 2.2-4.5 5-4.5s5 1.7 5 4.5"
+                                  stroke="white" stroke-width="1.4"
+                                  fill="none"/>
                           <?php else: ?>
                             <rect x="1.5" y="3" width="10" height="7" rx="1"/>
-                            <path d="M1.5 3.5l5 4 5-4" stroke="#673ab7" stroke-width="1" fill="none"/>
+                            <path d="M1.5 3.5l5 4 5-4" stroke="#673ab7"
+                                  stroke-width="1" fill="none"/>
                           <?php endif; ?>
                         </svg>
                       </span>
-                    <span class="gform-name-text <?php print $is_anon ? 'gform-name-text--muted' : ''; ?>">
+                    <span
+                      class="gform-name-text <?php print $is_anon ? 'gform-name-text--muted' : ''; ?>">
                         <?php print $cols[0]; ?>
                       </span>
                   </div>
@@ -151,13 +179,17 @@
 
                 <td class="gform-td-ops">
                   <div class="action-dropdown">
-                    <button class="action-dropbtn"><?php print t('Actions'); ?> &#9660;</button>
+                    <button class="action-dropbtn"><?php print t('Actions'); ?>
+                      &#9660;
+                    </button>
                     <div class="action-dropdown-content">
                       <?php
                       if (is_array($ops) && !empty($ops)):
                         foreach ($ops as $key => $link):
                           $attributes = isset($link['attributes']) ? $link['attributes'] : [];
-                          if ($key === 'delete') { $attributes['class'][] = 'gform-link--danger'; }
+                          if ($key === 'delete') {
+                            $attributes['class'][] = 'gform-link--danger';
+                          }
                           print l($link['title'], $link['href'], ['attributes' => $attributes]);
                         endforeach;
                       endif;
@@ -172,11 +204,17 @@
             <tr class="gform-empty-row">
               <td colspan="<?php print count($header); ?>">
                 <div class="gform-empty-state">
-                  <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" width="48" height="48">
-                    <rect x="8" y="6" width="32" height="36" rx="4" fill="#f3e5f5" opacity=".8"/>
-                    <rect x="14" y="14" width="20" height="3" rx="1.5" fill="#ce93d8"/>
-                    <rect x="14" y="21" width="20" height="3" rx="1.5" fill="#ce93d8"/>
-                    <rect x="14" y="28" width="13" height="3" rx="1.5" fill="#ce93d8" opacity=".5"/>
+                  <svg viewBox="0 0 48 48" fill="none"
+                       xmlns="http://www.w3.org/2000/svg" width="48"
+                       height="48">
+                    <rect x="8" y="6" width="32" height="36" rx="4"
+                          fill="#f3e5f5" opacity=".8"/>
+                    <rect x="14" y="14" width="20" height="3" rx="1.5"
+                          fill="#ce93d8"/>
+                    <rect x="14" y="21" width="20" height="3" rx="1.5"
+                          fill="#ce93d8"/>
+                    <rect x="14" y="28" width="13" height="3" rx="1.5"
+                          fill="#ce93d8" opacity=".5"/>
                   </svg>
                   <p><?php print t('No responses yet.'); ?></p>
                 </div>

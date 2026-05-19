@@ -1,5 +1,6 @@
 <?php
 
+
 function form_deleted_dashboard_page() {
   $header = [
     t('Name'),
@@ -80,7 +81,6 @@ function form_deleted_dashboard_page() {
  * Permanently delete a form and all its associated data from the DB.
  */
 function modularform_perma_delete($form_id) {
-  // Validate the form exists and is soft-deleted.
   $form = db_select('modularform_forms', 'f')
     ->fields('f')
     ->condition('id', $form_id)
@@ -91,42 +91,16 @@ function modularform_perma_delete($form_id) {
     drupal_set_message(t('Form not found or has not been deleted first.'), 'error');
     drupal_goto('forms/deleted');
   }
-  // Wrap everything in a transaction so it's all-or-nothing.
   $txn = db_transaction();
   try {
-    // 1. Collect all answer IDs for this form's responses.
     $response_ids = db_select('modularform_responses', 'r')
       ->fields('r', ['id'])
       ->condition('r.form_id', $form_id)
       ->execute()
       ->fetchCol();
-
-    if (!empty($response_ids)) {
-      $answer_ids = db_select('modularform_answers', 'a')
-        ->fields('a', ['id'])
-        ->condition('a.response_id', $response_ids, 'IN')
-        ->execute()
-        ->fetchCol();
-
-      // 2. Delete multi-value answers.
-      if (!empty($answer_ids)) {
-        db_delete('modularform_answers_multi')
-          ->condition('answer_id', $answer_ids, 'IN')
-          ->execute();
-      }
-
-      // 3. Delete answers.
-      db_delete('modularform_answers')
-        ->condition('response_id', $response_ids, 'IN')
-        ->execute();
-
-      // 4. Delete responses.
-      db_delete('modularform_responses')
-        ->condition('form_id', $form_id)
-        ->execute();
+    foreach ($response_ids as $response_id) {
+      _modularform_delete_response_data($response_id);
     }
-
-    // 5. Child tables first (leaf nodes of the relationship tree).
     db_delete('modularform_question_options')
       ->condition('form_id', $form_id)
       ->execute();
@@ -142,11 +116,9 @@ function modularform_perma_delete($form_id) {
     db_delete('modularform_forms')
       ->condition('id', $form_id)
       ->execute();
-
     drupal_set_message(t('Form "@title" has been permanently deleted.', ['@title' => $form->title]));
   }
   catch (Exception $e) {
-    // Roll back the entire transaction on any failure.
     $txn->rollback();
     watchdog('modularform', 'Failed to permanently delete form @id: @msg', [
       '@id' => $form_id,
@@ -156,7 +128,6 @@ function modularform_perma_delete($form_id) {
   }
   drupal_goto('forms/manage');
 }
-
 /**
  * Restore a form
  */

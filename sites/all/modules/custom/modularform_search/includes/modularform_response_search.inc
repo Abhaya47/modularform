@@ -1,5 +1,6 @@
 <?php
 
+module_load_include('inc', 'modularform', 'includes/response_list');
 /**
  * Fetch distinct answer values for a given Solr field via faceting.
  *

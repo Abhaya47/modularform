@@ -36,7 +36,7 @@ function modularform_schema() {
         'type' => 'varchar',
         'length' => 255,
       ],
-      'visibility'=>[
+      'visibility' => [
         'description' => t('Visibility of the Form 0 is public, 1 is restricted, 2 is private'),
         'type' => 'int',
         'size' => 'tiny',
@@ -217,6 +217,14 @@ function modularform_schema() {
       ],
       'position' => [
         'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ],
+      'is_filterable' => [
+        'description' => t('Filterable 0 is false 1 is true'),
+        'type' => 'int',
+        'size' => 'tiny',
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
@@ -418,22 +426,22 @@ function modularform_schema() {
     'description' => t('Email invites for private forms where the person is not a Drupal user.'),
     'fields' => [
       'id' => [
-        'type'     => 'serial',
+        'type' => 'serial',
         'unsigned' => TRUE,
         'not null' => TRUE,
       ],
       'form_id' => [
         'description' => t('The form this invite belongs to.'),
-        'type'     => 'int',
+        'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
       ],
       'email' => [
         'description' => t('Invited email address.'),
-        'type'     => 'varchar',
-        'length'   => 254,
+        'type' => 'varchar',
+        'length' => 254,
         'not null' => TRUE,
-        'default'  => '',
+        'default' => '',
       ],
       'status' => [
         'description' => t('Status 0 is not accepted, 1 is accepted.'),
@@ -447,7 +455,7 @@ function modularform_schema() {
         'type' => 'varchar',
         'length' => 64,
         'not null' => TRUE,
-        'default' => ''
+        'default' => '',
       ],
       'notified' => [
         'description' => t('Email sent or not 0 is not sent 1 is sent.'),
@@ -458,15 +466,15 @@ function modularform_schema() {
         'default' => 0,
       ],
       'created_at' => [
-        'type'     => 'int',
+        'type' => 'int',
         'not null' => TRUE,
-        'default'  => 0,
+        'default' => 0,
       ],
     ],
     'primary key' => ['id'],
     'indexes' => [
       'form_id' => ['form_id'],
-      'email'   => ['email'],
+      'email' => ['email'],
     ],
   ];
 
@@ -733,7 +741,6 @@ function modularform_update_7003(): void {
   }
 }
 
-
 function modularform_update_7004(): void {
   $table = 'modularform_responses';
   if (!db_field_exists($table, 'email')) {
@@ -775,7 +782,6 @@ function modularform_update_7006(): void {
   );
 }
 
-
 function modularform_update_7007(): void {
   $table = 'modularform_forms';
   if (!db_field_exists($table, 'anonymous_responses')) {
@@ -795,11 +801,17 @@ function modularform_update_7007(): void {
  */
 function modularform_update_7008() {
   if (!db_index_exists('modularform_responses', 'form_user')) {
-    db_add_unique_key('modularform_responses', 'form_user', ['form_id', 'user_id']);
+    db_add_unique_key('modularform_responses', 'form_user', [
+      'form_id',
+      'user_id',
+    ]);
   }
 
   if (!db_index_exists('modularform_responses', 'form_email')) {
-    db_add_unique_key('modularform_responses', 'form_email', ['form_id', 'email']);
+    db_add_unique_key('modularform_responses', 'form_email', [
+      'form_id',
+      'email',
+    ]);
   }
 }
 
@@ -809,7 +821,7 @@ function modularform_update_7009() {
   }
 }
 
-function  modularform_update_7010(){
+function modularform_update_7010() {
   db_change_field(
     'modularform_answers_multi',
     'value',
@@ -821,4 +833,19 @@ function  modularform_update_7010(){
       'not null' => TRUE,
     ]
   );
+}
+
+function modularform_update_7011() {
+  $table = 'modularform_questions';
+
+  if (!db_field_exists($table, 'is_filterable')) {
+    db_add_field($table, 'is_filterable', [
+      'description' => t('Filterable: 0 = false, 1 = true'),
+      'type' => 'int',
+      'size' => 'tiny',
+      'unsigned' => TRUE,
+      'not null' => TRUE,
+      'default' => 0,
+    ]);
+  }
 }

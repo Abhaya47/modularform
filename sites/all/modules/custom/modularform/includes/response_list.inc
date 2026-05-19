@@ -158,46 +158,20 @@ function modularform_response_list_page() {
   ];
 }
 
+
 function modularform_response_delete($response_id) {
-  // Validate the response exists
   $response = db_select('modularform_responses', 'r')
     ->fields('r', ['id'])
     ->condition('r.id', $response_id)
     ->execute()
     ->fetchObject();
-
   if (!$response) {
     drupal_set_message(t('Response not found.'), 'error');
     drupal_goto('forms/response/list');
   }
-
-  // Get all answer IDs for this response (needed to delete multi-values)
-  $answer_ids = db_select('modularform_answers', 'a')
-    ->fields('a', ['id'])
-    ->condition('a.response_id', $response_id)
-    ->execute()
-    ->fetchCol();
-
   $transaction = db_transaction();
-
   try {
-    // 1. Delete multi-value answers if any answers exist
-    if (!empty($answer_ids)) {
-      db_delete('modularform_answers_multi')
-        ->condition('answer_id', $answer_ids, 'IN')
-        ->execute();
-    }
-
-    // 2. Delete answers
-    db_delete('modularform_answers')
-      ->condition('response_id', $response_id)
-      ->execute();
-
-    // 3. Delete the response itself
-    db_delete('modularform_responses')
-      ->condition('id', $response_id)
-      ->execute();
-
+    _modularform_delete_response_data($response_id);
     drupal_set_message(t('Response and all its answers have been deleted.'));
   }
   catch (Exception $e) {
@@ -205,9 +179,29 @@ function modularform_response_delete($response_id) {
     watchdog_exception('modularform', $e);
     drupal_set_message(t('An error occurred while deleting the response. Please try again.'), 'error');
   }
-
   drupal_goto('forms/response/list');
 }
+
+
+function _modularform_delete_response_data($response_id) {
+  $answer_ids = db_select('modularform_answers', 'a')
+    ->fields('a', ['id'])
+    ->condition('a.response_id', $response_id)
+    ->execute()
+    ->fetchCol();
+  if (!empty($answer_ids)) {
+    db_delete('modularform_answers_multi')
+      ->condition('answer_id', $answer_ids, 'IN')
+      ->execute();
+  }
+  db_delete('modularform_answers')
+    ->condition('response_id', $response_id)
+    ->execute();
+  db_delete('modularform_responses')
+    ->condition('id', $response_id)
+    ->execute();
+}
+
 
 /**
  * Menu callback: modularform/filter/answer-values
@@ -253,6 +247,7 @@ function modularform_filter_answer_values() {
 
 function modularform_filter_questions() {
   $form_id = isset($_GET['form_id']) ? (int) $_GET['form_id'] : 0;
+  $configured_only = isset($_GET['configured']) ? (bool) $_GET['configured'] : FALSE;
 
   if (!$form_id) {
     drupal_json_output(['error' => 'invalid_params']);
@@ -261,15 +256,17 @@ function modularform_filter_questions() {
 
   $query = db_select('modularform_questions', 'q');
   $query->join('modularform_answers', 'a', 'a.q_id = q.q_id');
-  $query = db_select('modularform_questions', 'q');
-  $query->join('modularform_answers', 'a', 'a.q_id = q.q_id');
   $query->fields('q', ['q_id', 'label']);
-  $query->addExpression('MIN(a.datatype)', 'datatype');  // ← separate line, not chained
+  $query->addExpression('MIN(a.datatype)', 'datatype');
   $query->condition('q.form_id', $form_id);
   $query->groupBy('q.q_id');
   $query->groupBy('q.label');
   $query->orderBy('q.q_id');
   $query->range(0, 50);
+
+  if ($configured_only) {
+    $query->condition('q.is_filterable', 1);
+  }
 
   $type_map = array_flip(modularform_type_map());
   $datatype_map = modularform_datatype_map();
@@ -318,7 +315,7 @@ function modularform_filter_form_search() {
     drupal_json_output(['results' => []]);
     drupal_exit();
   }
-  module_load_include('inc', 'modularform_search', 'includes/modularform_search_forms');
+  module_load_include('inc', 'modularform_search', 'includes/modularform_forms_search');
   $rows = modularform_search_query_forms([
     'search' => $term,
     'status' => 1,        // published only

@@ -379,6 +379,60 @@
   pointer-events: none;
 }
 
+/* ── Configured Filters ─────────────────────────── */
+
+#configured-filters-toggle.gform-quick-filter--active {
+  background: #EEEDFE;
+  border-color: #7B6FD0;
+}
+
+.configured-filter-empty {
+  font-size: 13px;
+  color: #999;
+  padding: 2px 4px;
+  font-style: italic;
+}
+
+#configured-filters-dropdown {
+  display: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #f7f7f8;
+  border: 1px solid #e2e2e2;
+  border-radius: 7px;
+  margin-bottom: 8px;
+}
+
+#configured-filters-dropdown.open {
+  display: flex;
+}
+
+.configured-filter-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #534AB7;
+  background: #fff;
+  border: 1px solid #CECBF6;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.configured-filter-item:hover {
+  background: #EEEDFE;
+}
+
+.configured-filter-item input[type="checkbox"] {
+  accent-color: #7B6FD0;
+  cursor: pointer;
+}
+
 /* ── Quick filters ─────────────────────────── */
 #gform-quick-filters {
   display: flex;

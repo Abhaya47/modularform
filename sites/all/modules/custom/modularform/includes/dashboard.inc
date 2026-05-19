@@ -50,6 +50,10 @@ function form_dashboard_page() {
     $created = format_date($form->created_at, 'custom', 'M j Y');
 
     $links = [
+      'settings_edit' => [
+        'title' => t('Edit Settings'),
+        'href'  => 'forms/edit/' . $form->id,
+      ],
       'builder_preview' => [
         'title' => t('Preview Survey'),
         'href'  => 'forms/' . $form->id . '/builder/preview',
@@ -57,10 +61,6 @@ function form_dashboard_page() {
       'builder_edit' => [
         'title' => t('Edit Survey'),
         'href'  => 'forms/' . $form->id . '/builder/',
-      ],
-      'settings_edit' => [
-        'title' => t('Edit Settings'),
-        'href'  => 'forms/edit/' . $form->id,
       ],
       'delete' => [
         'title' => t('Delete Survey'),
@@ -140,9 +140,9 @@ function modularform_dashboard_ajax() {
       'status_val' => (int) $form->status,
       'created'    => format_date($form->created_at, 'custom', 'M j Y'),
       'urls'       => [
+        'settings' => url('forms/edit/' . $form->id),
         'preview'  => url('forms/' . $form->id . '/builder/preview'),
         'edit'     => url('forms/' . $form->id . '/builder/'),
-        'settings' => url('forms/edit/' . $form->id),
         'delete'   => url('forms/delete/' . $form->id),
       ],
     ];
@@ -164,7 +164,7 @@ function modularform_dashboard_ajax() {
  */
 function _modularform_dashboard_fetch(array $conditions, $user, $sort = 'created_desc') {
   if (module_exists('modularform_search')) {
-    module_load_include('inc', 'modularform_search', 'includes/modularform_search_forms');
+    module_load_include('inc', 'modularform_search', 'includes/modularform_forms_search');
     $result = modularform_search_query_forms($conditions);
 
     /* NULL  = Solr down  |  ['error'=>...] = Solr error */

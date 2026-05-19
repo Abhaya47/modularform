@@ -2,7 +2,7 @@
 
 //function files
 module_load_include('inc', 'modularform', 'includes/builder');
-module_load_include('inc', 'modularform', 'includes/create');
+module_load_include('inc', 'modularform', 'includes/initial_form_create');
 module_load_include('inc', 'modularform', 'includes/dashboard');
 module_load_include('inc', 'modularform', 'includes/load_form_elements');
 module_load_include('inc', 'modularform', 'includes/preview');
@@ -209,7 +209,8 @@ function modularform_menu() {
   ];
 
   $items['modularform/filter/form-search'] = [
-    'title'          => 'Filter form search',
+    'title'          => 'Response form search',
+    'description' => 'Response form search ajax',
     'page callback'  => 'modularform_filter_form_search',
     'access callback'=> TRUE,
     'file'           => 'includes/response_list.inc',
@@ -217,7 +218,7 @@ function modularform_menu() {
   ];
 
   $items['modularform/filter/questions'] = [
-    'title'          => 'Filter question search',
+    'title'          => 'Response question search',
     'page callback'  => 'modularform_filter_questions',
     'access callback'=> TRUE,
     'file'           => 'includes/response_list.inc',
@@ -225,13 +226,12 @@ function modularform_menu() {
   ];
 
   $items['modularform/filter/answer-values'] = [
-    'title'            => 'Filter answer values',
+    'title'            => 'Response answer values',
     'page callback'    => 'modularform_filter_answer_values',
     'access callback'  => TRUE,
     'file'             => 'includes/response_list.inc',
     'type'             => MENU_CALLBACK,
   ];
-
   return $items;
 }
 

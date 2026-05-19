@@ -35,22 +35,21 @@
         var $addBtn = $bar.find('#filter-add-btn');
         var $clearAll = $bar.find('#filter-clear-all');
 
-        // ── Initial state ──────────────────────────────────────────────────────
-        $stepA.addClass('gform-filter-step--locked');
+        // ── Initial state ──────────────────────────────────────────────────
 
         $stepQ.addClass('gform-filter-step--locked');
         $qSearch.prop('disabled', true);
-        // ── State ──────────────────────────────────────────────────────────
+        $stepA.addClass('gform-filter-step--locked');
 
         var state = {
-          form: null,   // { id, title }
-          qKey: null,   // solr field key string
-          qLabel: null,   // full question text
-          aVal: null,   // chosen answer string
-          pairs: [],      // [{ solrKey, qLabel, answer }, …]
+          form:   null,
+          qKey:   null,
+          qLabel: null,
+          aVal:   null,
+          pairs:  [],
         };
 
-        // ── Boot: read URL params and restore state ────────────────────────
+        // ── Boot ──────────────────────────────────────────────────────────
 
         restoreFromUrl();
 
@@ -63,24 +62,23 @@
             state.form = form;
             state.form.total = params.form_total || null;
             lockFormStep(form);
-            unlockStep($stepQ, $qSearch);  // ← add this line
+            unlockStep($stepQ, $qSearch);
 
             searchQuestions(form.id, '', function () {
               var i = 0;
               while (params['filters[' + i + '][solr_key]']) {
                 var solrKey = params['filters[' + i + '][solr_key]'];
-                var answer = params['filters[' + i + '][answer]'] || '';
-                var qLabel = solrKeyToLabel(solrKey, form.id);
+                var answer  = params['filters[' + i + '][answer]'] || '';
+                var qLabel  = solrKeyToLabel(solrKey, form.id);
                 state.pairs.push({
                   solrKey: solrKey,
-                  qLabel: qLabel,
-                  answer: answer,
-                  count: params['filters[' + i + '][count]'] || null,
+                  qLabel:  qLabel,
+                  answer:  answer,
+                  count:   params['filters[' + i + '][count]'] || null,
                 });
                 i++;
               }
 
-              // ← Overwrite the last pair's count with what's actually on the page now
               if (state.pairs.length) {
                 var $count = $('.gform-table-count');
                 if ($count.length) {
@@ -98,22 +96,16 @@
         $formSearch.on('input', function () {
           if (state.form) { return; }
           var term = $.trim($(this).val());
-          if (!term) {
-            closePanel($formPanel);
-            return;
-          }
+          if (!term) { closePanel($formPanel); return; }
           searchForms(term, function (results) {
-            populateList($formList, results, function (item) {
-              pickForm(item);
-            });
+            populateList($formList, results, function (item) { pickForm(item); });
             openPanel($formPanel);
           });
         });
 
         $formSearch.on('focus', function () {
           if (state.form) { return; }
-          var term = $.trim($(this).val());
-          if (term) { $formPanel.removeAttr('hidden'); }
+          if ($.trim($(this).val())) { $formPanel.removeAttr('hidden'); }
         });
 
         // ── Question search ────────────────────────────────────────────────
@@ -122,9 +114,7 @@
           if (!state.form || state.qKey) { return; }
           var term = $.trim($(this).val()).toLowerCase();
           searchQuestions(state.form.id, term, function (results) {
-            populateList($qList, results, function (item) {
-              pickQuestion(item);
-            });
+            populateList($qList, results, function (item) { pickQuestion(item); });
             openPanel($qPanel);
           });
         });
@@ -132,9 +122,7 @@
         $qSearch.on('focus', function () {
           if (!state.form || state.qKey) { return; }
           searchQuestions(state.form.id, '', function (results) {
-            populateList($qList, results, function (item) {
-              pickQuestion(item);
-            });
+            populateList($qList, results, function (item) { pickQuestion(item); });
             openPanel($qPanel);
           });
         });
@@ -145,9 +133,7 @@
           if (!state.qKey || state.aVal) { return; }
           var term = $.trim($(this).val()).toLowerCase();
           searchAnswers(state.qKey, term, function (results) {
-            populateList($aList, results, function (item) {
-              pickAnswer(item);
-            });
+            populateList($aList, results, function (item) { pickAnswer(item); });
             openPanel($aPanel);
           });
         });
@@ -155,9 +141,7 @@
         $aSearch.on('focus', function () {
           if (!state.qKey || state.aVal) { return; }
           searchAnswers(state.qKey, '', function (results) {
-            populateList($aList, results, function (item) {
-              pickAnswer(item);
-            });
+            populateList($aList, results, function (item) { pickAnswer(item); });
             openPanel($aPanel);
           });
         });
@@ -166,19 +150,14 @@
 
         $addBtn.on('click', function () {
           if (!state.form) { return; }
-
           if (state.qKey && state.aVal) {
-            var $count = $('.gform-table-count');
-            var countStr = $count.length ? $.trim($count.text()) : null;
-
             state.pairs.push({
               solrKey: state.qKey,
-              qLabel: state.qLabel,
-              answer: state.aVal,
-              count: null,   // ← snapshot at time of adding
+              qLabel:  state.qLabel,
+              answer:  state.aVal,
+              count:   null,
             });
           }
-
           resetQuestionStep();
           resetAnswerStep();
           $addBtn.prop('disabled', true);
@@ -188,16 +167,28 @@
 
         // ── Clear all ──────────────────────────────────────────────────────
 
-        $clearAll.on('click', function () {
-          clearAll();
-        });
+        $clearAll.on('click', function () { clearAll(); });
 
         // ── Close panels on outside click ──────────────────────────────────
 
         $(document).on('click.modularform-filter', function (e) {
-          if (!$(e.target).closest('#filter-step-form').length) { closePanel($formPanel); }
+          if (!$(e.target).closest('#filter-step-form').length)     { closePanel($formPanel); }
           if (!$(e.target).closest('#filter-step-question').length) { closePanel($qPanel); }
-          if (!$(e.target).closest('#filter-step-answer').length) { closePanel($aPanel); }
+          if (!$(e.target).closest('#filter-step-answer').length)   { closePanel($aPanel); }
+        });
+
+        // ── Configured filter bridge ───────────────────────────────────────
+
+        $(document).on('configuredFilterApplied', function (e, pair) {
+          state.pairs.push({
+            solrKey: pair.solrKey,
+            qLabel:  pair.qLabel,
+            answer:  pair.answer,
+            count:   null,
+          });
+          renderTags();
+          updateUrl();
+          reloadResults();
         });
 
         // ── Pick handlers ──────────────────────────────────────────────────
@@ -209,7 +200,6 @@
           unlockStep($stepQ, $qSearch);
           $addBtn.prop('disabled', false);
 
-          // Capture total count at the moment the form is picked
           var $count = $('.gform-table-count');
           if ($count.length) {
             var m = $.trim($count.text()).match(/(\d+)/);
@@ -220,9 +210,9 @@
         }
 
         function pickQuestion(item) {
-          state.qKey = item.id;
+          state.qKey   = item.id;
           state.qLabel = item.label;
-          state.aVal = null;
+          state.aVal   = null;
           closePanel($qPanel);
           showChosen($qSearch, $qChosen, item.label, function () {
             resetQuestionStep();
@@ -231,7 +221,6 @@
           });
           unlockStep($stepA, $aSearch);
           $stepA.removeClass('gform-filter-step--locked');
-          // Load answers immediately on question pick
           searchAnswers(item.id, '', function (results) {
             populateList($aList, results, function (a) { pickAnswer(a); });
             openPanel($aPanel);
@@ -271,7 +260,7 @@
         }
 
         function resetQuestionStep() {
-          state.qKey = null;
+          state.qKey   = null;
           state.qLabel = null;
           $qSearch.val('').show().prop('disabled', false);
           $qChosen.hide().empty();
@@ -322,26 +311,22 @@
           if (!state.form && !state.pairs.length) { return; }
 
           if (state.form) {
-            // Always shows total for the form — stored when form was first picked
             var $formTag = $('<span class="gform-filter-tag gform-filter-tag--form">')
               .append(
                 $('<span class="gform-filter-tag__label">').text(state.form.title + ' (' + (state.form.total || '?') + ' responses)'),
-                $('<button type="button" class="gform-filter-tag__remove" aria-label="' + Drupal.t('Remove form filter') + '">')
+                $('<button type="button" class="gform-filter-tag__remove">')
+                  .attr('aria-label', Drupal.t('Remove form filter'))
                   .text('×')
                   .on('click', function () { clearAll(); }),
               );
             $tagArea.append($formTag);
           }
 
-          // Current filtered count from the page
-          var $count = $('.gform-table-count');
-          var filteredText = $count.length ? ' (' + $.trim($count.text()) + ')' : '';
-
           $.each(state.pairs, function (i, pair) {
-            var shortLabel = pair.qLabel.length > 48 ? pair.qLabel.slice(0, 45) + '…' : pair.qLabel;
+            var shortLabel  = pair.qLabel.length > 48 ? pair.qLabel.slice(0, 45) + '…' : pair.qLabel;
             var countSuffix = pair.count ? ' (' + pair.count + ')' : '';
-            var tagText = shortLabel + ' › ' + pair.answer + countSuffix;
-            var $pairTag = $('<span class="gform-filter-tag gform-filter-tag--pair">')
+            var tagText     = shortLabel + ' › ' + pair.answer + countSuffix;
+            var $pairTag    = $('<span class="gform-filter-tag gform-filter-tag--pair">')
               .append(
                 $('<span class="gform-filter-tag__label">').text(tagText),
                 $('<button type="button" class="gform-filter-tag__remove">')
@@ -376,27 +361,17 @@
 
         // ── Panel helpers ──────────────────────────────────────────────────
 
-        function openPanel($panel) {
-          $panel.removeAttr('hidden');
-        }
-
-        function closePanel($panel) {
-          $panel.attr('hidden', true);
-        }
+        function openPanel($panel)  { $panel.removeAttr('hidden'); }
+        function closePanel($panel) { $panel.attr('hidden', true); }
 
         function populateList($list, items, onPick) {
           $list.empty();
           if (!items || !items.length) {
-            $list.append(
-              $('<li class="gform-filter-list--empty">').text(Drupal.t('No matches found')),
-            );
+            $list.append($('<li class="gform-filter-list--empty">').text(Drupal.t('No matches found')));
             return;
           }
           $.each(items, function (i, item) {
-            var label = item.label || item;
-            $('<li>').text(label).on('click', function () {
-              onPick(item);
-            }).appendTo($list);
+            $('<li>').text(item.label || item).on('click', function () { onPick(item); }).appendTo($list);
           });
         }
 
@@ -418,21 +393,17 @@
 
         function updateUrl() {
           var params = {};
-
           if (state.form) {
-            params.form_id = state.form.id;
-            params.form_total = state.form.total || '';  // ← add
+            params.form_id    = state.form.id;
+            params.form_total = state.form.total || '';
           }
-
           $.each(state.pairs, function (i, pair) {
             params['filters[' + i + '][solr_key]'] = pair.solrKey;
-            params['filters[' + i + '][answer]'] = pair.answer;
-            params['filters[' + i + '][count]'] = pair.count || '';  // ← add
+            params['filters[' + i + '][answer]']   = pair.answer;
+            params['filters[' + i + '][count]']    = pair.count || '';
           });
-
-          var qs = $.param(params);
+          var qs     = $.param(params);
           var newUrl = window.location.pathname + (qs ? '?' + qs : '');
-
           if (window.history && window.history.pushState) {
             window.history.pushState(null, '', newUrl);
           } else {
@@ -440,16 +411,10 @@
           }
         }
 
-        // ── Results reload ─────────────────────────────────────────────────
-
-        function reloadResults() {
-          window.location.reload();
-        }
+        function reloadResults() { window.location.reload(); }
 
         // ── Utility ────────────────────────────────────────────────────────
 
-        // Uses indexOf('=') instead of split('=') so values containing encoded
-        // '=' characters don't get truncated.
         function parseQueryString(search) {
           var params = {};
           var str = search.replace(/^\?/, '');
@@ -464,24 +429,24 @@
           return params;
         }
 
-        // ── AJAX functions ─────────────────────────────────────────────────
+        // ── AJAX ──────────────────────────────────────────────────────────
 
         function searchForms(term, cb) {
           $.ajax({
-            url: Drupal.settings.basePath + 'modularform/filter/form-search',
+            url:      Drupal.settings.basePath + 'modularform/filter/form-search',
             dataType: 'json',
-            data: { term: term },
-            success: function (data) { cb(data.results || []); },
-            error: function () { cb([]); },
+            data:     { term: term },
+            success:  function (data) { cb(data.results || []); },
+            error:    function () { cb([]); },
           });
         }
 
         function fetchFormById(id, cb) {
           $.ajax({
-            url: Drupal.settings.basePath + 'modularform/filter/form-search',
+            url:      Drupal.settings.basePath + 'modularform/filter/form-search',
             dataType: 'json',
-            data: { id: id },
-            success: function (data) {
+            data:     { id: id },
+            success:  function (data) {
               var r = data.results || [];
               cb(r.length ? { id: r[0].id, title: r[0].label } : null);
             },
@@ -489,7 +454,7 @@
           });
         }
 
-        var questionCache = {};  // keyed by form_id
+        var questionCache = {};
 
         function searchQuestions(formId, term, cb) {
           if (questionCache[formId]) {
@@ -497,10 +462,10 @@
             return;
           }
           $.ajax({
-            url: Drupal.settings.basePath + 'modularform/filter/questions',
+            url:      Drupal.settings.basePath + 'modularform/filter/questions',
             dataType: 'json',
-            data: { form_id: formId },
-            success: function (data) {
+            data:     { form_id: formId },
+            success:  function (data) {
               questionCache[formId] = data.results || [];
               cb(filterByTerm(questionCache[formId], term));
             },
@@ -518,28 +483,19 @@
 
         function searchAnswers(solrKey, term, cb) {
           $.ajax({
-            url: Drupal.settings.basePath + 'modularform/filter/answer-values',
+            url:      Drupal.settings.basePath + 'modularform/filter/answer-values',
             dataType: 'json',
-            data: {
-              key: solrKey,
-              form_id: state.form.id,
-              term: term,
-            },
-            success: function (data) {
-              if (data.error === 'solr_unavailable') {
-                cb([]);
-                return;
-              }
+            data:     { key: solrKey, form_id: state.form.id, term: term },
+            success:  function (data) {
+              if (data.error === 'solr_unavailable') { cb([]); return; }
               cb(data.results || []);
             },
-            error: function () {
-              cb([]);
-            },
+            error: function () { cb([]); },
           });
         }
 
         function solrKeyToLabel(solrKey, formId) {
-          var qs = questionCache[formId] || [];
+          var qs    = questionCache[formId] || [];
           var match = $.grep(qs, function (q) { return q.id === solrKey; });
           return match.length ? match[0].label : solrKey;
         }
@@ -548,10 +504,12 @@
     },
   };
 
+  // ── Sort ──────────────────────────────────────────────────────────────────
+
   Drupal.behaviors.modularformSort = {
     attach: function (context, settings) {
       $('#mf-filter-sort', context).once('modularform-sort').on('change', function () {
-        var val = $(this).val();
+        var val   = $(this).val();
         var $tbody = $('table.gform-table tbody');
         if (!$tbody.length) { return; }
 
@@ -562,7 +520,6 @@
           var aVal, bVal;
 
           if (val === 'created_asc' || val === 'created_desc') {
-            // Submitted is td:nth-child(3) — Respondent, Form, Submitted
             aVal = new Date($.trim($(a).find('td:nth-child(3)').text()));
             bVal = new Date($.trim($(b).find('td:nth-child(3)').text()));
             return val === 'created_asc' ? aVal - bVal : bVal - aVal;
@@ -584,31 +541,27 @@
     },
   };
 
+  // ── Quick filters (email) ─────────────────────────────────────────────────
+
   Drupal.behaviors.modularformQuickFilters = {
     attach: function (context, settings) {
-      var $chip = $('#quick-filter-email', context).once('quick-filter-email');
+      var $chip      = $('#quick-filter-email', context).once('quick-filter-email');
       var $inputWrap = $('#quick-filter-email-input');
-      var $input = $('#quick-filter-email-value');
-      var $apply = $('#quick-filter-email-apply');
-      var $clear = $('#quick-filter-email-clear');
+      var $input     = $('#quick-filter-email-value');
+      var $apply     = $('#quick-filter-email-apply');
+      var $clear     = $('#quick-filter-email-clear');
       if (!$chip.length) { return; }
 
-      // Restore from URL on load
       var params = parseQS(window.location.search);
       if (params.email) {
         $input.val(params.email);
         $chip.addClass('gform-quick-filter--active');
         $inputWrap.show();
-        // appendEmailTag(params.email);
       }
 
       $chip.on('click', function () {
-        if ($inputWrap.is(':visible')) {
-          $inputWrap.hide();
-        } else {
-          $inputWrap.show();
-          $input.trigger('focus');
-        }
+        if ($inputWrap.is(':visible')) { $inputWrap.hide(); }
+        else { $inputWrap.show(); $input.trigger('focus'); }
       });
 
       $apply.on('click', function () {
@@ -622,14 +575,12 @@
         if (e.which === 13) { $apply.trigger('click'); }
       });
 
-      $clear.on('click', function () {
-        clearEmail();
-      });
+      $clear.on('click', function () { clearEmail(); });
 
       function pushEmail(val) {
-        var params = parseQS(window.location.search);
-        params.email = val;
-        var qs = $.param(params);
+        var p  = parseQS(window.location.search);
+        p.email = val;
+        var qs = $.param(p);
         window.history.pushState(null, '', window.location.pathname + '?' + qs);
         window.location.reload();
       }
@@ -638,29 +589,16 @@
         $chip.removeClass('gform-quick-filter--active');
         $input.val('');
         $inputWrap.hide();
-        var params = parseQS(window.location.search);
-        delete params.email;
-        var qs = $.param(params);
+        var p = parseQS(window.location.search);
+        delete p.email;
+        var qs = $.param(p);
         window.history.pushState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
         window.location.reload();
       }
 
-      // function appendEmailTag(val) {
-      //   var $tagArea = $('#filter-tags');
-      //   var $tag = $('<span class="gform-filter-tag gform-filter-tag--pair" id="tag-email">')
-      //     .append(
-      //       $('<span class="gform-filter-tag__label">').text('Email: ' + val),
-      //       $('<button type="button" class="gform-filter-tag__remove">')
-      //         .attr('aria-label', Drupal.t('Remove email filter'))
-      //         .text('×')
-      //         .on('click', function () { clearEmail(); }),
-      //     );
-      //   $tagArea.append($tag);
-      // }
-
       function parseQS(search) {
         var params = {};
-        var str = search.replace(/^\?/, '');
+        var str    = search.replace(/^\?/, '');
         if (!str) { return params; }
         $.each(str.split('&'), function (i, part) {
           var eq = part.indexOf('=');
@@ -673,6 +611,93 @@
     },
   };
 
+  // ── Configured filters ────────────────────────────────────────────────────
+
+  Drupal.behaviors.configuredFilters = {
+    attach: function (context, settings) {
+
+      $('#configured-filters-toggle', context).once('configured-filters').on('click', function () {
+        var $dropdown = $('#configured-filters-dropdown');
+        var $btn      = $(this);
+        var opening   = !$dropdown.hasClass('open');
+        $dropdown.toggleClass('open');
+        $btn.toggleClass('gform-quick-filter--active');
+        if (opening && !$dropdown.data('loaded')) {
+          _loadConfiguredFilters($dropdown);
+        }
+      });
+
+      $(document).on('change', '.configured-filter-checkbox', function () {
+        var $cb     = $(this);
+        var qLabel  = $cb.closest('.configured-filter-item').find('span').text();
+        var solrKey = $cb.data('solr-key');
+
+        $('#configured-filter-answers').remove();
+        if (!$cb.is(':checked')) { return; }
+
+        var $panel = $('<ul id="configured-filter-answers" class="gform-filter-list">');
+        $cb.closest('.configured-filter-item').after($panel);
+
+        $.getJSON(Drupal.settings.basePath + 'modularform/filter/answer-values', {
+          key:     solrKey,
+          form_id: _getFormId(),
+        })
+          .done(function (data) {
+            $.each(data.results || [], function (i, item) {
+              $('<li>').text(item.label).on('click', function () {
+                $(document).trigger('configuredFilterApplied', [{
+                  solrKey: solrKey,
+                  qLabel:  qLabel,
+                  answer:  item.label,
+                }]);
+                $('#configured-filter-answers').remove();
+                $cb.prop('checked', false);
+              }).appendTo($panel);
+            });
+          });
+      });
+    },
+  };
+
+  function _loadConfiguredFilters($dropdown) {
+    var formId = _getFormId();
+    if (!formId) {
+      $dropdown.html('<span class="configured-filter-empty">' + Drupal.t('Select a form first.') + '</span>');
+      $dropdown.data('loaded', true);
+      return;
+    }
+    $dropdown.html('<span class="configured-filter-empty">' + Drupal.t('Loading\u2026') + '</span>');
+    $.getJSON(Drupal.settings.basePath + 'modularform/filter/questions', { form_id: formId, configured: 1 })
+      .done(function (data) {
+        $dropdown.empty();
+        if (!data.results || !data.results.length) {
+          $dropdown.html('<span class="configured-filter-empty">' + Drupal.t('No filterable questions configured.') + '</span>');
+          $dropdown.data('loaded', true);
+          return;
+        }
+        $.each(data.results, function (i, q) {
+          var id    = 'cf-' + q.q_id;
+          var $item = $(
+            '<label class="configured-filter-item" for="' + id + '">' +
+            '<input type="checkbox" class="configured-filter-checkbox"' +
+            ' id="' + id + '"' +
+            ' value="' + q.q_id + '"' +
+            ' data-solr-key="' + q.id + '" />' +
+            '<span>' + q.label + '</span>' +
+            '</label>',
+          );
+          $dropdown.append($item);
+        });
+        $dropdown.data('loaded', true);
+      })
+      .fail(function () {
+        $dropdown.html('<span class="configured-filter-empty">' + Drupal.t('Failed to load filters.') + '</span>');
+      });
+  }
+
+  function _getFormId() {
+    var match = window.location.search.match(/form_id=(\d+)/);
+    return match ? parseInt(match[1]) : 0;
+  }
+
 }(jQuery, Drupal));
-
-
