@@ -74,7 +74,7 @@
                   solrKey: solrKey,
                   qLabel: qLabel,
                   answer: answer,
-                  count: params['filters[' + i + '][count]'] || null,
+                  count: null,   // will be populated by first reloadResults()
                 });
                 i++;
               }
@@ -290,7 +290,6 @@
         function clearAll() {
           state = { form: null, qKey: null, qLabel: null, aVal: null, pairs: [] };
 
-
           // Clear tags immediately, don't wait for AJAX
           renderTags();
 
@@ -441,12 +440,10 @@
           var params = {};
           if (state.form) {
             params.form_id = state.form.id;
-            params.form_total = state.form.total || '';
           }
           $.each(state.pairs, function (i, pair) {
             params['filters[' + i + '][solr_key]'] = pair.solrKey;
             params['filters[' + i + '][answer]'] = pair.answer;
-            params['filters[' + i + '][count]'] = pair.count || '';
           });
           var qs = $.param(params);
           var newUrl = window.location.pathname + (qs ? '?' + qs : '');
@@ -479,15 +476,21 @@
               var $newPager = $new.filter('.pager').add($new.find('.pager')).first();
               var $newCount = $newCard.find('.gform-table-count');
 
-              if ($newCard.length) {
-                $card.replaceWith($newCard);
-                $card = $newCard;
-              }
-              if ($newPager.length) { $pager.find('.pager').replaceWith($newPager); }
+              if ($newCount.length) {
+                var countText = $.trim($newCount.text());
+                var m = countText.match(/(\d[\d,]*)/);
+                var count = m ? m[1] : null;
 
-              if ($newCount.length && state.form) {
-                var m = $.trim($newCount.text()).match(/(\d[\d,]*)/);
-                state.form.total = m ? m[1] + ' responses' : null;
+                if (state.form && state.form.total === null) {
+                  // Only set once — this is the unfiltered total
+                  state.form.total = count;
+                }
+
+                // Stamp the count on the last pair
+                if (state.pairs.length) {
+                  state.pairs[state.pairs.length - 1].count = count;
+                }
+
                 renderTags();
               }
 
@@ -808,30 +811,46 @@
           $list.on('change', 'input[type="checkbox"]', function () {
             var $cb = $(this);
             var $li = $cb.closest('li');
+            var isSelectAll = $cb.hasClass('cf-select-all');
+
+            if (isSelectAll) {
+              var checked = $cb.is(':checked');
+              // Toggle all visible answer items
+              $list.find('li.cf-answer-item:not(.cf-answer-select-all):visible').each(function () {
+                var $itemCb = $(this).find('input[type="checkbox"]');
+                if ($itemCb.prop('checked') !== checked) {
+                  $itemCb.prop('checked', checked).trigger('change');
+                }
+              });
+              return;
+            }
+
             var checked = $cb.is(':checked');
             var answer = $li.find('span').text();
 
             $li.toggleClass('is-checked', checked);
 
-            var count = $list.find('input:checked').length;
+            var $allItems = $list.find('li.cf-answer-item:not(.cf-answer-select-all)');
+            var $checkedItems = $allItems.find('input:checked');
+
+            // Sync select-all state
+            var $selectAllCb = $list.find('.cf-select-all');
+            if ($checkedItems.length === 0) {
+              $selectAllCb.prop({ checked: false, indeterminate: false });
+            } else if ($checkedItems.length === $allItems.length) {
+              $selectAllCb.prop({ checked: true, indeterminate: false });
+            } else {
+              $selectAllCb.prop({ checked: false, indeterminate: true });
+            }
+
+            var count = $checkedItems.length;
             $badge.text(count);
             $card.toggleClass('has-selection', count > 0);
 
             if (checked) {
-              $(document).trigger('configuredFilterApplied', [
-                {
-                  solrKey: q.id,
-                  qLabel: q.label,
-                  answer: answer,
-                },
-              ]);
+              $(document).trigger('configuredFilterApplied', [{ solrKey: q.id, qLabel: q.label, answer: answer }]);
             } else {
-              $(document).trigger('configuredFilterRemoved', [
-                {
-                  solrKey: q.id,
-                  answer: answer,
-                },
-              ]);
+              $(document).trigger('configuredFilterRemoved', [{ solrKey: q.id, answer: answer }]);
             }
           });
 
@@ -850,6 +869,15 @@
                 $list.html('<li class="cf-answer-empty">' + Drupal.t('No values.') + '</li>');
                 return;
               }
+
+              // Select all row
+              var $selectAll = $(
+                '<li class="cf-answer-item cf-answer-select-all">' +
+                '<input type="checkbox" class="cf-select-all" />' +
+                '<span>' + Drupal.t('Select all') + '</span>' +
+                '</li>',
+              );
+              $list.append($selectAll);
 
               $.each(results, function (j, item) {
                 $list.append(
