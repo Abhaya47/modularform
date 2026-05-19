@@ -97,14 +97,7 @@
     </div>
 
     <div id="configured-filters-dropdown">
-      <?php foreach ($filterable_questions as $q_id => $q_label): ?>
-        <label class="configured-filter-item">
-          <input type="checkbox" class="configured-filter-checkbox"
-                 data-q-id="<?php print $q_id; ?>"
-                 value="<?php print $q_id; ?>" />
-          <?php print check_plain($q_label); ?>
-        </label>
-      <?php endforeach; ?>
+      <?php /* Cards built by JS (_loadConfiguredFilters) */ ?>
     </div>
 
     <div id="mf-filters">

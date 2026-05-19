@@ -45,6 +45,7 @@ function modularform_response_list_page() {
       'rows' => 500,
     ];
 
+    module_load_include('inc', 'modularform_search', 'includes/modularform_forms_search');
     $docs = _modularform_search_solr_query('*:*', $params);
 
     if ($docs === NULL) {
@@ -156,6 +157,27 @@ function modularform_response_list_page() {
       ],
     ],
   ];
+}
+
+/**
+ * AJAX callback: returns just the response table + pager as HTML.
+ * Accepts the same GET params as modularform_response_list_page().
+ */
+function modularform_response_list_ajax() {
+  // Reuse all the existing query-building logic by calling the page function
+  // and pulling the rendered table fragment out of its render array.
+  $build = modularform_response_list_page();
+
+  // Render only the table theme + pager — no page wrapper, no filter bar.
+  $output = theme('response_list', array(
+    'header' => $build['#header'],
+    'rows'   => $build['#rows'],
+  ));
+
+  $output .= theme('pager');
+
+  drupal_json_output(array('html' => $output));
+  drupal_exit();
 }
 
 

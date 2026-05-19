@@ -42,11 +42,11 @@
         $stepA.addClass('gform-filter-step--locked');
 
         var state = {
-          form:   null,
-          qKey:   null,
+          form: null,
+          qKey: null,
           qLabel: null,
-          aVal:   null,
-          pairs:  [],
+          aVal: null,
+          pairs: [],
         };
 
         // ── Boot ──────────────────────────────────────────────────────────
@@ -68,13 +68,13 @@
               var i = 0;
               while (params['filters[' + i + '][solr_key]']) {
                 var solrKey = params['filters[' + i + '][solr_key]'];
-                var answer  = params['filters[' + i + '][answer]'] || '';
-                var qLabel  = solrKeyToLabel(solrKey, form.id);
+                var answer = params['filters[' + i + '][answer]'] || '';
+                var qLabel = solrKeyToLabel(solrKey, form.id);
                 state.pairs.push({
                   solrKey: solrKey,
-                  qLabel:  qLabel,
-                  answer:  answer,
-                  count:   params['filters[' + i + '][count]'] || null,
+                  qLabel: qLabel,
+                  answer: answer,
+                  count: params['filters[' + i + '][count]'] || null,
                 });
                 i++;
               }
@@ -96,7 +96,10 @@
         $formSearch.on('input', function () {
           if (state.form) { return; }
           var term = $.trim($(this).val());
-          if (!term) { closePanel($formPanel); return; }
+          if (!term) {
+            closePanel($formPanel);
+            return;
+          }
           searchForms(term, function (results) {
             populateList($formList, results, function (item) { pickForm(item); });
             openPanel($formPanel);
@@ -153,9 +156,9 @@
           if (state.qKey && state.aVal) {
             state.pairs.push({
               solrKey: state.qKey,
-              qLabel:  state.qLabel,
-              answer:  state.aVal,
-              count:   null,
+              qLabel: state.qLabel,
+              answer: state.aVal,
+              count: null,
             });
           }
           resetQuestionStep();
@@ -172,9 +175,9 @@
         // ── Close panels on outside click ──────────────────────────────────
 
         $(document).on('click.modularform-filter', function (e) {
-          if (!$(e.target).closest('#filter-step-form').length)     { closePanel($formPanel); }
+          if (!$(e.target).closest('#filter-step-form').length) { closePanel($formPanel); }
           if (!$(e.target).closest('#filter-step-question').length) { closePanel($qPanel); }
-          if (!$(e.target).closest('#filter-step-answer').length)   { closePanel($aPanel); }
+          if (!$(e.target).closest('#filter-step-answer').length) { closePanel($aPanel); }
         });
 
         // ── Configured filter bridge ───────────────────────────────────────
@@ -182,9 +185,18 @@
         $(document).on('configuredFilterApplied', function (e, pair) {
           state.pairs.push({
             solrKey: pair.solrKey,
-            qLabel:  pair.qLabel,
-            answer:  pair.answer,
-            count:   null,
+            qLabel: pair.qLabel,
+            answer: pair.answer,
+            count: null,
+          });
+          renderTags();
+          updateUrl();
+          reloadResults();
+        });
+
+        $(document).on('configuredFilterRemoved', function (e, pair) {
+          state.pairs = $.grep(state.pairs, function (p) {
+            return !(p.solrKey === pair.solrKey && p.answer === pair.answer);
           });
           renderTags();
           updateUrl();
@@ -199,20 +211,15 @@
           lockFormStep(state.form);
           unlockStep($stepQ, $qSearch);
           $addBtn.prop('disabled', false);
-
-          var $count = $('.gform-table-count');
-          if ($count.length) {
-            var m = $.trim($count.text()).match(/(\d+)/);
-            state.form.total = m ? m[1] + ' responses' : null;
-          }
           renderTags();
           updateUrl();
+          reloadResults();
         }
 
         function pickQuestion(item) {
-          state.qKey   = item.id;
+          state.qKey = item.id;
           state.qLabel = item.label;
-          state.aVal   = null;
+          state.aVal = null;
           closePanel($qPanel);
           showChosen($qSearch, $qChosen, item.label, function () {
             resetQuestionStep();
@@ -260,7 +267,7 @@
         }
 
         function resetQuestionStep() {
-          state.qKey   = null;
+          state.qKey = null;
           state.qLabel = null;
           $qSearch.val('').show().prop('disabled', false);
           $qChosen.hide().empty();
@@ -323,10 +330,10 @@
           }
 
           $.each(state.pairs, function (i, pair) {
-            var shortLabel  = pair.qLabel.length > 48 ? pair.qLabel.slice(0, 45) + '…' : pair.qLabel;
+            var shortLabel = pair.qLabel.length > 48 ? pair.qLabel.slice(0, 45) + '…' : pair.qLabel;
             var countSuffix = pair.count ? ' (' + pair.count + ')' : '';
-            var tagText     = shortLabel + ' › ' + pair.answer + countSuffix;
-            var $pairTag    = $('<span class="gform-filter-tag gform-filter-tag--pair">')
+            var tagText = shortLabel + ' › ' + pair.answer + countSuffix;
+            var $pairTag = $('<span class="gform-filter-tag gform-filter-tag--pair">')
               .append(
                 $('<span class="gform-filter-tag__label">').text(tagText),
                 $('<button type="button" class="gform-filter-tag__remove">')
@@ -361,7 +368,8 @@
 
         // ── Panel helpers ──────────────────────────────────────────────────
 
-        function openPanel($panel)  { $panel.removeAttr('hidden'); }
+        function openPanel($panel) { $panel.removeAttr('hidden'); }
+
         function closePanel($panel) { $panel.attr('hidden', true); }
 
         function populateList($list, items, onPick) {
@@ -394,15 +402,15 @@
         function updateUrl() {
           var params = {};
           if (state.form) {
-            params.form_id    = state.form.id;
+            params.form_id = state.form.id;
             params.form_total = state.form.total || '';
           }
           $.each(state.pairs, function (i, pair) {
             params['filters[' + i + '][solr_key]'] = pair.solrKey;
-            params['filters[' + i + '][answer]']   = pair.answer;
-            params['filters[' + i + '][count]']    = pair.count || '';
+            params['filters[' + i + '][answer]'] = pair.answer;
+            params['filters[' + i + '][count]'] = pair.count || '';
           });
-          var qs     = $.param(params);
+          var qs = $.param(params);
           var newUrl = window.location.pathname + (qs ? '?' + qs : '');
           if (window.history && window.history.pushState) {
             window.history.pushState(null, '', newUrl);
@@ -411,7 +419,50 @@
           }
         }
 
-        function reloadResults() { window.location.reload(); }
+        function reloadResults() {
+          var $card = $('.gform-card');
+          var $pager = $('.gform-back-link');
+
+          $card.css('opacity', 0.4);
+
+          var ajaxUrl = Drupal.settings.basePath + 'forms/response/list/ajax';
+
+          $.ajax({
+            url: ajaxUrl,
+            data: parseQueryString(window.location.search),
+            dataType: 'json',
+            success: function (data) {
+              if (!data || !data.html) {
+                $card.css('opacity', '');
+                return;
+              }
+              var $new = $(data.html);
+              var $newCard = $new.filter('.gform-card').add($new.find('.gform-card')).first();
+              var $newPager = $new.filter('.pager').add($new.find('.pager')).first();
+              var $newCount = $newCard.find('.gform-table-count');
+
+              if ($newCard.length) {
+                $card.replaceWith($newCard);
+                $card = $newCard;
+              }
+              if ($newPager.length) { $pager.find('.pager').replaceWith($newPager); }
+
+              if ($newCount.length && state.form) {
+                var m = $.trim($newCount.text()).match(/(\d[\d,]*)/);
+                state.form.total = m ? m[1] + ' responses' : null;
+                renderTags();
+              }
+
+              $card.css('opacity', '');
+              Drupal.attachBehaviors();
+            },
+            error: function (xhr, status, err) {
+              $card.css('opacity', '');
+              console.error('reloadResults failed:', ajaxUrl, status, err, xhr.responseText);
+              // Don't reload — just leave the current results in place
+            },
+          });
+        }
 
         // ── Utility ────────────────────────────────────────────────────────
 
@@ -433,20 +484,20 @@
 
         function searchForms(term, cb) {
           $.ajax({
-            url:      Drupal.settings.basePath + 'modularform/filter/form-search',
+            url: Drupal.settings.basePath + 'modularform/filter/form-search',
             dataType: 'json',
-            data:     { term: term },
-            success:  function (data) { cb(data.results || []); },
-            error:    function () { cb([]); },
+            data: { term: term },
+            success: function (data) { cb(data.results || []); },
+            error: function () { cb([]); },
           });
         }
 
         function fetchFormById(id, cb) {
           $.ajax({
-            url:      Drupal.settings.basePath + 'modularform/filter/form-search',
+            url: Drupal.settings.basePath + 'modularform/filter/form-search',
             dataType: 'json',
-            data:     { id: id },
-            success:  function (data) {
+            data: { id: id },
+            success: function (data) {
               var r = data.results || [];
               cb(r.length ? { id: r[0].id, title: r[0].label } : null);
             },
@@ -462,10 +513,10 @@
             return;
           }
           $.ajax({
-            url:      Drupal.settings.basePath + 'modularform/filter/questions',
+            url: Drupal.settings.basePath + 'modularform/filter/questions',
             dataType: 'json',
-            data:     { form_id: formId },
-            success:  function (data) {
+            data: { form_id: formId },
+            success: function (data) {
               questionCache[formId] = data.results || [];
               cb(filterByTerm(questionCache[formId], term));
             },
@@ -483,11 +534,14 @@
 
         function searchAnswers(solrKey, term, cb) {
           $.ajax({
-            url:      Drupal.settings.basePath + 'modularform/filter/answer-values',
+            url: Drupal.settings.basePath + 'modularform/filter/answer-values',
             dataType: 'json',
-            data:     { key: solrKey, form_id: state.form.id, term: term },
-            success:  function (data) {
-              if (data.error === 'solr_unavailable') { cb([]); return; }
+            data: { key: solrKey, form_id: state.form.id, term: term },
+            success: function (data) {
+              if (data.error === 'solr_unavailable') {
+                cb([]);
+                return;
+              }
               cb(data.results || []);
             },
             error: function () { cb([]); },
@@ -495,7 +549,7 @@
         }
 
         function solrKeyToLabel(solrKey, formId) {
-          var qs    = questionCache[formId] || [];
+          var qs = questionCache[formId] || [];
           var match = $.grep(qs, function (q) { return q.id === solrKey; });
           return match.length ? match[0].label : solrKey;
         }
@@ -509,7 +563,7 @@
   Drupal.behaviors.modularformSort = {
     attach: function (context, settings) {
       $('#mf-filter-sort', context).once('modularform-sort').on('change', function () {
-        var val   = $(this).val();
+        var val = $(this).val();
         var $tbody = $('table.gform-table tbody');
         if (!$tbody.length) { return; }
 
@@ -545,11 +599,11 @@
 
   Drupal.behaviors.modularformQuickFilters = {
     attach: function (context, settings) {
-      var $chip      = $('#quick-filter-email', context).once('quick-filter-email');
+      var $chip = $('#quick-filter-email', context).once('quick-filter-email');
       var $inputWrap = $('#quick-filter-email-input');
-      var $input     = $('#quick-filter-email-value');
-      var $apply     = $('#quick-filter-email-apply');
-      var $clear     = $('#quick-filter-email-clear');
+      var $input = $('#quick-filter-email-value');
+      var $apply = $('#quick-filter-email-apply');
+      var $clear = $('#quick-filter-email-clear');
       if (!$chip.length) { return; }
 
       var params = parseQS(window.location.search);
@@ -560,8 +614,10 @@
       }
 
       $chip.on('click', function () {
-        if ($inputWrap.is(':visible')) { $inputWrap.hide(); }
-        else { $inputWrap.show(); $input.trigger('focus'); }
+        if ($inputWrap.is(':visible')) { $inputWrap.hide(); } else {
+          $inputWrap.show();
+          $input.trigger('focus');
+        }
       });
 
       $apply.on('click', function () {
@@ -578,7 +634,7 @@
       $clear.on('click', function () { clearEmail(); });
 
       function pushEmail(val) {
-        var p  = parseQS(window.location.search);
+        var p = parseQS(window.location.search);
         p.email = val;
         var qs = $.param(p);
         window.history.pushState(null, '', window.location.pathname + '?' + qs);
@@ -598,7 +654,7 @@
 
       function parseQS(search) {
         var params = {};
-        var str    = search.replace(/^\?/, '');
+        var str = search.replace(/^\?/, '');
         if (!str) { return params; }
         $.each(str.split('&'), function (i, part) {
           var eq = part.indexOf('=');
@@ -613,13 +669,19 @@
 
   // ── Configured filters ────────────────────────────────────────────────────
 
+  // ── Configured filters ────────────────────────────────────────────────────
+
+  // ── Configured filters ────────────────────────────────────────────────────
+
+  // ── Configured filters ────────────────────────────────────────────────────
+
   Drupal.behaviors.configuredFilters = {
     attach: function (context, settings) {
 
       $('#configured-filters-toggle', context).once('configured-filters').on('click', function () {
         var $dropdown = $('#configured-filters-dropdown');
-        var $btn      = $(this);
-        var opening   = !$dropdown.hasClass('open');
+        var $btn = $(this);
+        var opening = !$dropdown.hasClass('open');
         $dropdown.toggleClass('open');
         $btn.toggleClass('gform-quick-filter--active');
         if (opening && !$dropdown.data('loaded')) {
@@ -627,34 +689,11 @@
         }
       });
 
-      $(document).on('change', '.configured-filter-checkbox', function () {
-        var $cb     = $(this);
-        var qLabel  = $cb.closest('.configured-filter-item').find('span').text();
-        var solrKey = $cb.data('solr-key');
-
-        $('#configured-filter-answers').remove();
-        if (!$cb.is(':checked')) { return; }
-
-        var $panel = $('<ul id="configured-filter-answers" class="gform-filter-list">');
-        $cb.closest('.configured-filter-item').after($panel);
-
-        $.getJSON(Drupal.settings.basePath + 'modularform/filter/answer-values', {
-          key:     solrKey,
-          form_id: _getFormId(),
-        })
-          .done(function (data) {
-            $.each(data.results || [], function (i, item) {
-              $('<li>').text(item.label).on('click', function () {
-                $(document).trigger('configuredFilterApplied', [{
-                  solrKey: solrKey,
-                  qLabel:  qLabel,
-                  answer:  item.label,
-                }]);
-                $('#configured-filter-answers').remove();
-                $cb.prop('checked', false);
-              }).appendTo($panel);
-            });
-          });
+      // Close all card dropdowns when clicking outside
+      $(document).on('click.cf-outside', function (e) {
+        if (!$(e.target).closest('.cf-question-card').length) {
+          $('.cf-question-card').removeClass('open');
+        }
       });
     },
   };
@@ -667,28 +706,133 @@
       return;
     }
     $dropdown.html('<span class="configured-filter-empty">' + Drupal.t('Loading\u2026') + '</span>');
+
     $.getJSON(Drupal.settings.basePath + 'modularform/filter/questions', { form_id: formId, configured: 1 })
       .done(function (data) {
         $dropdown.empty();
+
         if (!data.results || !data.results.length) {
           $dropdown.html('<span class="configured-filter-empty">' + Drupal.t('No filterable questions configured.') + '</span>');
           $dropdown.data('loaded', true);
           return;
         }
+
+        var pending = data.results.length;
+
         $.each(data.results, function (i, q) {
-          var id    = 'cf-' + q.q_id;
-          var $item = $(
-            '<label class="configured-filter-item" for="' + id + '">' +
-            '<input type="checkbox" class="configured-filter-checkbox"' +
-            ' id="' + id + '"' +
-            ' value="' + q.q_id + '"' +
-            ' data-solr-key="' + q.id + '" />' +
-            '<span>' + q.label + '</span>' +
-            '</label>',
+          var $card = $(
+            '<div class="cf-question-card" data-solr-key="' + q.id + '">' +
+            '<div class="cf-question-label">' + q.label + '</div>' +
+            '<div class="cf-field-wrap">' +
+            '<input type="text" class="cf-field-input" placeholder="' + Drupal.t('Select\u2026') + '" autocomplete="off" />' +
+            '<span class="cf-field-badge">0</span>' +
+            '<i class="ti ti-chevron-down cf-field-chevron" aria-hidden="true"></i>' +
+            '</div>' +
+            '<div class="cf-question-panel">' +
+            '<ul class="cf-answer-list"><li class="cf-answer-empty">' + Drupal.t('Loading\u2026') + '</li></ul>' +
+            '</div>' +
+            '</div>',
           );
-          $dropdown.append($item);
+
+          var $input = $card.find('.cf-field-input');
+          var $badge = $card.find('.cf-field-badge');
+          var $panel = $card.find('.cf-question-panel');
+          var $list = $card.find('.cf-answer-list');
+
+          // Open on focus or click
+          $input.on('focus click', function (e) {
+            e.stopPropagation();
+            var wasOpen = $card.hasClass('open');
+            $('.cf-question-card').not($card).removeClass('open');
+            if (!wasOpen) { $card.addClass('open'); }
+          });
+
+          // Live filter — type to narrow the list, dropdown stays open
+          $input.on('input', function () {
+            var term = $(this).val().toLowerCase();
+            $list.find('li.cf-answer-item').each(function () {
+              var text = $(this).find('span').text().toLowerCase();
+              $(this).toggle(text.indexOf(term) !== -1);
+            });
+            var hasVisible = $list.find('li.cf-answer-item:visible').length > 0;
+            $list.find('li.cf-answer-empty').toggle(!hasVisible);
+            $card.addClass('open');
+          });
+
+          // Clicking a row toggles its checkbox, keeps panel open
+          $list.on('click', 'li.cf-answer-item', function (e) {
+            e.stopPropagation();
+            var $cb = $(this).find('input[type="checkbox"]');
+            $cb.prop('checked', !$cb.prop('checked')).trigger('change');
+          });
+
+          // Checkbox change — update badge + fire events
+          $list.on('change', 'input[type="checkbox"]', function () {
+            var $cb = $(this);
+            var $li = $cb.closest('li');
+            var checked = $cb.is(':checked');
+            var answer = $li.find('span').text();
+
+            $li.toggleClass('is-checked', checked);
+
+            var count = $list.find('input:checked').length;
+            $badge.text(count);
+            $card.toggleClass('has-selection', count > 0);
+
+            if (checked) {
+              $(document).trigger('configuredFilterApplied', [
+                {
+                  solrKey: q.id,
+                  qLabel: q.label,
+                  answer: answer,
+                },
+              ]);
+            } else {
+              $(document).trigger('configuredFilterRemoved', [
+                {
+                  solrKey: q.id,
+                  answer: answer,
+                },
+              ]);
+            }
+          });
+
+          $dropdown.append($card);
+
+          // Fetch answer values for this question
+          $.getJSON(Drupal.settings.basePath + 'modularform/filter/answer-values', {
+            key: q.id,
+            form_id: formId,
+          })
+            .done(function (adata) {
+              $list.empty();
+              var results = adata.results || [];
+
+              if (!results.length) {
+                $list.html('<li class="cf-answer-empty">' + Drupal.t('No values.') + '</li>');
+                return;
+              }
+
+              $.each(results, function (j, item) {
+                $list.append(
+                  '<li class="cf-answer-item">' +
+                  '<input type="checkbox" />' +
+                  '<span>' + item.label + '</span>' +
+                  '</li>',
+                );
+              });
+
+              // Always keep a hidden "no matches" row for when search filters everything out
+              $list.append('<li class="cf-answer-empty" style="display:none">' + Drupal.t('No matches.') + '</li>');
+            })
+            .fail(function () {
+              $list.html('<li class="cf-answer-empty">' + Drupal.t('Failed to load.') + '</li>');
+            })
+            .always(function () {
+              pending--;
+              if (pending === 0) { $dropdown.data('loaded', true); }
+            });
         });
-        $dropdown.data('loaded', true);
       })
       .fail(function () {
         $dropdown.html('<span class="configured-filter-empty">' + Drupal.t('Failed to load filters.') + '</span>');

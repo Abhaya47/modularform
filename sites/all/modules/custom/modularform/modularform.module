@@ -232,6 +232,14 @@ function modularform_menu() {
     'file'             => 'includes/response_list.inc',
     'type'             => MENU_CALLBACK,
   ];
+
+  $items['forms/response/list/ajax'] = array(
+    'title'            => '',
+    'page callback'    => 'modularform_response_list_ajax',
+    'access callback'  => TRUE,
+    'file'             => 'includes/response_list.inc',
+    'type'             => MENU_CALLBACK,
+  );
   return $items;
 }
 

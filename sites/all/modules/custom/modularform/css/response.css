@@ -381,6 +381,8 @@
 
 /* ── Configured Filters ─────────────────────────── */
 
+/* ── Configured Filters ─────────────────────────── */
+
 #configured-filters-toggle.gform-quick-filter--active {
   background: #EEEDFE;
   border-color: #7B6FD0;
@@ -396,8 +398,8 @@
 #configured-filters-dropdown {
   display: none;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 10px;
   padding: 10px 12px;
   background: #f7f7f8;
   border: 1px solid #e2e2e2;
@@ -409,28 +411,163 @@
   display: flex;
 }
 
-.configured-filter-item {
-  display: inline-flex;
+/* ── Per-question card ── */
+
+.cf-question-card {
+  position: relative;
+  flex: 1 1 200px;
+  min-width: 180px;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cf-question-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #534AB7;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0 2px;
+}
+
+/* ── Search/select field ── */
+
+.cf-field-wrap {
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+}
+
+.cf-field-input {
+  width: 100%;
+  border: 1px solid #CECBF6;
+  border-radius: 6px;
+  padding: 6px 32px 6px 10px;
   font-size: 13px;
   font-family: inherit;
-  color: #534AB7;
+  color: #1a1a1a;
   background: #fff;
-  border: 1px solid #CECBF6;
-  border-radius: 20px;
+  outline: none;
+  box-sizing: border-box;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.configured-filter-item:hover {
+.cf-field-input::placeholder {
+  color: #aaa;
+}
+
+.cf-field-input:focus,
+.cf-question-card.open .cf-field-input {
+  border-color: #7B6FD0;
+  box-shadow: 0 0 0 3px rgba(123,111,208,0.15);
+}
+
+.cf-field-badge {
+  position: absolute;
+  right: 26px;
+  background: #7B6FD0;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 1px 6px;
+  pointer-events: none;
+  display: none;
+}
+
+.cf-question-card.has-selection .cf-field-badge {
+  display: inline-block;
+}
+
+.cf-field-chevron {
+  position: absolute;
+  right: 8px;
+  font-size: 14px;
+  color: #7B6FD0;
+  pointer-events: none;
+  transition: transform 0.15s;
+}
+
+.cf-question-card.open .cf-field-chevron {
+  transform: rotate(180deg);
+}
+
+/* ── Dropdown panel ── */
+
+.cf-question-panel {
+  display: none;
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  right: 0;
+  z-index: 250;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+  overflow: hidden;
+  min-width: 220px;
+}
+
+.cf-question-card.open .cf-question-panel {
+  display: block;
+}
+
+.cf-answer-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.cf-answer-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: #1a1a1a;
+  cursor: pointer;
+  transition: background 0.1s;
+  user-select: none;
+}
+
+.cf-answer-item:hover {
   background: #EEEDFE;
+  color: #3C3489;
 }
 
-.configured-filter-item input[type="checkbox"] {
+.cf-answer-item input[type="checkbox"] {
   accent-color: #7B6FD0;
   cursor: pointer;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  margin: 0;
+  pointer-events: none;
+}
+
+.cf-answer-item.is-checked {
+  color: #3C3489;
+  font-weight: 500;
+}
+
+.cf-answer-item span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-answer-empty {
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #aaa;
+  font-style: italic;
 }
 
 /* ── Quick filters ─────────────────────────── */
