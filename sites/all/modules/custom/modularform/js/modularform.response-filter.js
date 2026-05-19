@@ -211,6 +211,10 @@
           lockFormStep(state.form);
           unlockStep($stepQ, $qSearch);
           $addBtn.prop('disabled', false);
+
+          $('#configured-filters-toggle').removeClass('gform-quick-filter--active');
+          $('#configured-filters-dropdown').removeClass('open').removeData('loaded').empty();
+
           renderTags();
           updateUrl();
           reloadResults();
@@ -286,6 +290,20 @@
         function clearAll() {
           state = { form: null, qKey: null, qLabel: null, aVal: null, pairs: [] };
 
+
+          // Clear tags immediately, don't wait for AJAX
+          renderTags();
+
+          $('#configured-filters-toggle').removeClass('gform-quick-filter--active');
+          $('#configured-filters-dropdown').removeClass('open').removeData('loaded').empty();
+          // Reset configured-filter checkboxes
+          $('#configured-filters-dropdown .cf-answer-item').each(function () {
+            $(this).find('input[type="checkbox"]').prop('checked', false);
+            $(this).removeClass('is-checked');
+          });
+          $('#configured-filters-dropdown .cf-field-badge').text('0');
+          $('#configured-filters-dropdown .cf-question-card').removeClass('has-selection');
+
           $formSearch.val('').prop('disabled', false).show();
           $formChosen.hide().empty();
           closePanel($formPanel);
@@ -306,7 +324,27 @@
         }
 
         function removePair(index) {
+          var pair = state.pairs[index];
+
+          // Uncheck the matching checkbox in the configured-filters dropdown
+          $('#configured-filters-dropdown .cf-question-card').each(function () {
+            if ($(this).data('solr-key') === pair.solrKey) {
+              $(this).find('.cf-answer-list li.cf-answer-item').each(function () {
+                if ($(this).find('span').text() === pair.answer) {
+                  var $cb = $(this).find('input[type="checkbox"]');
+                  $cb.prop('checked', false);
+                  $(this).removeClass('is-checked');
+                }
+              });
+              // Update badge
+              var count = $(this).find('input:checked').length;
+              $(this).find('.cf-field-badge').text(count);
+              $(this).toggleClass('has-selection', count > 0);
+            }
+          });
+
           state.pairs.splice(index, 1);
+          renderTags();
           updateUrl();
           reloadResults();
         }
