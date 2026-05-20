@@ -40,8 +40,8 @@ function modularform_response_list_page() {
     }
 
     $params = [
-      'fq'   => $fq,
-      'fl'   => 'entity_id',
+      'fq' => $fq,
+      'fl' => 'entity_id',
       'rows' => 500,
     ];
 
@@ -55,7 +55,9 @@ function modularform_response_list_page() {
       $query->condition('r.id', [0], 'IN');
     }
     else {
-      $ids = array_map(function ($doc) { return (int) $doc->entity_id; }, $docs);
+      $ids = array_map(function($doc) {
+        return (int) $doc->entity_id;
+      }, $docs);
       $query->condition('r.id', $ids, 'IN');
     }
   }
@@ -180,7 +182,6 @@ function modularform_response_list_ajax() {
   drupal_exit();
 }
 
-
 function modularform_response_delete($response_id) {
   $response = db_select('modularform_responses', 'r')
     ->fields('r', ['id'])
@@ -204,7 +205,6 @@ function modularform_response_delete($response_id) {
   drupal_goto('forms/response/list');
 }
 
-
 function _modularform_delete_response_data($response_id) {
   $answer_ids = db_select('modularform_answers', 'a')
     ->fields('a', ['id'])
@@ -223,7 +223,6 @@ function _modularform_delete_response_data($response_id) {
     ->condition('id', $response_id)
     ->execute();
 }
-
 
 /**
  * Menu callback: modularform/filter/answer-values
@@ -245,8 +244,8 @@ function modularform_filter_answer_values() {
   $form_id = isset($_GET['form_id']) ? (int) $_GET['form_id'] : 0;
   $term = isset($_GET['term']) ? check_plain($_GET['term']) : '';
 
-  // Basic validation — key must look like ss_val_q_{id}_{hash}
-  if (!$solr_key || !$form_id || !preg_match('/^ss_val_q_\d+_[a-z0-9]+$/', $solr_key)) {
+  // Basic validation — key must look like {type}_val_q_{id}_{hash}
+  if (!$solr_key || !$form_id || !preg_match('/^[a-z]+_val_q_\d+_[a-z0-9]+$/', $solr_key)) {
     drupal_json_output(['error' => 'invalid_params']);
     drupal_exit();
   }
@@ -259,8 +258,8 @@ function modularform_filter_answer_values() {
     drupal_exit();
   }
 
-  // Shape into { id, label } pairs the JS expects
   $results = array_map(function($v) {
+    $v = is_array($v) ? implode(', ', $v) : (string) $v; //  for sm multiple array check
     return ['id' => $v, 'label' => $v];
   }, $values);
 
@@ -292,19 +291,13 @@ function modularform_filter_questions() {
   }
 
   $type_map = array_flip(modularform_type_map());
-  $datatype_map = modularform_datatype_map();
   $solr_field_map = solr_field_map();
-
-  $results = [];
   foreach ($query->execute() as $row) {
-    $type_name = isset($type_map[$row->datatype]) ? $type_map[$row->datatype] : NULL;
-    $storage = isset($datatype_map[$type_name]) ? $datatype_map[$type_name] : NULL;
-    $prefix = isset($solr_field_map[$storage]) ? $solr_field_map[$storage] : NULL;
-
-    if (!$prefix || $storage !== 'varchar') {
+    $type_name = $type_map[$row->datatype] ?? NULL;
+    $prefix = $solr_field_map[$type_name] ?? NULL;
+    if (!$prefix) {
       continue;
     }
-
     $results[] = [
       'id' => $prefix . '_' . $row->q_id,
       'label' => $row->label,

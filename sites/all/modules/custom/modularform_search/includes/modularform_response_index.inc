@@ -3,13 +3,6 @@
 module_load_include('inc', 'modularform', 'modularform.rules');
 
 function modularform_search_response_document_callback($document, $entity, $entity_type, $env_id) {
-  // Put this helper at the top of the function
-  $log = function($label, $data) {
-    file_put_contents('/tmp/modularform_debug.log',
-      $label . ': ' . print_r($data, true) . "\n---\n",
-      FILE_APPEND
-    );
-  };
 
   $response_id = is_object($entity) ? $entity->id : $entity;
 
@@ -37,38 +30,28 @@ function modularform_search_response_document_callback($document, $entity, $enti
     ->execute()
     ->fetchAllAssoc('id');
 
-  $q_ids = !empty($answers) ? array_map(fn($a) => $a->q_id, $answers) : [];
-  $questions = [];
-  if (!empty($q_ids)) {
-    $questions = db_select('modularform_questions', 'q')
-      ->fields('q', ['q_id', 'label', 'type'])
-      ->condition('q.q_id', $q_ids, 'IN')
-      ->execute()
-      ->fetchAllAssoc('q_id');
-  }
+  $type_map     = array_flip(modularform_type_map());
+  $solr_field_map = solr_field_map();
 
-  $multi_types       = [4, 7, 11]; // checkbox, tag, list
-  $tag_type          = 7;
-  $single_opt_types  = [2, 6];     // radio, dropdown
-
-  // Partition answer IDs by whether they need multi-value lookup
-  $answer_ids     = !empty($answers) ? array_keys($answers) : [];
-  $log('all answer ids', $answer_ids);
-  $tag_answer_ids = [];
-  $opt_answer_ids = [];
+  // Classify answers using solr_field_map
+  $answer_ids        = !empty($answers) ? array_keys($answers) : [];
+  $tag_answer_ids    = [];
+  $opt_answer_ids    = [];  // radio, dropdown, checkbox, list, dropdown
   foreach ($answers as $answer) {
-    $type_int = (int) $answer->datatype;
-    if (in_array($type_int, $multi_types)) {
-      if ($type_int === $tag_type) {
+    $type_int  = (int) $answer->datatype;
+    $type_name = $type_map[$type_int] ?? NULL;
+    $solr_field = $solr_field_map[$type_name] ?? 'ss_val';
+    if ($solr_field === 'sm_val') {
+      if ($type_name === 'tag') {
         $tag_answer_ids[] = $answer->id;
       } else {
         $opt_answer_ids[] = $answer->id;
       }
     }
   }
-  $log('tag answer ids', $tag_answer_ids);
-  $log('opt answer ids', $opt_answer_ids);
-  // Fetch all multi rows in one query, then split by answer type
+
+
+  // Fetch all multi rows in one query
   $multi_answers = [];
   if (!empty($answer_ids)) {
     $multi_answers = db_select('modularform_answers_multi', 'am')
@@ -77,26 +60,18 @@ function modularform_search_response_document_callback($document, $entity, $enti
       ->execute()
       ->fetchAll();
   }
-  $log('multi answers raw', $multi_answers);
+
+  // Collect IDs to resolve
   $tag_value_ids = [];
   $opt_value_ids = [];
   foreach ($multi_answers as $row) {
-    $parent_type = (int) $answers[$row->answer_id]->datatype;
-    if ($parent_type === $tag_type) {
+    $type_int  = (int) $answers[$row->answer_id]->datatype;
+    $type_name = $type_map[$type_int] ?? NULL;
+    if ($type_name === 'tag') {
       $tag_value_ids[] = $row->value;
     } else {
       $opt_value_ids[] = $row->value;
     }
-  }
-
-  // Lookup option labels (checkbox / list)
-  $options = [];
-  if (!empty($opt_value_ids)) {
-    $options = db_select('modularform_question_options', 'o')
-      ->fields('o', ['o_id', 'option'])
-      ->condition('o.o_id', $opt_value_ids, 'IN')
-      ->execute()
-      ->fetchAllAssoc('o_id');
   }
 
   // Lookup tag titles
@@ -109,11 +84,22 @@ function modularform_search_response_document_callback($document, $entity, $enti
       ->fetchAllAssoc('id');
   }
 
+  // Lookup multi option labels (checkbox, list)
+  $options = [];
+  if (!empty($opt_value_ids)) {
+    $options = db_select('modularform_question_options', 'o')
+      ->fields('o', ['o_id', 'option'])
+      ->condition('o.o_id', $opt_value_ids, 'IN')
+      ->execute()
+      ->fetchAllAssoc('o_id');
+  }
+
   // Group resolved multi labels by answer ID
   $multi_grouped = [];
   foreach ($multi_answers as $row) {
-    $parent_type = (int) $answers[$row->answer_id]->datatype;
-    if ($parent_type === $tag_type) {
+    $type_int  = (int) $answers[$row->answer_id]->datatype;
+    $type_name = $type_map[$type_int] ?? NULL;
+    if ($type_name === 'tag') {
       $multi_grouped[$row->answer_id][] = isset($tags[$row->value])
         ? $tags[$row->value]->title
         : $row->value;
@@ -123,11 +109,13 @@ function modularform_search_response_document_callback($document, $entity, $enti
         : $row->value;
     }
   }
-  $log('multi grouped', $multi_grouped);
-  // Lookup single-select option labels (radio / dropdown)
+
+  // Lookup single-select option labels (radio, dropdown)
   $single_option_ids = [];
   foreach ($answers as $answer) {
-    if (in_array((int) $answer->datatype, $single_opt_types) && !empty($answer->value_varchar)) {
+    $type_name = $type_map[(int) $answer->datatype] ?? NULL;
+    $solr_field = $solr_field_map[$type_name] ?? 'ss_val';
+    if ($solr_field !== 'sm_val' && in_array($type_name, ['radio', 'dropdown']) && !empty($answer->value_varchar)) {
       $single_option_ids[] = $answer->value_varchar;
     }
   }
@@ -150,18 +138,20 @@ function modularform_search_response_document_callback($document, $entity, $enti
   $document->is_submitted_at = (int) $response->submitted_at;
 
   foreach ($answers as $answer) {
-    $q_id     = $answer->q_id;
-    $type_int = (int) $answer->datatype;
+    $q_id      = $answer->q_id;
+    $type_int  = (int) $answer->datatype;
+    $type_name = $type_map[$type_int] ?? NULL;
+    $solr_field = $solr_field_map[$type_name] ?? 'ss_val';
 
     // Resolve single-select stored value → human label
-    if (in_array($type_int, $single_opt_types) && !empty($answer->value_varchar)) {
+    if (in_array($type_name, ['radio', 'dropdown']) && !empty($answer->value_varchar)) {
       $o_id = $answer->value_varchar;
       $answer->value_varchar = isset($single_options[$o_id])
         ? $single_options[$o_id]->option
         : $o_id;
     }
 
-    $multi_vals = (in_array($type_int, $multi_types) && isset($multi_grouped[$answer->id]))
+    $multi_vals = ($solr_field === 'sm_val' && isset($multi_grouped[$answer->id]))
       ? $multi_grouped[$answer->id]
       : [];
 
@@ -174,7 +164,6 @@ function modularform_search_response_document_callback($document, $entity, $enti
 
   return [$document];
 }
-
 /**
  * Maps an answer row to the correct Solr field name and typed value.
  *
@@ -188,31 +177,23 @@ function modularform_search_answer_to_solr_field($answer, array $multi_values = 
   $datatype_map = modularform_datatype_map();
   $solr_field_map = solr_field_map();
   $value_col_map = value_col_map();
-
-
-  $multi_types = [4, 7, 11]; // checkbox, tag, list
   $type_int = (int) $answer->datatype;
   $type_name = isset($type_map[$type_int]) ? $type_map[$type_int] : NULL;
   $storage = isset($datatype_map[$type_name]) ? $datatype_map[$type_name] : 'varchar';
-
+  $solr_field = isset($solr_field_map[$type_name]) ? $solr_field_map[$type_name] : 'ss_val';
   // Multi
-  if (in_array($type_int, $multi_types)) {
+  if ($solr_field === 'sm_val') {
     return [
-      'field' => 'sm_val',  // sm_* is multiValued string
-      'value' => $multi_values,
+      'field' => 'sm_val',
+      'value' => array_map('strval', $multi_values),
     ];
   }
-
   // Single
   $value_col = isset($value_col_map[$storage]) ? $value_col_map[$storage] : 'value_varchar';
   $raw = $answer->{$value_col};
-
   if ($raw === NULL) {
-    return NULL; // nothing to index
+    return NULL;
   }
-
-  $solr_field = isset($solr_field_map[$storage]) ? $solr_field_map[$storage] : 'val_ss';
-
   $typed_value = $raw;
   if ($storage === 'date') {
     $typed_value = gmdate('Y-m-d\TH:i:s\Z', $raw);
@@ -226,7 +207,6 @@ function modularform_search_answer_to_solr_field($answer, array $multi_values = 
   else {
     $typed_value = (string) $raw;
   }
-
   return [
     'field' => $solr_field,
     'value' => $typed_value,

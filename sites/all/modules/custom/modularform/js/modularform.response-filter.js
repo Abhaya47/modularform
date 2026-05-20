@@ -504,7 +504,9 @@
 
                 renderTags();
               }
-
+              if ($newCard.length) {
+                $card.html($newCard.html());  // swap the contents in-place
+              }
               $card.css('opacity', '');
               Drupal.attachBehaviors();
             },

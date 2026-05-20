@@ -314,17 +314,22 @@ function modularform_visibility_get_text_map() {
 
 function solr_field_map() {
   static $map;
-
   if (!isset($map)) {
     $map = [
-      'varchar' => 'ss_val',
-      'text' => 'ts_val',
-      'int' => 'is_val',
-      'bool' => 'bs_val',
-      'date' => 'ds_val',
+      'text'      => 'ss_val',
+      'textarea'  => 'ts_val',
+      'richtext'  => 'ts_val',
+      'radio'     => 'ss_val',
+      'boolean'   => 'bs_val',
+      'checkbox'  => 'sm_val',
+      'tag'       => 'sm_val',
+      'list'      => 'sm_val',
+      'dropdown'  => 'ss_val',
+      'file'      => 'ss_val',
+      'date'      => 'ds_val',
+      'time'      => 'ss_val',
     ];
   }
-
   return $map;
 }
 
