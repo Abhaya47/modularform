@@ -251,6 +251,7 @@ function modularform_filter_answer_values() {
     drupal_exit();
   }
 
+  module_load_include('inc', 'modularform_search', 'includes/modularform_response_search');
   $values = _modularform_filter_get_answer_values($solr_key, $form_id, $term);
 
   if (is_null($values)) {

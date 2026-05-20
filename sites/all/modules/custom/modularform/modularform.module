@@ -12,8 +12,6 @@ module_load_include('inc', 'modularform', 'includes/answer_form');
 module_load_include('inc', 'modularform', 'includes/builder_build_fields');
 module_load_include('inc', 'modularform', 'includes/response_list');
 module_load_include('inc', 'modularform', 'includes/response_view');
-module_load_include('inc', 'modularform_search', 'includes/modularform_response_search');
-
 // Rules file.
 module_load_include('inc', 'modularform', 'modularform.rules');
 
@@ -442,6 +440,10 @@ function modularform_fill_access($fid) {
     ->fetchObject();
 
   if (!$form) {
+    return FALSE;
+  }
+
+  if ($form->is_status!=1){
     return FALSE;
   }
 
@@ -919,11 +921,18 @@ function modularform_library() {
  * Implements hook_entity_insert().
  */
 function modularform_entity_insert($entity, $type) {
-  if ($type !== 'modularform_form') {
-    return;
+  // Handle form entity
+  if ($type === 'modularform_form') {
+    if (module_exists('modularform_search')) {
+      modularform_search_solr_sync($entity, $type);
+    }
   }
-  if (module_exists('modularform_search')) {
-    modularform_search_solr_sync($entity, $type);
+
+  // Handle response entity
+  if ($type === 'modularform_response') {
+    if (module_exists('modularform_search')) {
+      modularform_search_solr_sync($entity, $type);
+    }
   }
 }
 
@@ -931,26 +940,30 @@ function modularform_entity_insert($entity, $type) {
  * Implements hook_entity_update().
  */
 function modularform_entity_update($entity, $type) {
-  if ($type !== 'modularform_form') {
-    return;
+  // Handle form entity
+  if ($type === 'modularform_form') {
+    if (module_exists('modularform_search')) {
+      modularform_search_solr_sync($entity, $type);
+    }
+    // Notifications — only when status transitions to active (1 -> was not 1)
+    if ((int) $entity->status === 1 && (int) $entity->original->status !== 1) {
+      $now = (new DateTime('now', new DateTimeZone('UTC')))->getTimestamp();
+      $rows = db_select('modularform_form_members', 'm')
+        ->fields('m', ['uid', 'token'])
+        ->condition('m.form_id', $entity->id)
+        ->condition('m.roles', 2)
+        ->execute()
+        ->fetchAll(PDO::FETCH_ASSOC);
+      _modularform_queue_restricted_notifications($entity->id, $entity, $rows);
+      _modularform_queue_private_notifications($entity->id, $entity, $now);
+    }
   }
 
-  // Solr sync
-  if (module_exists('modularform_search')) {
-    modularform_search_solr_sync($entity, $type);
-  }
-
-  // Notifications — only when status transitions to active (1 -> was not 1)
-  if ((int) $entity->status === 1 && (int) $entity->original->status !== 1) {
-    $now = (new DateTime('now', new DateTimeZone('UTC')))->getTimestamp();
-    $rows = db_select('modularform_form_members', 'm')
-      ->fields('m', ['uid', 'token'])
-      ->condition('m.form_id', $entity->id)
-      ->condition('m.roles', 2)
-      ->execute()
-      ->fetchAll(PDO::FETCH_ASSOC);
-    _modularform_queue_restricted_notifications($entity->id, $entity, $rows);
-    _modularform_queue_private_notifications($entity->id, $entity, $now);
+  // Handle response entity
+  if ($type === 'modularform_response') {
+    if (module_exists('modularform_search')) {
+      modularform_search_solr_sync($entity, $type);
+    }
   }
 }
 
@@ -958,10 +971,17 @@ function modularform_entity_update($entity, $type) {
  * Implements hook_entity_delete().
  */
 function modularform_entity_delete($entity, $type) {
-  if ($type !== 'modularform_form') {
-    return;
+  // Handle form entity
+  if ($type === 'modularform_form') {
+    if (module_exists('modularform_search')) {
+      modularform_search_solr_remove($entity->id, $type);
+    }
   }
-  if (module_exists('modularform_search')) {
-    modularform_search_solr_remove($entity->id, $type);
+
+  // Handle response entity
+  if ($type === 'modularform_response') {
+    if (module_exists('modularform_search')) {
+      modularform_search_solr_remove($entity->id, $type);
+    }
   }
 }

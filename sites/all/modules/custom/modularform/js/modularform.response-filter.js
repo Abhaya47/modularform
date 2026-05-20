@@ -203,6 +203,13 @@
           reloadResults();
         });
 
+        // email
+
+        $(document).on('emailFilterChanged', function () {
+          updateUrl();
+          reloadResults();
+        });
+
         // ── Pick handlers ──────────────────────────────────────────────────
 
         function pickForm(item) {
@@ -396,7 +403,11 @@
                     delete p.email;
                     var qs = $.param(p);
                     window.history.pushState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
-                    window.location.reload();
+                    // Sync the quick filter chip UI
+                    $('#quick-filter-email').removeClass('gform-quick-filter--active');
+                    $('#quick-filter-email-value').val('');
+                    $('#quick-filter-email-input').hide();
+                    $(document).trigger('emailFilterChanged');
                   }),
               );
             $tagArea.append($emailTag);
@@ -679,7 +690,8 @@
         p.email = val;
         var qs = $.param(p);
         window.history.pushState(null, '', window.location.pathname + '?' + qs);
-        window.location.reload();
+        $chip.addClass('gform-quick-filter--active');
+        $(document).trigger('emailFilterChanged');
       }
 
       function clearEmail() {
@@ -690,7 +702,7 @@
         delete p.email;
         var qs = $.param(p);
         window.history.pushState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
-        window.location.reload();
+        $(document).trigger('emailFilterChanged');
       }
 
       function parseQS(search) {

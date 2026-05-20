@@ -77,7 +77,7 @@ function modularform_create_form($form, &$form_state, $id = NULL) {
       1 => t('Restricted (by role)'),
       2 => t('Private (specific people)'),
     ],
-    '#required' => TRUE,
+    '#required' => FALSE,
     '#default_value' => $val('visibility', 0),
     '#ajax' => [
       'callback' => 'modularform_visibility_ajax',

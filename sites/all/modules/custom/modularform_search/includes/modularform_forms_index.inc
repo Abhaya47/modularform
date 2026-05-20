@@ -90,25 +90,3 @@ function modularform_search_form_document_callback($document, $entity, $entity_t
   return [$document];
 }
 
-/**
- * Queue a form for indexing or remove it if soft-deleted.
- * Called on insert and update.
- */
-function modularform_search_solr_sync($entity, $entity_type) {
-  if (!empty($entity->deleted_at)) {
-    modularform_search_solr_remove($entity->id, $entity_type);
-  }
-  else {
-    apachesolr_mark_entity($entity_type, $entity->id);
-  }
-}
-
-/**
- * Remove a form from all Solr environments and the index queue.
- * Called on hard delete and soft delete.
- */
-function modularform_search_solr_remove($entity_id, $entity_type) {
-  foreach (apachesolr_load_all_environments() as $environment) {
-    apachesolr_remove_entity($environment['env_id'], $entity_type, $entity_id);
-  }
-}

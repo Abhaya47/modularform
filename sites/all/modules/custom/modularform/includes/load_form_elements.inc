@@ -7,6 +7,12 @@ module_load_include('inc', 'modularform', 'modularform.rules');
  * Returns empty array if form has no saved elements (create flow).
  */
 function _modularform_load_elements($fid) {
+  $cid   = 'modularform:elements:' . $fid;
+  $cache = cache_get($cid, 'cache_modularform');
+  if ($cache && isset($cache->data)) {
+    return $cache->data;
+  }
+
   $elements = [];
 
   // Sections
@@ -105,6 +111,6 @@ function _modularform_load_elements($fid) {
       'weight' => (int) $row['weight'],
     ];
   }
-
+  cache_set($cid, $elements, 'cache_modularform', CACHE_PERMANENT);
   return $elements;
 }
