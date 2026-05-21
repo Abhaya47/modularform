@@ -45,6 +45,7 @@ function _modularform_load_elements($fid) {
       'type',
       'is_required',
       'position',
+      'is_filterable',
     ])
     ->condition('form_id', $fid)
     ->orderBy('sec_id')

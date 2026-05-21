@@ -161,7 +161,7 @@ function modularform_answer_form_submit($form, &$form_state) {
         // Form API may deliver $raw as an array (checkboxes, multi-select)
         // or as a comma-separated string (hidden/text fields). Normalise first.
         $parts = is_array($raw)
-          ? array_values(array_filter($raw, fn($v) => $v !== '' && $v !== NULL))
+          ? array_values(array_filter($raw, fn($v) => $v !== '' && $v !== NULL && $v !== 0 && $v !== '0'))
           : array_filter(array_map('trim', explode(',', $raw)), fn($v) => $v !== '');
 
         foreach ($parts as $part) {
