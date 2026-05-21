@@ -12,6 +12,8 @@ module_load_include('inc', 'modularform', 'includes/answer_form');
 module_load_include('inc', 'modularform', 'includes/builder_build_fields');
 module_load_include('inc', 'modularform', 'includes/response_list');
 module_load_include('inc', 'modularform', 'includes/response_view');
+module_load_include('inc', 'modularform', 'includes/ModularformResponseResource');
+module_load_include('inc', 'modularform', 'includes/api_auth');
 // Rules file.
 module_load_include('inc', 'modularform', 'modularform.rules');
 
@@ -238,6 +240,12 @@ function modularform_menu() {
     'file'             => 'includes/response_list.inc',
     'type'             => MENU_CALLBACK,
   );
+
+  $items['api/modularform/auth'] = [
+    'page callback'   => 'modularform_api_auth',
+    'access callback' => TRUE,
+    'type'            => MENU_CALLBACK,
+  ];
   return $items;
 }
 
@@ -917,6 +925,19 @@ function modularform_library() {
   ];
 }
 
+function _modularform_load_jwt() {
+  static $loaded = FALSE;
+  if (!$loaded) {
+    $base = DRUPAL_ROOT . '/sites/all/libraries/php-jwt/src/';
+    require_once $base . 'JWT.php';
+    require_once $base . 'Key.php';
+    require_once $base . 'SignatureInvalidException.php';
+    require_once $base . 'BeforeValidException.php';
+    require_once $base . 'ExpiredException.php';
+    $loaded = TRUE;
+  }
+}
+
 /**
  * Implements hook_entity_insert().
  */
@@ -984,4 +1005,8 @@ function modularform_entity_delete($entity, $type) {
       modularform_search_solr_remove($entity->id, $type);
     }
   }
+}
+function modularform_restws_resource_info_alter(&$info) {
+  $info['modularform_response']['class']     = 'ModularformResponseResource';
+  $info['modularform_response']['menu_path'] = 'api/modularform/response';
 }

@@ -2,6 +2,7 @@
 
 require_once dirname(__FILE__) . '/builder_build_fields.inc';
 module_load_include('inc', 'modularform', 'modularform.rules');
+module_load_include('inc', 'modularform', 'includes/load_response_data');
 
 function modularform_answer_form($form, &$form_state, $fid) {
   $elements = _modularform_load_elements($fid);
@@ -416,70 +417,35 @@ function modularform_response_edit_form_submit($form, &$form_state) {
 }
 
 function _modularform_load_defaults($response_id) {
-  $answers = db_select('modularform_answers', 'a')
-    ->fields('a', [
-      'id',
-      'q_id',
-      'datatype',
-      'value_varchar',
-      'value_text',
-      'value_bool',
-      'value_date',
-    ])
-    ->condition('a.response_id', $response_id)
-    ->execute()
-    ->fetchAllAssoc('q_id');
 
-  $type_map = array_flip(modularform_type_map()); // [0 => 'text', 1 => 'textarea', …]
+  $data = _modularform_load_response_data($response_id);
   $defaults = [];
 
-  foreach ($answers as $q_id => $answer) {
-    $type = $type_map[(int) $answer->datatype] ?? 'text';
-
-    switch ($type) {
-      case 'text':
-      case 'radio':
-      case 'dropdown':
-        $defaults[$q_id] = $answer->value_varchar;
-
-        break;
-
-      case 'textarea':
-      case 'richtext':
-        $defaults[$q_id] = $answer->value_text;
-        break;
-
-      case 'time':
-        $defaults[$q_id] = $answer->value_varchar;
-        break;
-
+  foreach ($data as $q_id => $entry) {
+    $answer = $entry['answer'];
+    switch ($entry['type']) {
+      case 'text': case 'radio': case 'dropdown': case 'time':
+      $defaults[$q_id] = $answer->value_varchar;
+      break;
+      case 'textarea': case 'richtext':
+      $defaults[$q_id] = $answer->value_text;
+      break;
       case 'boolean':
         $defaults[$q_id] = $answer->value_bool ? 'yes' : 'no';
         break;
-
       case 'date':
-        $defaults[$q_id] = $answer->value_date
-          ? date('Y-m-d', $answer->value_date)
-          : NULL;
+        $defaults[$q_id] = $answer->value_date ? date('Y-m-d', $answer->value_date) : NULL;
         break;
-
-      case 'checkbox':
-      case 'list':
-        $defaults[$q_id] = db_select('modularform_answers_multi', 'm')
-          ->fields('m', ['value'])
-          ->condition('m.answer_id', $answer->id)
-          ->execute()
-          ->fetchCol(); // varchar o_ids
-        break;
-
+      case 'checkbox': case 'list':
+      $defaults[$q_id] = $entry['multi_ids'];
+      break;
       case 'tag':
-        $defaults[$q_id] = array_map('intval',
-          db_select('modularform_answers_multi', 'm')
-            ->fields('m', ['value'])
-            ->condition('m.answer_id', $answer->id)
-            ->execute()
-            ->fetchCol()
-        ); // int tag ids
+        // Reconstruct [{id, text}] from already-resolved data
+        $defaults[$q_id] = array_map(
+          fn($id, $label) => (object) ['id' => (string) $id, 'text' => $label],
+          $entry['multi_ids'],
+          $entry['multi_labels']
+        );
         break;
     }
   }

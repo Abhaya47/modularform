@@ -232,31 +232,9 @@ function _modularform_build_fields(&$form, $elements, $mode = 'preview', $defaul
           break;
 
         case 'tag':
-          $default_ids = isset($defaults[$q_id]) ? (array) $defaults[$q_id] : [];
-          $default_tags = [];
-          if (!empty($default_ids)) {
-            $rows = db_select('modularform_tags', 't')
-              ->fields('t', ['id', 'title'])
-              ->condition('t.id', $default_ids, 'IN')
-              ->execute()
-              ->fetchAllAssoc('id');
+          $default_tags = $defaults[$q_id] ?? [];   // already [{id, text}, ...]
+          $default_ids  = array_column((array) $default_tags, 'id');
 
-            // after fetching, re-key by string just to be safe
-            $rows = array_combine(
-              array_map('strval', array_keys($rows)),
-              array_values($rows)
-            );
-
-            foreach ($default_ids as $tid) {
-              $tid = (string) $tid;
-              if (isset($rows[$tid])) {
-                $default_tags[] = (object) [
-                  'id'   => $tid,
-                  'text' => $rows[$tid]->title,
-                ];
-              }
-            }
-          }
           $form[$sec_id][$q_id]['answer'] = [
             '#type'          => 'textfield',
             '#title'         => $label,
@@ -268,13 +246,12 @@ function _modularform_build_fields(&$form, $elements, $mode = 'preview', $defaul
               'class'       => ['select2-tags-hidden'],
             ],
           ];
+
           drupal_add_js(
             ['modularformDefaultTags' => [$q_id => $default_tags]],
             ['type' => 'setting']
           );
-          drupal_add_js(
-            drupal_get_path('module', 'modularform') . '/js/modularform.preview.js'
-          );
+          drupal_add_js(drupal_get_path('module', 'modularform') . '/js/modularform.preview.js');
           break;
 
         case 'file':
