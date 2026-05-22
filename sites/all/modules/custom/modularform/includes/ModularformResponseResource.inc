@@ -47,6 +47,13 @@ class ModularformResponseResource extends RestWSEntityResourceController {
     ];
   }
 
+  public function wrapper($id) {
+    $data = $this->read($id);
+    // restws expects an EntityStructureWrapper but for custom data
+    // we can use entity_metadata_wrapper on a stdClass
+    return entity_metadata_wrapper('modularform_response', (object) $data);
+  }
+
   protected function formatAnswer(array $entry) {
     $answer = $entry['answer'];
 
@@ -55,18 +62,17 @@ class ModularformResponseResource extends RestWSEntityResourceController {
       case 'list':
       case 'tag':
         return array_map(fn($m) => [
-          'id' => $m['id'],
+          'id'    => $m['id'],
           'label' => $m['label'],
-        ], $entry['multi']);
+        ], $entry['multi'] ?? []);
 
       case 'dropdown':
       case 'radio':
-        // Multi dropdown
         if (!empty($entry['is_multi'])) {
           return array_map(fn($m) => [
-            'id' => $m['id'],
+            'id'    => $m['id'],
             'label' => $m['label'],
-          ], $entry['multi']);
+          ], $entry['multi'] ?? []);
         }
         // Single
         return [

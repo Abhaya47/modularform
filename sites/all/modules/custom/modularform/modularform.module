@@ -1010,3 +1010,15 @@ function modularform_restws_resource_info_alter(&$info) {
   $info['modularform_response']['class']     = 'ModularformResponseResource';
   $info['modularform_response']['menu_path'] = 'api/modularform/response';
 }
+
+function modularform_restws_response_alter(&$values, $function, $format_name, $resource_controller) {
+  if (!$resource_controller instanceof ModularformResponseResource) {
+    return;
+  }
+  if ($function !== 'viewResource') {
+    return;
+  }
+  $id = $values['id'];
+  // Replace entirely with your custom read() output
+  $values = $resource_controller->read($id);
+}
