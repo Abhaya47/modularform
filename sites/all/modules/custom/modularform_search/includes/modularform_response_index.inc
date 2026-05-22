@@ -42,8 +42,8 @@ function modularform_search_response_document_callback($document, $entity, $enti
       $answer->value_varchar = $answer->option_label;
     }
 
-    $mapped = modularform_search_answer_to_solr_field($answer, $entry['multi_labels']);
-    if ($mapped !== NULL) {
+    // was: $entry['multi_labels']
+    $mapped = modularform_search_answer_to_solr_field($answer, array_column($entry['multi'], 'label'));    if ($mapped !== NULL) {
       $field            = $mapped['field'] . '_' . $q_id;
       $document->$field = $mapped['value'];
     }

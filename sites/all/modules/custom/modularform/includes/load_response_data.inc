@@ -96,10 +96,14 @@ function _modularform_load_response_data($response_id) {
     }
 
     $result[$answer->q_id] = [
-      'answer' => $answer,
-      'type' => $type_name,
-      'multi_ids' => $multi['ids'] ?? [],
-      'multi_labels' => $multi['labels'] ?? [],
+      'answer'   => $answer,
+      'type'     => $type_name,
+      'is_multi' => !empty($multi_grouped[$answer->id]),
+      'multi'    => array_map(
+        fn($id, $label) => ['id' => $id, 'label' => $label],
+        $multi['ids']    ?? [],
+        $multi['labels'] ?? []
+      ),
     ];
   }
 

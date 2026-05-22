@@ -417,34 +417,52 @@ function modularform_response_edit_form_submit($form, &$form_state) {
 }
 
 function _modularform_load_defaults($response_id) {
-
   $data = _modularform_load_response_data($response_id);
   $defaults = [];
 
   foreach ($data as $q_id => $entry) {
     $answer = $entry['answer'];
+
     switch ($entry['type']) {
-      case 'text': case 'radio': case 'dropdown': case 'time':
-      $defaults[$q_id] = $answer->value_varchar;
-      break;
-      case 'textarea': case 'richtext':
-      $defaults[$q_id] = $answer->value_text;
-      break;
+      case 'text':
+      case 'time':
+        $defaults[$q_id] = $answer->value_varchar;
+        break;
+
+      case 'radio':
+        $defaults[$q_id] = $answer->value_varchar;
+        break;
+
+      case 'dropdown':
+        $defaults[$q_id] = !empty($entry['is_multi'])
+          ? array_column($entry['multi'], 'id')
+          : $answer->value_varchar;
+        break;
+
+      case 'textarea':
+      case 'richtext':
+        $defaults[$q_id] = $answer->value_text;
+        break;
+
       case 'boolean':
         $defaults[$q_id] = $answer->value_bool ? 'yes' : 'no';
         break;
+
       case 'date':
-        $defaults[$q_id] = $answer->value_date ? date('Y-m-d', $answer->value_date) : NULL;
+        $defaults[$q_id] = $answer->value_date
+          ? date('Y-m-d', $answer->value_date)
+          : NULL;
         break;
-      case 'checkbox': case 'list':
-      $defaults[$q_id] = $entry['multi_ids'];
-      break;
+
+      case 'checkbox':
+      case 'list':
+        $defaults[$q_id] = array_column($entry['multi'], 'id');
+        break;
+
       case 'tag':
-        // Reconstruct [{id, text}] from already-resolved data
         $defaults[$q_id] = array_map(
-          fn($id, $label) => (object) ['id' => (string) $id, 'text' => $label],
-          $entry['multi_ids'],
-          $entry['multi_labels']
+          fn($m) => (object) ['id' => (string) $m['id'], 'text' => $m['label']],
+          $entry['multi']
         );
         break;
     }
