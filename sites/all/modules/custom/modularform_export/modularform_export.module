@@ -1,0 +1,145 @@
+<?php
+
+/**
+ * @file
+ * Modularform Export module.
+ *
+ * Exposes batch CSV export for modularform forms.
+ * UI and form selection live in the modularform dashboard.
+ */
+
+function modularform_export_menu() {
+  $items['modularform/export/test'] = [
+    'title' => 'Test Export',
+    'page callback' => 'modularform_export_test',
+    'page arguments' => [],
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['modularform/export/download/%'] = [
+    'title' => 'Download Export',
+    'page callback' => '_modularform_export_download',
+    'page arguments' => [3],
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  ];
+  return $items;
+}
+
+function modularform_export_test() {
+  $fids = [12, 13]; // replace with real form IDs you know exist
+  modularform_export_start($fids);
+  batch_process('admin'); // redirect after batch
+}
+
+/**
+ * Implements hook_libraries_info().
+ */
+function modularform_export_libraries_info() {
+  return [
+    'openspout' => [
+      'name' => 'OpenSpout',
+      'version' => '4.x',
+      'files' => [
+        'php' => ['src/autoloader.php'],
+      ],
+    ],
+  ];
+}
+
+/**
+ * Loads the OpenSpout library.
+ *
+ * @return bool
+ *   TRUE if the library loaded successfully, FALSE otherwise.
+ */
+function modularform_export_load_openspout() {
+  $autoload = DRUPAL_ROOT . '/sites/all/libraries/openspout/vendor/autoload.php';
+  if (!file_exists($autoload)) {
+    watchdog('modularform_export', 'OpenSpout autoloader not found.', [], WATCHDOG_ERROR);
+    return FALSE;
+  }
+  require_once $autoload;
+  return TRUE;
+}
+
+/**
+ * Public entry point called by the modularform dashboard.
+ *
+ * Builds and starts the batch export for the given form IDs.
+ *
+ * @param array $fids
+ *   Array of form IDs to export.
+ */
+function modularform_export_start(array $fids) {
+  if (empty($fids)) {
+    drupal_set_message(t('No forms selected for export.'), 'warning');
+    return;
+  }
+
+  $operations = [];
+
+  foreach ($fids as $fid) {
+    $operations[] = ['_modularform_export_process_form', [$fid]];
+  }
+
+  $operations[] = ['_modularform_export_zip', []];
+
+  batch_set([
+    'title' => t('Exporting forms'),
+    'init_message' => t('Preparing export...'),
+    'progress_message' => t('Processed @current of @total forms.'),
+    'error_message' => t('An error occurred during export.'),
+    'finished' => '_modularform_export_finished',
+    'operations' => $operations,
+    'file' => drupal_get_path('module', 'modularform_export') . '/includes/modularform_export.batch.inc',
+  ]);
+}
+
+/**
+ * Implements hook_cron().
+ *
+ * Deletes export files older than 24 hours.
+ */
+function modularform_export_cron() {
+  $dir = 'private://modularform_exports';
+  $real_dir = drupal_realpath($dir);
+
+  if (!$real_dir || !is_dir($real_dir)) {
+    return;
+  }
+
+  $expiry = REQUEST_TIME - 86400;
+
+  foreach (new DirectoryIterator($real_dir) as $file) {
+    if ($file->isDot() || $file->isDir()) {
+      continue;
+    }
+    if ($file->getMTime() < $expiry) {
+      file_unmanaged_delete($file->getPathname());
+      watchdog('modularform_export', 'Deleted expired export file: @file', [
+        '@file' => $file->getFilename(),
+      ], WATCHDOG_INFO);
+    }
+  }
+}
+
+function _modularform_export_download($filename) {
+  $zip_path = variable_get('modularform_export_last_zip_' . $filename, NULL);
+
+  if (!$zip_path || !file_exists($zip_path)) {
+    drupal_not_found();
+    return;
+  }
+
+  $uri = 'private://modularform_exports/' . $filename;
+
+  $headers = array(
+    'Content-Type' => 'application/zip',
+    'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+    'Content-Length' => filesize($zip_path),
+  );
+
+  file_transfer($uri, $headers);
+}

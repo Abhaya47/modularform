@@ -1,0 +1,27 @@
+<?php
+
+/**
+ * @file
+ * Install hooks for modularform_export.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function modularform_export_install() {
+  $dir = 'private://modularform_exports';
+  if (!file_prepare_directory($dir, FILE_CREATE_DIRECTORY | FILE_MODIFY_PERMISSIONS)) {
+    drupal_set_message(t('Could not create export directory at @dir. Please check your private filesystem configuration.', [
+      '@dir' => $dir,
+    ]), 'error');
+  }
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function modularform_export_uninstall() {
+  // Clean up any leftover export files on uninstall.
+  $dir = 'private://modularform_exports';
+  file_unmanaged_delete_recursive($dir);
+}
