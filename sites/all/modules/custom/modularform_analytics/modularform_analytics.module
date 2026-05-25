@@ -1,0 +1,76 @@
+<?php
+
+module_load_include('inc', 'modularform_analytics', 'includes/modularform_analytics.wordcloud');
+
+
+/**
+ * @file
+ * modularform_analytics.module
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function modularform_analytics_menu() {
+  $items = [];
+  $items['modularform/analytics'] = [
+    'title'           => 'Analytics',
+    'description'     => 'Modularform Analytics',
+    'page callback'   => 'system_admin_menu_block_page',
+    'access callback' => TRUE,
+    'file path'       => drupal_get_path('module', 'system'),
+    'file'            => 'system.admin.inc',
+    'type'            => MENU_NORMAL_ITEM,
+    'menu_name' => 'main-menu',
+
+  ];
+
+  $items['modularform/analytics/wordcloud'] = [
+    'title'           => 'Tag Word Cloud',
+    'description'     => 'Visualise tag usage as a word cloud.',
+    'page callback'   => 'modularform_analytics_wordcloud_page',
+    'access callback' => TRUE,
+    'file'            => 'includes/modularform_analytics.wordcloud.inc',
+    'type'            => MENU_NORMAL_ITEM,
+    'menu_name' => 'main-menu',
+  ];
+
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function modularform_analytics_permission() {
+  return [
+    'access modularform analytics' => [
+      'title'       => t('Access Modularform Analytics'),
+      'description' => t('View analytics pages including the tag word cloud.'),
+    ],
+  ];
+}
+
+/**
+ * Implements hook_library().
+ */
+function modularform_analytics_library() {
+  $path = drupal_get_path('module', 'modularform_analytics');
+
+  return [
+    'wordcloud' => [
+      'title'   => 'Modularform Tag Word Cloud',
+      'version' => '1.0',
+      'js'      => [
+        $path . '/js/d3.min.js'               => [],
+        $path . '/js/d3.layout.cloud.js'      => [],
+        $path . '/js/modularform_wordcloud.js' => [],
+      ],
+      'css' => [
+        $path . '/css/modularform_wordcloud.css' => [],
+      ],
+      'dependencies' => [
+        ['system', 'jquery'],
+      ],
+    ],
+  ];
+}

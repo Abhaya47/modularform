@@ -1,0 +1,6 @@
+name = Modularform Analytics
+description = Provides batch CSV export functionality for Modularform forms.
+core = 7.x
+package = Modularform
+
+dependencies[] = modularform
