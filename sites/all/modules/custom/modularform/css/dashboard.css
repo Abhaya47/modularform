@@ -284,14 +284,17 @@
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  min-width: 480px;
+  min-width: 540px;
   margin-bottom: 60px;
 }
 
-.gform-table thead th:nth-child(1) { width: 40%; }
-.gform-table thead th:nth-child(2) { width: 18%; }
-.gform-table thead th:nth-child(3) { width: 22%; }
-.gform-table thead th:nth-child(4) { width: 20%; }
+/* Column widths — 6 columns: Name / Owner / Status / Created / Responses / Operations */
+.gform-table thead th:nth-child(1) { width: 30%; } /* Name       */
+.gform-table thead th:nth-child(2) { width: 14%; } /* Owner      */
+.gform-table thead th:nth-child(3) { width: 12%; } /* Status     */
+.gform-table thead th:nth-child(4) { width: 14%; } /* Created    */
+.gform-table thead th:nth-child(5) { width: 14%; } /* Responses  */
+.gform-table thead th:nth-child(6) { width: 16%; } /* Operations */
 
 /* ── Header row ── */
 .gform-table thead th {
@@ -367,24 +370,37 @@
   white-space: nowrap;
 }
 
+.gform-name-link {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+  min-width: 0;
+}
+
+.gform-name-link:hover .gform-name-text {
+  color: #673ab7;
+  text-decoration: underline;
+}
+
+.gform-name-link:hover .gform-form-icon {
+  background: #4a148c;
+}
+
 /* ── Operations cell ── */
 .gform-td-ops {
-  overflow: visible !important; /* This allows the menu to pop out */
+  overflow: visible !important;
   text-overflow: clip !important;
   white-space: nowrap;
   position: relative;
-  /* Essential for absolute positioning of the menu */
 }
 
-/* The container for the button and the menu */
 .action-dropdown {
   position: relative;
   display: inline-block;
   vertical-align: middle;
 }
 
-
-/* Style the "Actions" button to match your theme */
 .action-dropbtn {
   font-size: 12px;
   font-weight: 600;
@@ -402,11 +418,10 @@
   border-color: #b399e8;
 }
 
-/* The actual menu (hidden by default) */
 .action-dropdown-content {
-  display: none; /* This is why you don't see it yet! */
+  display: none;
   position: absolute;
-  right: 0; /* Align to the right of the button */
+  right: 0;
   background-color: #ffffff;
   min-width: 140px;
   box-shadow: 0px 4px 12px rgba(0,0,0,0.15);
@@ -416,21 +431,19 @@
   margin-top: 2px;
 }
 
-/* Show the menu when hovering over the container */
 .action-dropdown:hover .action-dropdown-content {
   display: block;
-  z-index: 300;  /* only the open menu needs to float above things */
+  z-index: 300;
 }
 
-/* Style the links inside the dropdown */
 .action-dropdown-content a {
   color: #333;
   padding: 8px 12px;
   text-decoration: none;
-  display: block; /* Stack them vertically */
+  display: block;
   font-size: 13px;
-  border: none; /* Remove your previous border */
-  background: none; /* Remove your previous purple background */
+  border: none;
+  background: none;
   margin-right: 0;
   border-radius: 0;
   transition: background 0.1s;
@@ -441,13 +454,74 @@
   color: #673ab7;
 }
 
-/* Optional: Add a divider between links */
 .action-dropdown-content a:not(:last-child) {
   border-bottom: 1px solid #f0f0f0;
 }
 
-/* Ensure the button itself looks like a separate clickable element */
+/* ── Response pill ── */
+.gform-td-responses {
+  white-space: nowrap;
+}
 
+.mf-resp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 7px;
+  border-radius: 20px;
+  border: 1px solid #d1c4e9;
+  background: #f3e5f5;
+  color: #6a1b9a;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+
+.mf-resp-pill:hover,
+.mf-resp-pill:focus-visible {
+  background: #6a1b9a;
+  border-color: #6a1b9a;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(106, 27, 154, 0.25);
+  text-decoration: none;
+  outline: none;
+}
+
+.mf-resp-pill:focus-visible {
+  box-shadow: 0 0 0 3px rgba(106, 27, 154, 0.3);
+}
+
+.mf-resp-pill--empty {
+  background: #fafafa;
+  border-color: #e0e0e0;
+  color: #9e9e9e;
+}
+
+.mf-resp-pill--empty:hover,
+.mf-resp-pill--empty:focus-visible {
+  background: #eeeeee;
+  border-color: #bdbdbd;
+  color: #616161;
+  box-shadow: none;
+}
+
+.mf-resp-pill__icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+.mf-resp-pill__count {
+  font-size: 0.85rem;
+}
+
+.mf-resp-pill__label {
+  font-weight: 400;
+  opacity: 0.85;
+}
 
 /* ── Empty state ── */
 .gform-empty-row td {
@@ -458,77 +532,7 @@
   font-style: italic;
 }
 
-/* ── Responsive ── */
-@media (max-width: 600px) {
-  .gform-wrapper {
-    padding: 16px 10px 40px;
-  }
-
-  .gform-thumb-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .gform-table thead th:nth-child(2),
-  .gform-table tbody td:nth-child(2) {
-    display: none;
-  }
-}
-
-
-.gform-table thead th:nth-child(1) { width: 35%; } /* Name */
-.gform-table thead th:nth-child(2) { width: 15%; } /* Owner */
-.gform-table thead th:nth-child(3) { width: 15%; } /* Status */
-.gform-table thead th:nth-child(4) { width: 20%; } /* Created */
-.gform-table thead th:nth-child(5) { width: 15%; } /* Operations */
-
-
-
-/*for trash*/
-/* Deleted form icon — muted grey instead of purple */
-.gform-form-icon--deleted {
-  background: #9e9e9e;
-}
-
-/* Deleted date — subtle red tint */
-.gform-deleted-date {
-  color: #c62828;
-  font-size: 0.85em;
-}
-
-/* Danger link (permanent delete) */
-.action-dropdown-content .gform-link--danger {
-  color: #c62828;
-}
-.action-dropdown-content .gform-link--danger:hover {
-  background: #ffebee;
-  color: #b71c1c;
-}
-
-/* Empty state centering */
-.gform-empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 32px 0;
-  color: #9e9e9e;
-}
-
-/* Back link */
-.gform-back-link {
-  margin-top: 18px;
-  font-size: 0.92em;
-}
-.gform-back-link a {
-  color: #673ab7;
-  text-decoration: none;
-}
-.gform-back-link a:hover {
-  text-decoration: underline;
-}
-
-/* Pager */
-
+/* ── Pager ── */
 .mf-pager {
   display: flex;
   align-items: center;
@@ -554,3 +558,70 @@
 .mf-pager__item.is-active a    { background: #673ab7; color: #fff; border-color: #673ab7; }
 .mf-pager__item.is-disabled a  { color: #bbb; pointer-events: none; }
 .mf-pager__ellipsis span       { color: #999; border: none; }
+
+/* ── Trash / deleted states ── */
+.gform-form-icon--deleted {
+  background: #9e9e9e;
+}
+
+.gform-deleted-date {
+  color: #c62828;
+  font-size: 0.85em;
+}
+
+.action-dropdown-content .gform-link--danger {
+  color: #c62828;
+}
+.action-dropdown-content .gform-link--danger:hover {
+  background: #ffebee;
+  color: #b71c1c;
+}
+
+.gform-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 0;
+  color: #9e9e9e;
+}
+
+.gform-back-link {
+  margin-top: 18px;
+  font-size: 0.92em;
+}
+.gform-back-link a {
+  color: #673ab7;
+  text-decoration: none;
+}
+.gform-back-link a:hover {
+  text-decoration: underline;
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .gform-wrapper {
+    padding: 16px 10px 40px;
+  }
+
+  .gform-thumb-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Hide Owner and Created — keep Name, Status, Responses, Operations */
+  .gform-table thead th:nth-child(2),
+  .gform-table tbody td:nth-child(2),
+  .gform-table thead th:nth-child(4),
+  .gform-table tbody td:nth-child(4) {
+    display: none;
+  }
+
+  /* Pill: show number only, hide the word "responses" */
+  .mf-resp-pill__label {
+    display: none;
+  }
+
+  .mf-resp-pill {
+    padding: 3px 7px;
+  }
+}

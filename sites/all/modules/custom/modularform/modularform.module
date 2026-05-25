@@ -63,6 +63,13 @@ function modularform_menu() {
     'type' => MENU_CALLBACK,
   ];
 
+  $items['forms/view/%'] = [
+    'title' => 'View Form',
+    'page callback' => 'view_form_view',
+    'page arguments' => ['modularform_view_form'],
+
+  ];
+
   $items['forms/edit/%'] = [
     'title' => 'Edit Form',
     'page callback' => 'drupal_get_form',

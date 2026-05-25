@@ -31,6 +31,7 @@ function form_dashboard_page() {
 
   $header = [
     t('Name'),
+    t('Responses'),
     t('Owner'),
     t('Status'),
     t('Created'),
@@ -71,7 +72,9 @@ function form_dashboard_page() {
       check_plain($owner),
       $status,
       $created,
+      isset($form->response_count) ? (int) $form->response_count : 0,  // NEW
       $links,
+      (int) $form->id,
     ];
   }
 
@@ -137,6 +140,7 @@ function modularform_dashboard_ajax() {
       'status' => $form->status ? t('Published') : t('Draft'),
       'status_val' => (int) $form->status,
       'created' => format_date($form->created_at, 'custom', 'M j Y'),
+      'response_count' => isset($form->response_count) ? (int) $form->response_count : 0,
       'urls' => [
         'settings' => url('forms/edit/' . $form->id),
         'preview' => url('forms/' . $form->id . '/builder/preview'),
@@ -251,7 +255,11 @@ function _modularform_dashboard_sql(array $conditions, $user, $sort, $limit = 25
       'created_at',
     ])
     ->isNull('f.deleted_at');
-
+  // After ->fields('f', [...]) add:
+  $query->addExpression(
+    '(SELECT COUNT(*) FROM {modularform_responses} r WHERE r.form_id = f.id)',
+    'response_count'
+  );
   if (!$is_admin) {
     $query->leftJoin(
       'modularform_form_members', 'fm',
