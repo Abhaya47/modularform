@@ -43,6 +43,7 @@ function modularform_search_solr_sync($entity, $entity_type) {
   }
   else {
     apachesolr_mark_entity($entity_type, $entity->id);
+    modularform_search_solr_index_now($entity_type);
   }
 }
 
@@ -56,6 +57,29 @@ function modularform_search_solr_remove($entity_id, $entity_type) {
   }
 }
 
+/**
+ * Immediately trigger Solr indexing across all environments.
+ * Bypasses cron by invoking the indexer directly.
+ */
+function modularform_search_solr_index_now() {
+  try {
+    $environment = apachesolr_default_environment();
+    $env_id = is_array($environment) ? $environment['env_id'] : $environment;
+
+    apachesolr_index_entities($env_id, 50);
+
+    $solr = apachesolr_get_solr($env_id);
+    $solr->commit();
+  }
+  catch (Exception $e) {
+    watchdog(
+      'modularform_search',
+      'Solr immediate index failed: @msg',
+      ['@msg' => $e->getMessage()],
+      WATCHDOG_ERROR
+    );
+  }
+}
 
 
 
