@@ -48,10 +48,8 @@ function modularform_menu() {
     'title' => 'Dashboard',
     'page callback' => 'form_dashboard_page',
     'access callback' => 'form_view_access',
-    // was 'form_view_page' (misnamed)
     'access arguments' => [],
     'type' => MENU_NORMAL_ITEM,
-    // was missing type
     'menu_name' => 'main-menu',
   ];
 
@@ -442,7 +440,7 @@ function modularform_fill_access($fid) {
   }
 
   $form = db_select('modularform_forms', 'f')
-    ->fields('f', ['id', 'visibility'])
+    ->fields('f', ['id', 'visibility', 'status'])
     ->condition('f.id', $fid)
     ->execute()
     ->fetchObject();
@@ -451,7 +449,7 @@ function modularform_fill_access($fid) {
     return FALSE;
   }
 
-  if ($form->is_status!=1){
+  if ($form->status!=1){
     return FALSE;
   }
 
@@ -764,6 +762,7 @@ function modularform_theme() {
       'variables' => [
         'header' => NULL,
         'rows' => NULL,
+        'pager' => NULL,
       ],
       'template' => 'modularform-dashboard',
       'path' => drupal_get_path('module', 'modularform') . '/templates',
