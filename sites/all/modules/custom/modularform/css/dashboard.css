@@ -526,3 +526,31 @@
 .gform-back-link a:hover {
   text-decoration: underline;
 }
+
+/* Pager */
+
+.mf-pager {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+.mf-pager__item a,
+.mf-pager__item span {
+  display: block;
+  min-width: 32px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  text-align: center;
+  font-size: 13px;
+  color: #673ab7;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: background 0.15s;
+}
+.mf-pager__item a:hover        { background: #f3e5f5; }
+.mf-pager__item.is-active a    { background: #673ab7; color: #fff; border-color: #673ab7; }
+.mf-pager__item.is-disabled a  { color: #bbb; pointer-events: none; }
+.mf-pager__ellipsis span       { color: #999; border: none; }

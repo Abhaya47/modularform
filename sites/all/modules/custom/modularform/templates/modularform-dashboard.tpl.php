@@ -230,8 +230,17 @@ $recent = array_slice($rows, 0, 4);
         <i class="ti ti-file-off" aria-hidden="true"></i>
         <p><?php print t('No forms match your search.'); ?></p>
       </div>
-
     </div><!-- /gform-card -->
+
+    <!-- Drupal pager (server-side, initial load only) -->
+    <?php if ($pager): ?>
+      <div id="mf-pager-drupal" class="gform-pager">
+        <?php print $pager; ?>
+      </div>
+    <?php endif; ?>
+
+    <!-- AJAX pager — JS renders into this -->
+    <div id="mf-pager" class="gform-pager" style="display:none;"></div>
 
   </div><!-- /gform-container -->
 </div><!-- /gform-wrapper -->
