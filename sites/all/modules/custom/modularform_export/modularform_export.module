@@ -1,5 +1,6 @@
 <?php
 
+
 /**
  * @file
  * Modularform Export module.
@@ -12,6 +13,14 @@ function modularform_export_menu() {
   $items['modularform/export/test'] = [
     'title' => 'Test Export',
     'page callback' => 'modularform_export_test',
+    'page arguments' => [],
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  ];
+
+  $items['modularform/export/responses/test'] = [
+    'title' => 'Test Responses Export',
+    'page callback' => 'modularform_export_responses_test',
     'page arguments' => [],
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
@@ -31,6 +40,12 @@ function modularform_export_test() {
   $fids = [12, 13]; // replace with real form IDs you know exist
   modularform_export_start($fids);
   batch_process('admin'); // redirect after batch
+}
+
+function modularform_export_responses_test() {
+  $fids = [12, 13]; // replace with real form IDs you know exist
+  modularform_export_responses_start($fids);
+  batch_process('admin');
 }
 
 /**
@@ -73,6 +88,8 @@ function modularform_export_load_openspout() {
  *   Array of form IDs to export.
  */
 function modularform_export_start(array $fids) {
+  module_load_include('inc', 'modularform', 'includes/load_response_data');
+
   if (empty($fids)) {
     drupal_set_message(t('No forms selected for export.'), 'warning');
     return;
@@ -95,6 +112,112 @@ function modularform_export_start(array $fids) {
     'operations' => $operations,
     'file' => drupal_get_path('module', 'modularform_export') . '/includes/modularform_export.batch.inc',
   ]);
+}
+
+/**
+ *
+ * response workers
+ *
+ * @param array $fids
+ *
+ * @return void
+ */
+
+function modularform_export_responses_start(array $fids) {
+  module_load_include('inc', 'modularform', 'includes/load_response_data');
+
+  if (empty($fids)) {
+    drupal_set_message(t('No forms selected for export.'), 'warning');
+    return;
+  }
+  $operations = [];
+  foreach ($fids as $fid) {
+    $operations[] = ['_modularform_export_responses_process_form', [$fid]];
+  }
+  $operations[] = ['_modularform_export_zip', []];
+  batch_set([
+    'title' => t('Exporting form responses'),
+    'init_message' => t('Preparing export...'),
+    'progress_message' => t('Processed @current of @total forms.'),
+    'error_message' => t('An error occurred during export.'),
+    'finished' => '_modularform_export_finished',
+    'operations' => $operations,
+    'file' => drupal_get_path('module', 'modularform_export') . '/includes/modularform_export_responses.inc',
+  ]);
+}
+
+/**
+ * Batch operation: zip all exported CSVs.
+ *
+ * @param array $context
+ *   Batch context.
+ */
+function _modularform_export_zip(&$context) {
+  if (empty($context['results']['files'])) {
+    $context['results']['errors'][] = t('No CSV files to zip.');
+    return;
+  }
+
+  $timestamp = REQUEST_TIME;
+  $zip_real_path = drupal_realpath('private://modularform_exports') . '/export_' . $timestamp . '.zip';
+
+  $zip = new ZipArchive();
+  if ($zip->open($zip_real_path, ZipArchive::CREATE) !== TRUE) {
+    watchdog('modularform_export', 'Could not create zip file at @path.', ['@path' => $zip_real_path], WATCHDOG_ERROR);
+    $context['results']['errors'][] = t('Could not create zip archive.');
+    return;
+  }
+
+  foreach ($context['results']['files'] as $filepath) {
+    if (file_exists($filepath)) {
+      $zip->addFile($filepath, basename($filepath));
+    }
+  }
+
+  $zip->close();
+
+  // Delete individual CSVs now that they are zipped.
+  foreach ($context['results']['files'] as $filepath) {
+    file_unmanaged_delete($filepath);
+  }
+
+  $context['results']['zip'] = $zip_real_path;
+  $context['message'] = t('Archive created successfully.');
+}
+
+/**
+ * Batch finished callback.
+ *
+ * @param bool $success
+ *   Whether the batch completed without errors.
+ * @param array $results
+ *   Accumulated results from all operations.
+ * @param array $operations
+ *   Any unprocessed operations (present on failure).
+ */
+function _modularform_export_finished($success, $results, $operations) {
+  if (!empty($results['errors'])) {
+    foreach ($results['errors'] as $error) {
+      drupal_set_message($error, 'error');
+    }
+  }
+
+  if ($success && !empty($results['zip'])) {
+    $zip_path = $results['zip'];
+    $filename = basename($zip_path);
+
+    // Store zip path in a temporary variable keyed by filename so the
+    // download callback can serve it.
+    variable_set('modularform_export_last_zip_' . $filename, $zip_path);
+
+    $url = url('modularform/export/download/' . $filename);
+    drupal_set_message(t('Export complete. <a href="@url">Download your export</a>.', [
+      '@url' => $url,
+    ]));
+  }
+  else {
+    drupal_set_message(t('Export failed or produced no output.'), 'error');
+  }
 }
 
 /**
@@ -143,3 +266,5 @@ function _modularform_export_download($filename) {
 
   file_transfer($uri, $headers);
 }
+
+
