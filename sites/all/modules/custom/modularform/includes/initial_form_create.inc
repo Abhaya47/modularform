@@ -338,9 +338,7 @@ function modularform_create_form_submit($form, &$form_state) {
   }
 
   elseif ($visibility_text === 'private') {
-    $raw = isset($values['visibility_options_wrapper']['people_wrapper']['people_value'])
-      ? $values['visibility_options_wrapper']['people_wrapper']['people_value']
-      : '';
+    $raw = $values['visibility_options_wrapper']['people_wrapper']['people_value'] ?? '';
 
     if (isset($is_editing)) {
       $live_people = _modularform_edit_private_people($form_id, $raw, $entity, $now);
@@ -964,7 +962,4 @@ function _modularform_queue_restricted_notifications($form_id, $entity, array $n
   }
 }
 
-/**
- * Implements hook_entity_update().
- */
 
