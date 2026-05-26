@@ -45,7 +45,7 @@ function _modularform_export_responses_process_form($fid, &$context) {
   }
 
   // 3. Build header: email + one column per question label.
-  $header = ['email'];
+  $header = ['response_id', 'email'];
   foreach ($questions as $q_id => $question) {
     $header[] = $question['label'];
   }
@@ -66,7 +66,7 @@ function _modularform_export_responses_process_form($fid, &$context) {
       // _modularform_load_response_data() returns array keyed by q_id.
       $answer_data = _modularform_load_response_data($response_id);
 
-      $row = [$email];
+      $row = [(int) $response_id, $email];
       foreach ($questions as $q_id => $question) {
         $row[] = _modularform_export_responses_format_answer(
           isset($answer_data[$q_id]) ? $answer_data[$q_id] : NULL
@@ -93,7 +93,7 @@ function _modularform_export_responses_process_form($fid, &$context) {
 /**
  * Loads ordered questions for a form, keyed by q_id.
  *
- * Joins sections so we can sort by section weight then question weight,
+ * Joins sections so we can sort by section position then question position,
  * giving the same column order a respondent sees in the form.
  *
  * @param int $fid
@@ -134,7 +134,7 @@ function _modularform_export_responses_load_questions($fid) {
       return $sec_a - $sec_b;
     }
 
-    return (int) $a['weight'] - (int) $b['weight'];
+    return (int) $a['position'] - (int) $b['position'];
   });
 
   // Return only what we need for header building and cell lookup.
