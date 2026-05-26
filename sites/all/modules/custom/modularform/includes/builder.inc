@@ -406,19 +406,23 @@ function _modularform_render_question_type(&$form, &$form_state, $sec_id, $q_id,
         '#type' => 'checkbox',
         '#title' => t('Allow multiple files'),
         '#default_value' => $is_multiple,
+        // ← already correct, from _modularform_get_is_multiple
       ];
       $form['elements_container'][$sec_id][$q_id]['preview'] = [
         '#markup' => '<p class="field-preview">File upload field</p>',
       ];
 
+      // Only seed the rule if it doesn't already exist in storage
       $r_id = 'rule_' . $q_id . '_is_multiple';
-      $form_state['storage']['elements'][$r_id] = [
-        'type' => 'validation_rule',
-        'parent' => $q_id,
-        'rule_type' => 'is_multiple',
-        'rule_value' => $is_multiple,
-        'weight' => 0,
-      ];
+      if (!isset($form_state['storage']['elements'][$r_id])) {
+        $form_state['storage']['elements'][$r_id] = [
+          'type' => 'validation_rule',
+          'parent' => $q_id,
+          'rule_type' => 'is_multiple',
+          'rule_value' => $is_multiple,
+          'weight' => 0,
+        ];
+      }
       break;
 
     case 'radio':
@@ -474,14 +478,17 @@ function _modularform_render_options(&$form, &$form_state, $sec_id, $q_id, $q_ty
       '#default_value' => $is_multiple,
     ];
 
+    // Only seed the rule if it doesn't already exist in storage
     $r_id = 'rule_' . $q_id . '_is_multiple';
-    $form_state['storage']['elements'][$r_id] = [
-      'type' => 'validation_rule',
-      'parent' => $q_id,
-      'rule_type' => 'is_multiple',
-      'rule_value' => $is_multiple,
-      'weight' => 0,
-    ];
+    if (!isset($form_state['storage']['elements'][$r_id])) {
+      $form_state['storage']['elements'][$r_id] = [
+        'type' => 'validation_rule',
+        'parent' => $q_id,
+        'rule_type' => 'is_multiple',
+        'rule_value' => $is_multiple,
+        'weight' => 0,
+      ];
+    }
   }
 
   $form['elements_container'][$sec_id][$q_id]['add_opt'] = [
@@ -972,14 +979,14 @@ function _modularform_build_records($fid, &$form_state) {
     ];
 
     $cache_elements[$q_id] = [
-      'type'           => 'question',
-      'parent'         => $sec_id,
-      'label'          => $label,
-      'question_type'  => $q_type,
-      'is_required'    => (bool) $is_required,
-      'is_filterable'  => (bool) ($q_vals['validation']['is_filterable'] ?? 0),
+      'type' => 'question',
+      'parent' => $sec_id,
+      'label' => $label,
+      'question_type' => $q_type,
+      'is_required' => (bool) $is_required,
+      'is_filterable' => (bool) ($q_vals['validation']['is_filterable'] ?? 0),
       'add_validation' => $add_val,
-      'weight'         => (int) $q_el['weight'],
+      'weight' => (int) $q_el['weight'],
     ];
   }
 
@@ -1100,10 +1107,10 @@ function _modularform_create($fid, array $records) {
 }
 
 function _modularform_edit($fid, array $records, array $rules = []) {
-  $live_sec_ids = array_keys($records['sections'])         ?: [''];
-  $live_q_ids   = array_keys($records['questions'])        ?: [''];
-  $live_o_ids   = array_keys($records['options'])          ?: [''];
-  $live_r_ids   = array_keys($records['validation_rules']) ?: [''];
+  $live_sec_ids = array_keys($records['sections']) ?: [''];
+  $live_q_ids = array_keys($records['questions']) ?: [''];
+  $live_o_ids = array_keys($records['options']) ?: [''];
+  $live_r_ids = array_keys($records['validation_rules']) ?: [''];
 
   if ($rules['delete_section'] ?? TRUE) {
     db_delete('modularform_sections')
@@ -1124,7 +1131,8 @@ function _modularform_edit($fid, array $records, array $rules = []) {
       ->condition('form_id', $fid)
       ->condition('q_id', $live_q_ids, 'NOT IN')
       ->execute();
-  } elseif ($rules['delete_option'] ?? TRUE) {
+  }
+  elseif ($rules['delete_option'] ?? TRUE) {
     db_delete('modularform_validation_rules')
       ->condition('form_id', $fid)
       ->condition('r_id', $live_r_ids, 'NOT IN')
@@ -1136,20 +1144,35 @@ function _modularform_edit($fid, array $records, array $rules = []) {
   }
 
   $sec_update_cols = ['weight', 'updated_at'];
-  if ($rules['rename_label'] ?? TRUE) { $sec_update_cols[] = 'name'; }
+  if ($rules['rename_label'] ?? TRUE) {
+    $sec_update_cols[] = 'name';
+  }
   _modularform_bulk_upsert('modularform_sections', array_values($records['sections']), $sec_update_cols);
 
   $q_update_cols = ['position', 'updated_at'];
-  if ($rules['rename_label']    ?? TRUE) { $q_update_cols[] = 'label'; }
-  if ($rules['reorder']         ?? TRUE) { $q_update_cols[] = 'sec_id'; }
-  if ($rules['change_required'] ?? TRUE) { $q_update_cols[] = 'is_required'; }
-  if ($rules['change_type']     ?? TRUE) { $q_update_cols[] = 'type'; $q_update_cols[] = 'datatype'; }
+  if ($rules['rename_label'] ?? TRUE) {
+    $q_update_cols[] = 'label';
+  }
+  if ($rules['reorder'] ?? TRUE) {
+    $q_update_cols[] = 'sec_id';
+  }
+  if ($rules['change_required'] ?? TRUE) {
+    $q_update_cols[] = 'is_required';
+  }
+  if ($rules['change_type'] ?? TRUE) {
+    $q_update_cols[] = 'type';
+    $q_update_cols[] = 'datatype';
+  }
   $q_update_cols[] = 'is_filterable';
   _modularform_bulk_upsert('modularform_questions', array_values($records['questions']), $q_update_cols);
 
   $o_update_cols = ['updated_at'];
-  if ($rules['edit_options'] ?? TRUE) { $o_update_cols[] = 'option'; }
-  if ($rules['reorder']      ?? TRUE) { $o_update_cols[] = 'weight'; }
+  if ($rules['edit_options'] ?? TRUE) {
+    $o_update_cols[] = 'option';
+  }
+  if ($rules['reorder'] ?? TRUE) {
+    $o_update_cols[] = 'weight';
+  }
   _modularform_bulk_upsert('modularform_question_options', array_values($records['options']), $o_update_cols);
 
   $r_update_cols = ['updated_at'];
@@ -1165,9 +1188,9 @@ function _modularform_edit($fid, array $records, array $rules = []) {
   // We can't blindly overwrite with $records['cache_elements'] because rules
   // may have locked certain fields. Load the existing cached (or DB) state and
   // apply only what the rules actually allowed to change in the DB.
-  $cid      = 'modularform:elements:' . $fid;
+  $cid = 'modularform:elements:' . $fid;
   $existing = cache_get($cid, 'cache_modularform');
-  $cached   = ($existing && isset($existing->data)) ? $existing->data : _modularform_load_elements($fid);
+  $cached = ($existing && isset($existing->data)) ? $existing->data : _modularform_load_elements($fid);
 
   $new_cache = $records['cache_elements'];  // fully computed, all fields present
 
@@ -1181,7 +1204,6 @@ function _modularform_edit($fid, array $records, array $rules = []) {
     $old = $cached[$id];
 
     switch ($new_el['type']) {
-
       case 'section':
         $old['weight'] = $new_el['weight'];   // always (reorder gate only hits DB col name, weight is always written)
         if ($rules['rename_label'] ?? TRUE) {
@@ -1193,27 +1215,39 @@ function _modularform_edit($fid, array $records, array $rules = []) {
       case 'question':
         $old['weight'] = $new_el['weight'];   // position/reorder always written
         $old['is_filterable'] = $new_el['is_filterable'] ?? FALSE; // always writable
-        if ($rules['rename_label']    ?? TRUE) { $old['label']          = $new_el['label']; }
-        if ($rules['reorder']         ?? TRUE) { $old['parent']         = $new_el['parent']; }
-        if ($rules['change_required'] ?? TRUE) { $old['is_required']    = $new_el['is_required']; }
-        if ($rules['change_type']     ?? TRUE) { $old['question_type']  = $new_el['question_type']; }
+        if ($rules['rename_label'] ?? TRUE) {
+          $old['label'] = $new_el['label'];
+        }
+        if ($rules['reorder'] ?? TRUE) {
+          $old['parent'] = $new_el['parent'];
+        }
+        if ($rules['change_required'] ?? TRUE) {
+          $old['is_required'] = $new_el['is_required'];
+        }
+        if ($rules['change_type'] ?? TRUE) {
+          $old['question_type'] = $new_el['question_type'];
+        }
         // add_validation reflects whether rules exist — always recompute from new state
         $old['add_validation'] = $new_el['add_validation'];
         $cached[$id] = $old;
         break;
 
       case 'option':
-        if ($rules['edit_options'] ?? TRUE) { $old['option'] = $new_el['option']; }
-        if ($rules['reorder']      ?? TRUE) { $old['weight'] = $new_el['weight']; }
+        if ($rules['edit_options'] ?? TRUE) {
+          $old['option'] = $new_el['option'];
+        }
+        if ($rules['reorder'] ?? TRUE) {
+          $old['weight'] = $new_el['weight'];
+        }
         $cached[$id] = $old;
         break;
 
       case 'validation_rule':
         if ($rules['change_required'] ?? TRUE) {
-          $old['rule_type']     = $new_el['rule_type'];
-          $old['rule_value']    = $new_el['rule_value'];
+          $old['rule_type'] = $new_el['rule_type'];
+          $old['rule_value'] = $new_el['rule_value'];
           $old['error_message'] = $new_el['error_message'];
-          $old['weight']        = $new_el['weight'];
+          $old['weight'] = $new_el['weight'];
         }
         $cached[$id] = $old;
         break;
@@ -1230,17 +1264,29 @@ function _modularform_edit($fid, array $records, array $rules = []) {
   }
   if ($rules['delete_question'] ?? TRUE) {
     foreach (array_keys($cached) as $id) {
-      if (!isset($cached[$id])) { continue; }
+      if (!isset($cached[$id])) {
+        continue;
+      }
       $type = $cached[$id]['type'];
-      if (in_array($type, ['question', 'option', 'validation_rule']) && !isset($new_cache[$id])) {
+      if (in_array($type, [
+          'question',
+          'option',
+          'validation_rule',
+        ]) && !isset($new_cache[$id])) {
         unset($cached[$id]);
       }
     }
-  } elseif ($rules['delete_option'] ?? TRUE) {
+  }
+  elseif ($rules['delete_option'] ?? TRUE) {
     foreach (array_keys($cached) as $id) {
-      if (!isset($cached[$id])) { continue; }
+      if (!isset($cached[$id])) {
+        continue;
+      }
       $type = $cached[$id]['type'];
-      if (in_array($type, ['option', 'validation_rule']) && !isset($new_cache[$id])) {
+      if (in_array($type, [
+          'option',
+          'validation_rule',
+        ]) && !isset($new_cache[$id])) {
         unset($cached[$id]);
       }
     }

@@ -103,6 +103,31 @@
         });
       });
 
+      $('.flatpickr-date', context).once('flatpickr-date').each(function () {
+        if (typeof flatpickr === 'undefined') {
+          console.error('flatpickr not loaded');
+          return;
+        }
+        flatpickr(this, {
+          dateFormat: 'Y-m-d',
+          allowInput: true,
+        });
+      });
+
+      $('.flatpickr-time', context).once('flatpickr-time').each(function () {
+        if (typeof flatpickr === 'undefined') {
+          console.error('flatpickr not loaded');
+          return;
+        }
+        flatpickr(this, {
+          enableTime: true,
+          noCalendar: true,
+          dateFormat: 'H:i',
+          time_24hr: true,
+          allowInput: true,
+        });
+      });
+
       // ── Client-side validation ─────────────────────────────────────────────
       $.each(rules, function (q_id, q_rules) {
         var $field = $('[data-q-id="' + q_id + '"]', context);

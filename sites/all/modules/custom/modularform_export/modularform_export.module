@@ -43,7 +43,7 @@ function modularform_export_test() {
 }
 
 function modularform_export_responses_test() {
-  $fids = [12, 13]; // replace with real form IDs you know exist
+  $fids = [12, 13, 14]; // replace with real form IDs you know exist
   modularform_export_responses_start($fids);
   batch_process('admin');
 }

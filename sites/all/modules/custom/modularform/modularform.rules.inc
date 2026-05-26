@@ -265,25 +265,21 @@ function modularform_type_map(): array {
 
 function modularform_datatype_map(): array {
   return [
-    'text' => 'varchar',
-    'textarea' => 'text',
-    'richtext' => 'text',
-    'radio' => 'varchar',
-    //#TODO change the value to int later
-    'boolean' => 'bool',
-    'checkbox' => 'varchar',
-    // multi → child table //#TODO change the value to int later
-    'tag' => 'int',
-    // multi → child table
-    'list' => 'varchar',
-    // multi → child table //#TODO change the value to int later
-    'dropdown' => 'varchar',
-    //#TODO change the value to int later
-    'file' => 'varchar',
-    'date' => 'date',
-    'time' => 'varchar',
+    'text'      => 'varchar',
+    'textarea'  => 'text',
+    'richtext'  => 'text',
+    'radio'     => 'varchar',
+    'boolean'   => 'bool',
+    'checkbox'  => 'multi',
+    'tag'       => 'multi',
+    'list'      => 'multi',
+    'dropdown'  => 'multi',
+    'file'      => 'varchar',
+    'date'      => 'date',
+    'time'      => 'date',
   ];
 }
+
 
 function modularform_get_type_map(string $type): int {
   return modularform_type_map()[$type] ?? 0;
@@ -324,7 +320,7 @@ function solr_field_map() {
       'checkbox'  => 'sm_val',
       'tag'       => 'sm_val',
       'list'      => 'sm_val',
-      'dropdown'  => 'ss_val',
+      'dropdown'  => 'sm_val',
       'file'      => 'ss_val',
       'date'      => 'ds_val',
       'time'      => 'ss_val',
@@ -336,12 +332,12 @@ function solr_field_map() {
 function value_col_map() {
   static $map;
   if (!isset($map)) {
-    return [
+    $map = [
       'varchar' => 'value_varchar',
-      'text' => 'value_text',
-      'int' => 'value_int',
-      'bool' => 'value_bool',
-      'date' => 'value_date',
+      'text'    => 'value_text',
+      'int'     => 'value_int',
+      'bool'    => 'value_bool',
+      'date'    => 'value_date',
     ];
   }
   return $map;

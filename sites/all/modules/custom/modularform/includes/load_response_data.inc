@@ -13,7 +13,8 @@
  *   ]
  */
 function _modularform_load_response_data($response_id) {
-  $type_map = array_flip(modularform_type_map());
+  $type_map     = array_flip(modularform_type_map());
+  $datatype_map = modularform_datatype_map();
 
   $answers = db_select('modularform_answers', 'a')
     ->fields('a')
@@ -32,7 +33,7 @@ function _modularform_load_response_data($response_id) {
     ->execute()
     ->fetchAll();
 
-  // Separate tag ids from option ids
+  // Separate tag ids from option ids (from multi rows)
   $tag_ids = [];
   $opt_ids = [];
   foreach ($multi_rows as $row) {
@@ -45,13 +46,10 @@ function _modularform_load_response_data($response_id) {
     }
   }
 
-  // Also collect single-select o_ids (radio, dropdown)
+  // Also collect radio option ids for label resolution
   foreach ($answers as $answer) {
     $type_name = $type_map[(int) $answer->datatype] ?? NULL;
-    if (in_array($type_name, [
-        'radio',
-        'dropdown',
-      ]) && !empty($answer->value_varchar)) {
+    if ($type_name === 'radio' && !empty($answer->value_varchar)) {
       $opt_ids[] = $answer->value_varchar;
     }
   }
@@ -75,7 +73,7 @@ function _modularform_load_response_data($response_id) {
   $multi_grouped = [];
   foreach ($multi_rows as $row) {
     $type_name = $type_map[(int) $answers[$row->answer_id]->datatype] ?? NULL;
-    $multi_grouped[$row->answer_id]['ids'][] = $row->value;
+    $multi_grouped[$row->answer_id]['ids'][]    = $row->value;
     $multi_grouped[$row->answer_id]['labels'][] = $type_name === 'tag'
       ? ($tags[$row->value]->title ?? $row->value)
       : ($options[$row->value]->option ?? $row->value);
@@ -85,21 +83,17 @@ function _modularform_load_response_data($response_id) {
   $result = [];
   foreach ($answers as $answer) {
     $type_name = $type_map[(int) $answer->datatype] ?? 'text';
-    $multi = $multi_grouped[$answer->id] ?? [];
+    $multi     = $multi_grouped[$answer->id] ?? [];
 
-    // Resolve single-select label onto the answer object
-    if (in_array($type_name, [
-        'radio',
-        'dropdown',
-      ]) && !empty($answer->value_varchar)) {
+    // Decorate radio answers with resolved label
+    if ($type_name === 'radio' && !empty($answer->value_varchar)) {
       $answer->option_label = $options[$answer->value_varchar]->option ?? NULL;
     }
 
     $result[$answer->q_id] = [
-      'answer'   => $answer,
-      'type'     => $type_name,
-      'is_multi' => !empty($multi_grouped[$answer->id]),
-      'multi'    => array_map(
+      'answer' => $answer,
+      'type'   => $type_name,
+      'multi'  => array_map(
         fn($id, $label) => ['id' => $id, 'label' => $label],
         $multi['ids']    ?? [],
         $multi['labels'] ?? []

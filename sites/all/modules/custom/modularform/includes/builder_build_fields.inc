@@ -4,7 +4,7 @@
  * @file
  * Shared form field builder. Shared between preview, submit.
  */
-function _modularform_build_fields(&$form, $elements, $fid,  $mode = 'preview', $defaults = []) {
+function _modularform_build_fields(&$form, $elements, $fid, $mode = 'preview', $defaults = []) {
   $form['#attributes']['class'][] = 'modularform-preview-form';
   if (empty($elements)) {
     $form['empty'] = ['#markup' => '<p>' . t('No form elements found.') . '</p>'];
@@ -22,16 +22,12 @@ function _modularform_build_fields(&$form, $elements, $fid,  $mode = 'preview', 
   // Derive file_multiple and dropdown_multiple from validation rules
   foreach ($questions as $q_id => &$q) {
     $q_rules = array_filter($val_rules, fn($r) => $r['parent'] === $q_id);
-    if ($q['question_type'] === 'file') {
-      foreach ($q_rules as $r) {
-        if ($r['rule_type'] === 'max_files' && (int) $r['rule_value'] > 1) {
+    foreach ($q_rules as $r) {
+      if ($r['rule_type'] === 'is_multiple' && (int) $r['rule_value'] === 1) {
+        if ($q['question_type'] === 'file') {
           $q['file_multiple'] = TRUE;
         }
-      }
-    }
-    if ($q['question_type'] === 'dropdown') {
-      foreach ($q_rules as $r) {
-        if ($r['rule_type'] === 'max_selections' && (int) $r['rule_value'] > 1) {
+        elseif ($q['question_type'] === 'dropdown') {
           $q['dropdown_multiple'] = TRUE;
         }
       }
@@ -40,10 +36,20 @@ function _modularform_build_fields(&$form, $elements, $fid,  $mode = 'preview', 
   unset($q);
 
   // Attach Select2 library and our preview JS/CSS
+  // Attach Select2 library and our preview JS/CSS
   $form['#attached']['library'][] = ['modularform', 'select2'];
   $form['#attached']['js'][] = drupal_get_path('module', 'modularform') . '/js/modularform.preview.js';
   $form['#attached']['css'][] = drupal_get_path('module', 'modularform') . '/css/modularform.preview.css';
 
+  $form['#attached']['js'][] = [
+    'type' => 'file',
+    'data' => drupal_get_path('module', 'modularform') . '/js/flatpickr.min.js',
+    'weight' => -10,  // load before preview.js
+  ];
+  $form['#attached']['css'][] = [
+    'type' => 'file',
+    'data' => drupal_get_path('module', 'modularform') . '/css/flatpickr.min.css',
+  ];
   // Pass validation rules to JS for client-side validation
   $js_rules = [];
   foreach ($questions as $q_id => $q) {
@@ -178,11 +184,16 @@ function _modularform_build_fields(&$form, $elements, $fid,  $mode = 'preview', 
 
         case 'date':
           $form[$sec_id][$q_id]['answer'] = [
-            '#type' => 'date',
+            '#type' => 'textfield',
             '#title' => $label,
             '#required' => $required,
             '#default_value' => $defaults[$q_id] ?? NULL,
-            '#attributes' => ['data-q-id' => $q_id],
+            '#attributes' => [
+              'data-q-id' => $q_id,
+              'class' => ['flatpickr-date'],
+              'placeholder' => 'YYYY-MM-DD',
+              'autocomplete' => 'off',
+            ],
           ];
           break;
 
@@ -192,7 +203,12 @@ function _modularform_build_fields(&$form, $elements, $fid,  $mode = 'preview', 
             '#title' => $label,
             '#required' => $required,
             '#default_value' => $defaults[$q_id] ?? NULL,
-            '#attributes' => ['type' => 'time', 'data-q-id' => $q_id],
+            '#attributes' => [
+              'data-q-id' => $q_id,
+              'class' => ['flatpickr-time'],
+              'placeholder' => 'HH:MM',
+              'autocomplete' => 'off',
+            ],
           ];
           break;
 
@@ -240,8 +256,10 @@ function _modularform_build_fields(&$form, $elements, $fid,  $mode = 'preview', 
             '#empty_option' => $is_multiple ? NULL : t('- Select -'),
             '#required' => $required,
             '#multiple' => $is_multiple,
-            // multiple select expects an array too
-            '#default_value' => $defaults[$q_id] ?? ($is_multiple ? [] : NULL),
+            // multi expects array; single select expects scalar
+            '#default_value' => $is_multiple
+              ? ($defaults[$q_id] ?? [])
+              : ($defaults[$q_id][0] ?? NULL),
             '#attributes' => [
               'data-q-id' => $q_id,
               'class' => ['select2-enable'],

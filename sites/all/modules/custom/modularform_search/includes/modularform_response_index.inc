@@ -5,12 +5,12 @@ module_load_include('inc', 'modularform', 'includes/load_response_data');
 
 function modularform_search_response_document_callback($document, $entity, $entity_type, $env_id) {
   $response_id = is_object($entity) ? $entity->id : $entity;
-
   $response = db_select('modularform_responses', 'r')
     ->fields('r')
     ->condition('r.id', $response_id)
     ->execute()
     ->fetchObject();
+
   if (!$response) {
     return $document;
   }
@@ -20,6 +20,7 @@ function modularform_search_response_document_callback($document, $entity, $enti
     ->condition('f.id', $response->form_id)
     ->execute()
     ->fetchObject();
+
   if (!$form) {
     return [];
   }
@@ -35,15 +36,12 @@ function modularform_search_response_document_callback($document, $entity, $enti
   $data = _modularform_load_response_data($response_id);
 
   foreach ($data as $q_id => $entry) {
-    $answer = $entry['answer'];
+    $mapped = modularform_search_answer_to_solr_field(
+      $entry['answer'],
+      array_column($entry['multi'], 'label')
+    );
 
-    // For radio/dropdown, swap stored o_id for human label before passing to mapper
-    if (in_array($entry['type'], ['radio', 'dropdown']) && !empty($answer->option_label)) {
-      $answer->value_varchar = $answer->option_label;
-    }
-
-    // was: $entry['multi_labels']
-    $mapped = modularform_search_answer_to_solr_field($answer, array_column($entry['multi'], 'label'));    if ($mapped !== NULL) {
+    if ($mapped !== NULL) {
       $field            = $mapped['field'] . '_' . $q_id;
       $document->$field = $mapped['value'];
     }
@@ -51,37 +49,42 @@ function modularform_search_response_document_callback($document, $entity, $enti
 
   return [$document];
 }
+
 /**
  * Maps an answer row to the correct Solr field name and typed value.
  *
- * @param object $answer Row from modularform_answers
- * @param array $multi_values Resolved option texts for this answer (if multi)
+ * @param object $answer      Row from modularform_answers.
+ * @param array  $multi_values Resolved option/tag texts for this answer (if multi).
  *
- * @return array ['field' => string, 'value' => mixed]
+ * @return array|null ['field' => string, 'value' => mixed], or NULL if no value.
  */
 function modularform_search_answer_to_solr_field($answer, array $multi_values = []) {
-  $type_map = array_flip(modularform_type_map());
-  $datatype_map = modularform_datatype_map();
+  $type_map       = array_flip(modularform_type_map());
+  $datatype_map   = modularform_datatype_map();
   $solr_field_map = solr_field_map();
-  $value_col_map = value_col_map();
-  $type_int = (int) $answer->datatype;
-  $type_name = isset($type_map[$type_int]) ? $type_map[$type_int] : NULL;
-  $storage = isset($datatype_map[$type_name]) ? $datatype_map[$type_name] : 'varchar';
-  $solr_field = isset($solr_field_map[$type_name]) ? $solr_field_map[$type_name] : 'ss_val';
-  // Multi
-  if ($solr_field === 'sm_val') {
+  $value_col_map  = value_col_map();
+
+  $type_int   = (int) $answer->datatype;
+  $type_name  = $type_map[$type_int] ?? NULL;
+  $storage    = $datatype_map[$type_name] ?? 'varchar';
+  $solr_field = $solr_field_map[$type_name] ?? 'ss_val';
+
+  // Multi types route through answers_multi — labels already resolved by caller.
+  if ($storage === 'multi') {
     return [
       'field' => 'sm_val',
       'value' => array_map('strval', $multi_values),
     ];
   }
-  // Single
-  $value_col = isset($value_col_map[$storage]) ? $value_col_map[$storage] : 'value_varchar';
+
+  // Single scalar types.
+  $value_col = $value_col_map[$storage] ?? 'value_varchar';
   $raw = $answer->{$value_col};
+
   if ($raw === NULL) {
     return NULL;
   }
-  $typed_value = $raw;
+
   if ($storage === 'date') {
     $typed_value = gmdate('Y-m-d\TH:i:s\Z', $raw);
   }
@@ -94,6 +97,7 @@ function modularform_search_answer_to_solr_field($answer, array $multi_values = 
   else {
     $typed_value = (string) $raw;
   }
+
   return [
     'field' => $solr_field,
     'value' => $typed_value,

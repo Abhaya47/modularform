@@ -153,8 +153,8 @@ function _modularform_export_responses_load_questions($fid) {
  * Formats a single answer entry from _modularform_load_response_data() into
  * a plain string suitable for a CSV cell.
  *
- * Multi-value answers (checkbox, tag) are comma-joined using their labels.
- * Single-select answers (radio, dropdown) use the resolved option label.
+ * Multi-value answers (checkbox, tag, dropdown) are comma-joined using their labels.
+ * Single-select answers (radio) use the resolved option label.
  * Text-like answers use the raw stored value.
  * Unanswered questions produce an empty string.
  *
@@ -170,27 +170,29 @@ function _modularform_export_responses_format_answer($answer_entry) {
     return '';
   }
 
-  $type   = $answer_entry['type'];
-  $answer = $answer_entry['answer'];
+  $type         = $answer_entry['type'];
+  $answer       = $answer_entry['answer'];
+  $datatype_map = modularform_datatype_map();
 
-  // Multi-value types: checkbox, tag — labels are already resolved in 'multi'.
-  if (!empty($answer_entry['is_multi']) && !empty($answer_entry['multi'])) {
-    $labels = array_column($answer_entry['multi'], 'label');
+  // Multi-value types — keyed off datatype_map, not hardcoded type names.
+  if (($datatype_map[$type] ?? NULL) === 'multi') {
+    $labels = array_column($answer_entry['multi'] ?? [], 'label');
     return implode(', ', $labels);
   }
 
-  // Single-select types: radio, dropdown — use the resolved option label.
-  if (in_array($type, ['radio', 'dropdown'])) {
-    if (!empty($answer->option_label)) {
-      return $answer->option_label;
-    }
-    // Fallback to raw value if label resolution failed.
-    return isset($answer->value_varchar) ? $answer->value_varchar : '';
+  // Single-select: radio — use the resolved option label.
+  if ($type === 'radio') {
+    return $answer->option_label ?? $answer->value_varchar ?? '';
   }
 
   // Date type.
-  if ($type === 'date' && !empty($answer->value_int)) {
-    return date('Y-m-d', $answer->value_int);
+  if ($type === 'date' && !empty($answer->value_date)) {
+    return date('Y-m-d', $answer->value_date);
+  }
+
+  // Time type.
+  if ($type === 'time' && !empty($answer->value_date)) {
+    return date('H:i', $answer->value_date);
   }
 
   // Numeric type.
@@ -198,11 +200,10 @@ function _modularform_export_responses_format_answer($answer_entry) {
     return (string) $answer->value_int;
   }
 
-  // Text, textarea, email, and any other scalar types.
+  // Text, textarea, richtext, and any other scalar types.
   if (isset($answer->value_varchar) && $answer->value_varchar !== '') {
     return $answer->value_varchar;
   }
-
   if (isset($answer->value_text) && $answer->value_text !== '') {
     return $answer->value_text;
   }

@@ -53,30 +53,22 @@ class ModularformResponseResource extends RestWSEntityResourceController {
     // we can use entity_metadata_wrapper on a stdClass
     return entity_metadata_wrapper('modularform_response', (object) $data);
   }
-
   protected function formatAnswer(array $entry) {
-    $answer = $entry['answer'];
+    $answer       = $entry['answer'];
+    $type         = $entry['type'];
+    $datatype_map = modularform_datatype_map();
 
-    switch ($entry['type']) {
-      case 'checkbox':
-      case 'list':
-      case 'tag':
-        return array_map(fn($m) => [
-          'id'    => $m['id'],
-          'label' => $m['label'],
-        ], $entry['multi'] ?? []);
+    if (($datatype_map[$type] ?? NULL) === 'multi') {
+      return array_map(fn($m) => [
+        'id'    => $m['id'],
+        'label' => $m['label'],
+      ], $entry['multi'] ?? []);
+    }
 
-      case 'dropdown':
+    switch ($type) {
       case 'radio':
-        if (!empty($entry['is_multi'])) {
-          return array_map(fn($m) => [
-            'id'    => $m['id'],
-            'label' => $m['label'],
-          ], $entry['multi'] ?? []);
-        }
-        // Single
         return [
-          'id' => $answer->value_varchar,
+          'id'    => $answer->value_varchar,
           'label' => $answer->option_label,
         ];
 
@@ -86,10 +78,13 @@ class ModularformResponseResource extends RestWSEntityResourceController {
       case 'date':
         return $answer->value_date ? date('Y-m-d', $answer->value_date) : NULL;
 
+      case 'time':
+        return $answer->value_date ? date('H:i', $answer->value_date) : NULL;
+
       case 'file':
         return $answer->value_varchar;
 
-      default: // text, textarea, richtext, time
+      default: // text, textarea, richtext
         return $answer->value_varchar ?? $answer->value_text;
     }
   }

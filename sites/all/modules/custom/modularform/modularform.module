@@ -14,6 +14,7 @@ module_load_include('inc', 'modularform', 'includes/response_list');
 module_load_include('inc', 'modularform', 'includes/response_view');
 module_load_include('inc', 'modularform', 'includes/ModularformResponseResource');
 module_load_include('inc', 'modularform', 'includes/api_auth');
+module_load_include('inc', 'modularform', 'includes/form_view');
 // Rules file.
 module_load_include('inc', 'modularform', 'modularform.rules');
 
@@ -65,9 +66,9 @@ function modularform_menu() {
 
   $items['forms/view/%'] = [
     'title' => 'View Form',
-    'page callback' => 'view_form_view',
-    'page arguments' => ['modularform_view_form'],
-
+    'page callback' => 'form_view',
+    'page arguments' => ['modularform_view_form', 2],
+    'access callback' => TRUE
   ];
 
   $items['forms/edit/%'] = [
