@@ -11,6 +11,6 @@ function modularform_response_view_answer($form, &$form_state, $response_id) {
 
   $elements = _modularform_load_elements($response->form_id);
   $defaults = _modularform_load_defaults($response_id);
-  _modularform_build_fields($form, $elements, 'view', $defaults);
+  _modularform_build_fields($form, $elements, $response->form_id, 'view', $defaults);
   return $form;
 }

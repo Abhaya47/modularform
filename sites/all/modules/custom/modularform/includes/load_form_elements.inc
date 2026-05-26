@@ -14,7 +14,6 @@ function _modularform_load_elements($fid) {
   }
 
   $elements = [];
-
   // Sections
   $sections = db_select('modularform_sections', 's')
     ->fields('s', ['sec_id', 'name', 'weight'])

@@ -7,7 +7,7 @@ module_load_include('inc', 'modularform', 'includes/load_response_data');
 function modularform_answer_form($form, &$form_state, $fid) {
   $elements = _modularform_load_elements($fid);
 
-  _modularform_build_fields($form, $elements, 'submit');
+  _modularform_build_fields($form, $elements, $fid,'submit');
 
   $form['submit'] = [
     '#type' => 'submit',
@@ -233,7 +233,7 @@ function modularform_response_edit_form($form, &$form_state, $response_id) {
 
   $elements = _modularform_load_elements($response->form_id);
   $defaults = _modularform_load_defaults($response_id);
-  _modularform_build_fields($form, $elements, 'edit', $defaults);
+  _modularform_build_fields($form, $elements, $response->form_id,'edit', $defaults);
 
   $form['submit'] = [
     '#type' => 'submit',
