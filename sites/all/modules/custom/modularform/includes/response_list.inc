@@ -211,14 +211,36 @@ function _modularform_delete_response_data($response_id) {
     ->condition('a.response_id', $response_id)
     ->execute()
     ->fetchCol();
+
   if (!empty($answer_ids)) {
+    // Delete files from disk and file_managed.
+    $file_fids = db_select('modularform_answer_files', 'af')
+      ->fields('af', ['fid'])
+      ->condition('af.answer_id', $answer_ids, 'IN')
+      ->execute()
+      ->fetchCol();
+
+    foreach ($file_fids as $fid) {
+      $file = file_load($fid);
+      if ($file) {
+        file_usage_delete($file, 'modularform', 'response', $response_id);
+        file_delete($file);
+      }
+    }
+
+    db_delete('modularform_answer_files')
+      ->condition('answer_id', $answer_ids, 'IN')
+      ->execute();
+
     db_delete('modularform_answers_multi')
       ->condition('answer_id', $answer_ids, 'IN')
       ->execute();
   }
+
   db_delete('modularform_answers')
     ->condition('response_id', $response_id)
     ->execute();
+
   db_delete('modularform_responses')
     ->condition('id', $response_id)
     ->execute();
