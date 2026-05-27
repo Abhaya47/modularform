@@ -58,18 +58,16 @@ function modularform_answer_form_submit($form, &$form_state) {
 
   // Catch duplicate submission at the DB constraint level.
   try {
-    $response_id = db_insert('modularform_responses')
-      ->fields($fields)
-      ->execute();
+    $response = entity_create('modularform_response', $fields);
+    entity_save('modularform_response', $response);
+    $response_id = $response->id;
   }
   catch (PDOException $e) {
-    // 23000 is the SQLSTATE code for integrity constraint violation (duplicate key).
     if ($e->getCode() == 23000) {
       form_set_error('', t('You have already submitted this form.'));
       $form_state['rebuild'] = TRUE;
       return;
     }
-    // Rethrow anything unexpected.
     throw $e;
   }
 
@@ -375,10 +373,9 @@ function modularform_response_edit_form_submit($form, &$form_state) {
       }
     }
 
-    db_update('modularform_responses')
-      ->fields(['updated_at' => $now])
-      ->condition('id', $response_id)
-      ->execute();
+    $response = entity_load_single('modularform_response', $response_id);
+    $response->updated_at = $now;
+    entity_save('modularform_response', $response);
 
     drupal_set_message(t('Response updated successfully.'));
     $form_state['redirect'] = 'forms/response/list';
