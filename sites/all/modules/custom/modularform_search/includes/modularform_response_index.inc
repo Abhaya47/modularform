@@ -25,48 +25,56 @@ function modularform_search_response_document_callback($document, $entity, $enti
     return [];
   }
 
-  $document->id              = 'response_' . $response_id;
-  $document->ss_doc_type     = 'response';
-  $document->is_form_id      = (int) $response->form_id;
-  $document->ss_form_label   = $form->title;
-  $document->is_user_id      = (int) $response->user_id;
-  $document->ss_email        = $response->email;
+  $document->id = 'response_' . $response_id;
+  $document->ss_doc_type = 'response';
+  $document->is_form_id = (int) $response->form_id;
+  $document->ss_form_label = $form->title;
+  $document->is_user_id = (int) $response->user_id;
+  $document->ss_email = $response->email;
   $document->is_submitted_at = (int) $response->submitted_at;
 
   $data = _modularform_load_response_data($response_id);
-
   foreach ($data as $q_id => $entry) {
+    $answer = $entry['answer'];
+
+    // For radio, index the human label not the raw o_id.
+    if ($entry['type'] === 'radio' && !empty($answer->option_label)) {
+      $answer = clone $answer;
+      $answer->value_varchar = $answer->option_label;
+    }
+
     $mapped = modularform_search_answer_to_solr_field(
-      $entry['answer'],
+      $answer,
       array_column($entry['multi'], 'label')
     );
 
     if ($mapped !== NULL) {
-      $field            = $mapped['field'] . '_' . $q_id;
+      $field = $mapped['field'] . '_' . $q_id;
       $document->$field = $mapped['value'];
     }
   }
-
   return [$document];
 }
 
 /**
  * Maps an answer row to the correct Solr field name and typed value.
  *
- * @param object $answer      Row from modularform_answers.
- * @param array  $multi_values Resolved option/tag texts for this answer (if multi).
+ * @param object $answer Row from modularform_answers.
+ * @param array $multi_values Resolved option/tag texts for this answer (if
+ *   multi).
  *
- * @return array|null ['field' => string, 'value' => mixed], or NULL if no value.
+ * @return array|null ['field' => string, 'value' => mixed], or NULL if no
+ *   value.
  */
 function modularform_search_answer_to_solr_field($answer, array $multi_values = []) {
-  $type_map       = array_flip(modularform_type_map());
-  $datatype_map   = modularform_datatype_map();
+  $type_map = array_flip(modularform_type_map());
+  $datatype_map = modularform_datatype_map();
   $solr_field_map = solr_field_map();
-  $value_col_map  = value_col_map();
+  $value_col_map = value_col_map();
 
-  $type_int   = (int) $answer->datatype;
-  $type_name  = $type_map[$type_int] ?? NULL;
-  $storage    = $datatype_map[$type_name] ?? 'varchar';
+  $type_int = (int) $answer->datatype;
+  $type_name = $type_map[$type_int] ?? NULL;
+  $storage = $datatype_map[$type_name] ?? 'varchar';
   $solr_field = $solr_field_map[$type_name] ?? 'ss_val';
 
   // Multi types route through answers_multi — labels already resolved by caller.
@@ -118,7 +126,6 @@ function modularform_search_response_status_callback($entity, $entity_type) {
 
   return $result && empty($result->deleted_at);
 }
-
 
 function modularform_search_response_reindex_callback($env_id) {
   db_update('apachesolr_index_entities')
