@@ -53,14 +53,15 @@ class ModularformResponseResource extends RestWSEntityResourceController {
     // we can use entity_metadata_wrapper on a stdClass
     return entity_metadata_wrapper('modularform_response', (object) $data);
   }
+
   protected function formatAnswer(array $entry) {
-    $answer       = $entry['answer'];
-    $type         = $entry['type'];
+    $answer = $entry['answer'];
+    $type = $entry['type'];
     $datatype_map = modularform_datatype_map();
 
     if (($datatype_map[$type] ?? NULL) === 'multi') {
       return array_map(fn($m) => [
-        'id'    => $m['id'],
+        'id' => $m['id'],
         'label' => $m['label'],
       ], $entry['multi'] ?? []);
     }
@@ -68,7 +69,7 @@ class ModularformResponseResource extends RestWSEntityResourceController {
     switch ($type) {
       case 'radio':
         return [
-          'id'    => $answer->value_varchar,
+          'id' => $answer->value_varchar,
           'label' => $answer->option_label,
         ];
 
@@ -82,7 +83,12 @@ class ModularformResponseResource extends RestWSEntityResourceController {
         return $answer->value_date ? date('H:i', $answer->value_date) : NULL;
 
       case 'file':
-        return $answer->value_varchar;
+        return array_map(fn($f) => [
+          'fid' => $f['fid'],
+          'filename' => $f['filename'],
+          'url' => $f['url'],
+          'filemime' => $f['filemime'],
+        ], $entry['files'] ?? []);
 
       default: // text, textarea, richtext
         return $answer->value_varchar ?? $answer->value_text;
@@ -157,8 +163,8 @@ class ModularformResponseResource extends RestWSEntityResourceController {
 
   protected function _modularform_rate_limit_headers($uid) {
     $identifier = 'uid_' . $uid;
-    $limit      = 100;
-    $window     = 3600;
+    $limit = 100;
+    $window = 3600;
 
     // Count current events in window
     $used = db_select('flood', 'f')

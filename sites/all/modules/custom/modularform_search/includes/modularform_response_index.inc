@@ -77,6 +77,10 @@ function modularform_search_answer_to_solr_field($answer, array $multi_values = 
   $storage = $datatype_map[$type_name] ?? 'varchar';
   $solr_field = $solr_field_map[$type_name] ?? 'ss_val';
 
+  if ($solr_field === NULL) {
+    return NULL;
+  }
+
   // Multi types route through answers_multi — labels already resolved by caller.
   if ($storage === 'multi') {
     return [

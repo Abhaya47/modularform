@@ -33,6 +33,28 @@ function _modularform_load_response_data($response_id) {
     ->execute()
     ->fetchAll();
 
+  // Bulk fetch all file rows
+  $file_query = db_select('modularform_answer_files', 'af');
+  $file_query->join('file_managed', 'fm', 'fm.fid = af.fid');
+  $file_rows = $file_query
+    ->fields('af', ['answer_id', 'fid'])
+    ->fields('fm', ['filename', 'uri', 'filemime'])
+    ->condition('af.answer_id', array_keys($answers), 'IN')
+    ->execute()
+    ->fetchAll();
+
+  // Group file rows by answer_id
+  $files_grouped = [];
+  foreach ($file_rows as $row) {
+    $files_grouped[$row->answer_id][] = [
+      'fid'      => $row->fid,
+      'filename' => $row->filename,
+      'uri'      => $row->uri,
+      'url'      => file_create_url($row->uri),
+      'filemime' => $row->filemime,
+    ];
+  }
+
   // Separate tag ids from option ids (from multi rows)
   $tag_ids = [];
   $opt_ids = [];
@@ -98,6 +120,7 @@ function _modularform_load_response_data($response_id) {
         $multi['ids']    ?? [],
         $multi['labels'] ?? []
       ),
+      'files'  => $files_grouped[$answer->id] ?? [],
     ];
   }
 

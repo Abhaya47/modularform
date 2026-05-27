@@ -73,6 +73,12 @@ function _modularform_build_fields(&$form, $elements, $fid, $mode = 'preview', $
   $form['#tree'] = TRUE;
   $form['#attributes']['enctype'] = 'multipart/form-data';
 
+  $form_record = db_select('modularform_forms', 'f')
+    ->fields('f', ['anonymous_responses', 'title', 'description'])
+    ->condition('f.id', $fid)
+    ->execute()
+    ->fetchAssoc();
+
   $is_anonymous_form = !empty($form_record['anonymous_responses']);
   if (!$is_anonymous_form) {
     global $user;
@@ -93,19 +99,13 @@ function _modularform_build_fields(&$form, $elements, $fid, $mode = 'preview', $
     }
   }
 
-  $form_name = db_select('modularform_forms', 'f')
-    ->fields('f', ['title', 'description'])
-    ->condition('id', $fid)
-    ->execute()
-    ->fetchAssoc();
-
   $form['form_header'] = [
     '#type' => 'item',
     '#markup' => '<div class="modularform-header-box">
       <div class="modularform-header-bar"></div>
       <div style="padding: 28px 32px 32px;">
-        <h2 class="modularform-title">' . check_plain($form_name['title']) . '</h2>
-        <div class="modularform-description">' . nl2br(check_plain($form_name['description'])) . '</div>
+        <h2 class="modularform-title">' . check_plain($form_record['title']) . '</h2>
+        <div class="modularform-description">' . nl2br(check_plain($form_record['description'])) . '</div>
       </div>
     </div>',
     '#weight' => -10,
@@ -291,17 +291,33 @@ function _modularform_build_fields(&$form, $elements, $fid, $mode = 'preview', $
           break;
 
         case 'file':
-          // Files can't be pre-populated in managed_file, skip default
           $is_multiple = !empty($q['file_multiple']);
+          $existing_files = $defaults[$q_id] ?? [];
+          $field_name = 'file_' . $q_id;
+
+          // Show existing files in edit mode.
+          if (!empty($existing_files)) {
+            $file_links = array_map(
+              fn($f) => '<a href="' . check_plain($f['url']) . '">' . check_plain($f['filename']) . '</a>',
+              $existing_files
+            );
+            $form[$sec_id][$q_id]['existing_files'] = [
+              '#markup' => '<div class="modularform-existing-files">'
+                . t('Current files: ') . implode(', ', $file_links)
+                . '</div>',
+            ];
+          }
+
           $form[$sec_id][$q_id]['answer'] = [
-            '#type' => 'managed_file',
+            '#type' => 'file',
             '#title' => $label,
-            '#required' => $required,
-            '#upload_location' => 'temporary://modularform_preview',
-            '#upload_validators' => ['file_validate_size' => [25 * 1024 * 1024]],
-            '#multiple' => $is_multiple,
-            '#description' => t('Preview only — file will not be saved.'),
-            '#attributes' => ['data-q-id' => $q_id],
+            '#required' => $required && empty($existing_files),
+            '#name' => 'files[' . $field_name . ($is_multiple ? '][]' : ']'),
+            '#attributes' => [
+              'data-q-id' => $q_id,
+              'multiple' => $is_multiple ? 'multiple' : NULL,
+            ],
+            '#description' => !empty($existing_files) ? t('Upload new files to replace existing ones.') : NULL,
           ];
           break;
       }

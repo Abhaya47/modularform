@@ -274,7 +274,7 @@ function modularform_datatype_map(): array {
     'tag'       => 'multi',
     'list'      => 'multi',
     'dropdown'  => 'multi',
-    'file'      => 'varchar',
+    'file'      => 'file',
     'date'      => 'date',
     'time'      => 'date',
   ];
@@ -321,7 +321,7 @@ function solr_field_map() {
       'tag'       => 'sm_val',
       'list'      => 'sm_val',
       'dropdown'  => 'sm_val',
-      'file'      => 'ss_val',
+      'file'      => 'NULL',
       'date'      => 'ds_val',
       'time'      => 'ss_val',
     ];

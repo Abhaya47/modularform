@@ -180,6 +180,12 @@ function _modularform_export_responses_format_answer($answer_entry) {
     return implode(', ', $labels);
   }
 
+  // File type — return comma-separated download URLs.
+  if ($type === 'file') {
+    $urls = array_column($answer_entry['files'] ?? [], 'url');
+    return implode(', ', $urls);
+  }
+
   // Single-select: radio — use the resolved option label.
   if ($type === 'radio') {
     return $answer->option_label ?? $answer->value_varchar ?? '';
