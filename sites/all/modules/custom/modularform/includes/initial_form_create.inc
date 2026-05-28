@@ -242,10 +242,6 @@ function modularform_create_form($form, &$form_state, $id = NULL) {
     ];
   }
 
-
-
-
-
   $form['#theme'] = ['modularform_initial_template'];
   $form['#attached']['css'][] = drupal_get_path('module', 'modularform') . '/css/modularform-initial.css';
 

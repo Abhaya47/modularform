@@ -84,6 +84,28 @@
                 if ($count.length) {
                   state.pairs[state.pairs.length - 1].count = $.trim($count.text());
                 }
+
+                // Pre-select checkboxes in configured filters dropdown if it's loaded.
+                // Wait a tick so the dropdown has time to render.
+                setTimeout(function () {
+                  $.each(state.pairs, function (i, pair) {
+                    var $card = $('#configured-filters-dropdown .cf-question-card[data-solr-key="' + pair.solrKey + '"]');
+                    if ($card.length) {
+                      var $list = $card.find('.cf-answer-list');
+                      $list.find('li.cf-answer-item').each(function () {
+                        if ($(this).find('span').text() === pair.answer) {
+                          var $cb = $(this).find('input[type="checkbox"]');
+                          $cb.prop('checked', true);
+                          $(this).addClass('is-checked');
+                        }
+                      });
+                      // Update badge
+                      var count = $card.find('input:checked').length;
+                      $card.find('.cf-field-badge').text(count);
+                      $card.toggleClass('has-selection', count > 0);
+                    }
+                  });
+                }, 100);
               }
 
               renderTags();
@@ -753,6 +775,43 @@
     },
   };
 
+  // Listen for when configured filters finish loading, then pre-select URL filters.
+  $(document).on('configuredFiltersLoaded', function () {
+    var params = parseQueryString(window.location.search);
+    var i = 0;
+    while (params['filters[' + i + '][solr_key]']) {
+      var solrKey = params['filters[' + i + '][solr_key]'];
+      var answer = params['filters[' + i + '][answer]'] || '';
+
+      var $card = $('#configured-filters-dropdown .cf-question-card[data-solr-key="' + solrKey + '"]');
+      if ($card.length) {
+        var $list = $card.find('.cf-answer-list');
+        $list.find('li.cf-answer-item').each(function () {
+          if ($(this).find('span').text() === answer) {
+            var $cb = $(this).find('input[type="checkbox"]');
+            $cb.prop('checked', true).trigger('change');
+            $(this).addClass('is-checked');
+          }
+        });
+      }
+      i++;
+    }
+  });
+
+  function parseQueryString(search) {
+    var params = {};
+    var str = search.replace(/^\?/, '');
+    if (!str) { return params; }
+    $.each(str.split('&'), function (i, part) {
+      var eq = part.indexOf('=');
+      if (eq === -1) { return; }
+      var key = decodeURIComponent(part.slice(0, eq).replace(/\+/g, ' '));
+      var val = decodeURIComponent(part.slice(eq + 1).replace(/\+/g, ' '));
+      params[key] = val;
+    });
+    return params;
+  }
+
   function _loadConfiguredFilters($dropdown) {
     var formId = _getFormId();
     if (!formId) {
@@ -910,13 +969,16 @@
             })
             .always(function () {
               pending--;
-              if (pending === 0) { $dropdown.data('loaded', true); }
+              if (pending === 0) {
+                $dropdown.data('loaded', true);
+                $(document).trigger('configuredFiltersLoaded');  // ← MOVE IT HERE
+              }
             });
         });
       })
       .fail(function () {
         $dropdown.html('<span class="configured-filter-empty">' + Drupal.t('Failed to load filters.') + '</span>');
-      });
+      })
   }
 
   function _getFormId() {

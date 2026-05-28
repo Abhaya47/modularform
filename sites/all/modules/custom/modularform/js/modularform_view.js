@@ -26,48 +26,25 @@
 
       // ── Filterable overlay toggle ────────────────────────────────────────
       var filterBtn     = $('#mfv-filter-toggle', context).once('mfv-filter');
-      var filterOverlay = $('#mfv-filter-overlay');
+      var filterOverlay = $('#mfv-filterable-form-wrapper');
 
       function openOverlay() {
-        filterOverlay.prop('hidden', false);
+        filterOverlay.css('display', '');
         filterBtn.attr('aria-expanded', 'true');
-        var $search = $('#mfv-overlay-search');
-        if ($search.length) {
-          $search.val('');
-          runSearch('');
-          $search.trigger('focus');
-        }
       }
 
       function closeOverlay() {
-        filterOverlay.prop('hidden', true);
+        filterOverlay.css('display', 'none');
         filterBtn.attr('aria-expanded', 'false');
       }
 
       if (filterBtn.length) {
         filterBtn.on('click', function () {
-          filterOverlay.prop('hidden') ? openOverlay() : closeOverlay();
+          filterOverlay.css('display') === 'none' ? openOverlay() : closeOverlay();
         });
       }
 
-      // Cancel button — re-bound after every AJAX rebuild via attachBehaviors.
-      $(context).on('click', '#mfv-filter-cancel', function (e) {
-        e.preventDefault();
-        closeOverlay();
-      });
 
-      // ── Live search inside overlay ───────────────────────────────────────
-      function runSearch(query) {
-        var q = query.toLowerCase().trim();
-        $('#mfv-overlay-questions .mfv-overlay-q-row', context).each(function () {
-          var label = ($(this).data('label') || $(this).text()).toLowerCase();
-          $(this).toggle(!q || label.indexOf(q) !== -1);
-        });
-      }
-
-      $(context).on('input', '#mfv-overlay-search', function () {
-        runSearch($(this).val());
-      });
 
     }
   };

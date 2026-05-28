@@ -424,34 +424,6 @@
 }
 
 /* ── Timeline chart ─────────────────────────────────────────────────────────── */
-.mfv-period-tabs {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  background: var(--mfv-gray-50);
-  border: 1px solid var(--mfv-border);
-  border-radius: var(--mfv-radius-sm);
-  padding: 2px;
-}
-
-.mfv-period-tab {
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--mfv-text-secondary);
-  border-radius: 4px;
-  text-decoration: none;
-  transition: background 0.15s, color 0.15s;
-}
-
-.mfv-period-tab:hover { background: #fff; color: #111; }
-
-.mfv-period-tab--active {
-  background: #fff;
-  color: var(--mfv-purple-600);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-}
-
 .mfv-timeline-wrap {
   padding: 4px 0;
 }
@@ -551,14 +523,6 @@
 
 .mfv-q-row:last-child { border-bottom: none; }
 
-.mfv-q-index {
-  width: 18px;
-  font-size: 11px;
-  color: var(--mfv-text-muted);
-  text-align: right;
-  flex-shrink: 0;
-}
-
 .mfv-q-label {
   flex: 1;
   color: #111;
@@ -629,46 +593,30 @@
   border-radius: 8px;
   background: var(--mfv-bg-section);
   padding: 16px;
-  position: relative;
 }
 
-.mfv-filter-overlay[hidden] { display: none; }
-
-/* Drupal form inside overlay */
 .mfv-filter-overlay .form-item {
-  margin: 0;
-}
-
-/* Search field inside overlay */
-.mfv-filter-overlay input[type="text"] {
-  width: 100%;
-  border: 1px solid var(--mfv-border);
-  border-radius: var(--mfv-radius-sm);
-  padding: 8px 10px;
-  font-size: 13px;
-  background: #fff;
-  margin-bottom: 10px;
-  transition: border-color 0.15s;
-}
-
-.mfv-filter-overlay input[type="text"]:focus {
-  outline: none;
-  border-color: var(--mfv-purple-600);
-  box-shadow: 0 0 0 3px rgba(83,74,183,0.1);
-}
-
-/* Checkbox rows inside overlay */
-.mfv-filter-overlay .mfv-overlay-q-row {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 8px 0;
   border-bottom: 1px solid var(--mfv-border-light);
+  margin: 0;
   font-size: 13px;
-  cursor: pointer;
 }
 
-.mfv-filter-overlay .mfv-overlay-q-row:last-of-type { border-bottom: none; }
+.mfv-filter-overlay .form-item:last-of-type { border-bottom: none; }
+
+.mfv-filter-overlay .form-item label {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--mfv-text-primary);
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+  margin: 0;
+}
 
 .mfv-filter-overlay input[type="checkbox"] {
   appearance: none;
@@ -701,10 +649,10 @@
   transform: rotate(45deg);
 }
 
-.mfv-filter-overlay .mfv-overlay-type {
-  margin-left: auto;
+.mfv-overlay-type {
   font-size: 11px;
   color: var(--mfv-text-muted);
+  flex-shrink: 0;
 }
 
 .mfv-overlay-actions {
@@ -794,6 +742,5 @@
   .mfv-topbar { flex-direction: column; align-items: flex-start; }
   .mfv-side-col { grid-template-columns: 1fr; }
   .mfv-stats-grid { grid-template-columns: 1fr 1fr; }
-  .mfv-period-tabs { flex-wrap: wrap; }
   .mfv-filter-row { flex-direction: column; }
 }
