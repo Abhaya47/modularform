@@ -241,9 +241,7 @@ function _modularform_delete_response_data($response_id) {
     ->condition('response_id', $response_id)
     ->execute();
 
-  db_delete('modularform_responses')
-    ->condition('id', $response_id)
-    ->execute();
+  entity_delete('modularform_response', $response_id);
 }
 
 /**

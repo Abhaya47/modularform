@@ -1,6 +1,5 @@
 <?php
 
-
 function form_deleted_dashboard_page() {
   $header = [
     t('Name'),
@@ -15,15 +14,33 @@ function form_deleted_dashboard_page() {
   // Get form IDs where user is a creator member (role 0).
   if (_modularform_is_site_admin()) {
     $query = db_select('modularform_forms', 'f');
-    $query->fields('f', ['id', 'title', 'status', 'created_by', 'created_at', 'deleted_at']);
+    $query->fields('f', [
+      'id',
+      'title',
+      'status',
+      'created_by',
+      'created_at',
+      'deleted_at',
+    ]);
     $query->isNotNull('f.deleted_at');
     $query->orderBy('f.deleted_at', 'DESC');
     $forms = $query->execute()->fetchAll();
-  } else {
+  }
+  else {
     global $user;
     $query = db_select('modularform_forms', 'f');
-    $query->fields('f', ['id', 'title', 'status', 'created_by', 'created_at', 'deleted_at']);
-    $query->leftJoin('modularform_form_members', 'fm', 'fm.form_id = f.id AND fm.uid = :uid AND fm.roles = :role', [':uid' => $user->uid, ':role' => 0]);
+    $query->fields('f', [
+      'id',
+      'title',
+      'status',
+      'created_by',
+      'created_at',
+      'deleted_at',
+    ]);
+    $query->leftJoin('modularform_form_members', 'fm', 'fm.form_id = f.id AND fm.uid = :uid AND fm.roles = :role', [
+      ':uid' => $user->uid,
+      ':role' => 0,
+    ]);
     $query->isNotNull('f.deleted_at');
     $query->orderBy('f.deleted_at', 'DESC');
     $or = db_or();
@@ -113,9 +130,7 @@ function modularform_perma_delete($form_id) {
     db_delete('modularform_sections')
       ->condition('form_id', $form_id)
       ->execute();
-    db_delete('modularform_forms')
-      ->condition('id', $form_id)
-      ->execute();
+    entity_delete('modularform_form', $form_id);
     drupal_set_message(t('Form "@title" has been permanently deleted.', ['@title' => $form->title]));
   }
   catch (Exception $e) {
@@ -128,6 +143,7 @@ function modularform_perma_delete($form_id) {
   }
   drupal_goto('forms/manage');
 }
+
 /**
  * Restore a form
  */
