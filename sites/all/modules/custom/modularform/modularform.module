@@ -808,6 +808,7 @@ function modularform_theme() {
         'members'         => [],
         'stats'           => [],
         'timeline'        => [],
+        'tag_cloud' => [],
         'timeline_period' => 'day',
         'filterable_form' => '',
         'form_url'        => '',

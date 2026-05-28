@@ -205,7 +205,14 @@
 
 .mfv-analytics-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.mfv-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 16px;
   margin-bottom: 16px;
 }
@@ -493,12 +500,10 @@
 }
 
 /* ── Word cloud ─────────────────────────────────────────────────────────────── */
-.mfv-wordcloud {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  min-height: 80px;
+#mf-wordcloud {
+  width: 100%;
+  height: 300px;
+  display: block;
 }
 
 .mfv-wc-placeholder {
@@ -727,7 +732,7 @@
 /* ── Responsive ─────────────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .mfv-main-grid,
-  .mfv-analytics-grid {
+  .mfv-bottom-grid {
     grid-template-columns: 1fr;
   }
 
