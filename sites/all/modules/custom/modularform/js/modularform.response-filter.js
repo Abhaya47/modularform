@@ -68,13 +68,20 @@
               var i = 0;
               while (params['filters[' + i + '][solr_key]']) {
                 var solrKey = params['filters[' + i + '][solr_key]'];
+                var dateFrom = params['filters[' + i + '][date_from]'] || null;
+                var dateTo = params['filters[' + i + '][date_to]'] || null;
                 var answer = params['filters[' + i + '][answer]'] || '';
+                var isDate = !!(dateFrom || dateTo);
                 var qLabel = solrKeyToLabel(solrKey, form.id);
+
                 state.pairs.push({
                   solrKey: solrKey,
                   qLabel: qLabel,
-                  answer: answer,
-                  count: null,   // will be populated by first reloadResults()
+                  answer: isDate ? null : answer,
+                  date_from: dateFrom,
+                  date_to: dateTo,
+                  isDate: isDate,
+                  count: null,
                 });
                 i++;
               }
@@ -85,21 +92,32 @@
                   state.pairs[state.pairs.length - 1].count = $.trim($count.text());
                 }
 
-                // Pre-select checkboxes in configured filters dropdown if it's loaded.
+                // Pre-select state in the configured filters dropdown if it's loaded.
                 // Wait a tick so the dropdown has time to render.
                 setTimeout(function () {
                   $.each(state.pairs, function (i, pair) {
                     var $card = $('#configured-filters-dropdown .cf-question-card[data-solr-key="' + pair.solrKey + '"]');
-                    if ($card.length) {
+                    if (!$card.length) { return; }
+
+                    if (pair.isDate) {
+                      // Restore date inputs and badge
+                      $card.find('.cf-date-from').val(pair.date_from || '');
+                      $card.find('.cf-date-to').val(pair.date_to || '');
+                      _updateDateBadge(
+                        $card.find('.cf-field-badge'),
+                        $card,
+                        pair.date_from || '',
+                        pair.date_to || '',
+                      );
+                    } else {
+                      // Restore checkboxes and badge
                       var $list = $card.find('.cf-answer-list');
                       $list.find('li.cf-answer-item').each(function () {
                         if ($(this).find('span').text() === pair.answer) {
-                          var $cb = $(this).find('input[type="checkbox"]');
-                          $cb.prop('checked', true);
+                          $(this).find('input[type="checkbox"]').prop('checked', true);
                           $(this).addClass('is-checked');
                         }
                       });
-                      // Update badge
                       var count = $card.find('input:checked').length;
                       $card.find('.cf-field-badge').text(count);
                       $card.toggleClass('has-selection', count > 0);
@@ -205,10 +223,17 @@
         // ── Configured filter bridge ───────────────────────────────────────
 
         $(document).on('configuredFilterApplied', function (e, pair) {
+          // Remove any existing pair for the same key first (date replaces-in-place)
+          state.pairs = $.grep(state.pairs, function (p) {
+            return p.solrKey !== pair.solrKey || !pair.isDate;
+          });
           state.pairs.push({
             solrKey: pair.solrKey,
             qLabel: pair.qLabel,
-            answer: pair.answer,
+            answer: pair.isDate ? null : pair.answer,
+            date_from: pair.date_from || null,
+            date_to: pair.date_to || null,
+            isDate: !!pair.isDate,
             count: null,
           });
           renderTags();
@@ -397,8 +422,17 @@
 
           $.each(state.pairs, function (i, pair) {
             var shortLabel = pair.qLabel.length > 48 ? pair.qLabel.slice(0, 45) + '…' : pair.qLabel;
+            var valuePart;
+            if (pair.isDate) {
+              var parts = [];
+              if (pair.date_from) { parts.push('From ' + pair.date_from); }
+              if (pair.date_to) { parts.push('To ' + pair.date_to); }
+              valuePart = parts.join(' ');
+            } else {
+              valuePart = pair.answer;
+            }
             var countSuffix = pair.count ? ' (' + pair.count + ')' : '';
-            var tagText = shortLabel + ' › ' + pair.answer + countSuffix;
+            var tagText = shortLabel + ' › ' + valuePart + countSuffix;
             var $pairTag = $('<span class="gform-filter-tag gform-filter-tag--pair">')
               .append(
                 $('<span class="gform-filter-tag__label">').text(tagText),
@@ -476,7 +510,12 @@
           }
           $.each(state.pairs, function (i, pair) {
             params['filters[' + i + '][solr_key]'] = pair.solrKey;
-            params['filters[' + i + '][answer]'] = pair.answer;
+            if (pair.isDate) {
+              params['filters[' + i + '][date_from]'] = pair.date_from || '';
+              params['filters[' + i + '][date_to]'] = pair.date_to || '';
+            } else {
+              params['filters[' + i + '][answer]'] = pair.answer;
+            }
           });
           var qs = $.param(params);
           var newUrl = window.location.pathname + (qs ? '?' + qs : '');
@@ -834,16 +873,18 @@
         var pending = data.results.length;
 
         $.each(data.results, function (i, q) {
+          var isDate = (q.datatype === 'date');
+
           var $card = $(
             '<div class="cf-question-card" data-solr-key="' + q.id + '">' +
             '<div class="cf-question-label">' + q.label + '</div>' +
             '<div class="cf-field-wrap">' +
-            '<input type="text" class="cf-field-input" placeholder="' + Drupal.t('Select\u2026') + '" autocomplete="off" />' +
+            '<input type="text" class="cf-field-input" placeholder="' + (isDate ? Drupal.t('Date range\u2026') : Drupal.t('Select\u2026')) + '" autocomplete="off" />' +
             '<span class="cf-field-badge">0</span>' +
             '<i class="ti ti-chevron-down cf-field-chevron" aria-hidden="true"></i>' +
             '</div>' +
             '<div class="cf-question-panel">' +
-            '<ul class="cf-answer-list"><li class="cf-answer-empty">' + Drupal.t('Loading\u2026') + '</li></ul>' +
+            (isDate ? '' : '<ul class="cf-answer-list"><li class="cf-answer-empty">' + Drupal.t('Loading\u2026') + '</li></ul>') +
             '</div>' +
             '</div>',
           );
@@ -861,124 +902,200 @@
             if (!wasOpen) { $card.addClass('open'); }
           });
 
-          // Live filter — type to narrow the list, dropdown stays open
-          $input.on('input', function () {
-            var term = $(this).val().toLowerCase();
-            $list.find('li.cf-answer-item').each(function () {
-              var text = $(this).find('span').text().toLowerCase();
-              $(this).toggle(text.indexOf(term) !== -1);
+          // ── DATE RANGE BRANCH ────────────────────────────────────────────
+          if (isDate) {
+            $panel.html(
+              '<div class="cf-date-range">' +
+              '<label class="cf-date-label">' + Drupal.t('From') +
+              '<input type="date" class="cf-date-from" />' +
+              '</label>' +
+              '<label class="cf-date-label">' + Drupal.t('To') +
+              '<input type="date" class="cf-date-to" />' +
+              '</label>' +
+              '<button type="button" class="cf-date-apply button button--small">' + Drupal.t('Apply') + '</button>' +
+              '<button type="button" class="cf-date-clear button button--small">' + Drupal.t('Clear') + '</button>' +
+              '</div>',
+            );
+
+            var $from = $panel.find('.cf-date-from');
+            var $to = $panel.find('.cf-date-to');
+            var $apply = $panel.find('.cf-date-apply');
+            var $clear = $panel.find('.cf-date-clear');
+
+            // Pre-fill from URL on load
+            var urlParams = parseQueryString(window.location.search);
+            var pi = 0;
+            while (urlParams['filters[' + pi + '][solr_key]']) {
+              if (urlParams['filters[' + pi + '][solr_key]'] === q.id) {
+                $from.val(urlParams['filters[' + pi + '][date_from]'] || '');
+                $to.val(urlParams['filters[' + pi + '][date_to]'] || '');
+                _updateDateBadge($badge, $card, $from.val(), $to.val());
+                break;
+              }
+              pi++;
+            }
+
+            // Stop date input clicks bubbling up to the document close-all handler
+            $panel.on('click', function (e) { e.stopPropagation(); });
+
+            $apply.on('click', function () {
+              var from = $from.val();
+              var to = $to.val();
+              if (!from && !to) { return; }
+              _updateDateBadge($badge, $card, from, to);
+              $(document).trigger('configuredFilterApplied', [
+                {
+                  solrKey: q.id,
+                  qLabel: q.label,
+                  date_from: from,
+                  date_to: to,
+                  isDate: true,
+                },
+              ]);
+              $card.removeClass('open');
             });
-            var hasVisible = $list.find('li.cf-answer-item:visible').length > 0;
-            $list.find('li.cf-answer-empty').toggle(!hasVisible);
-            $card.addClass('open');
-          });
 
-          // Clicking a row toggles its checkbox, keeps panel open
-          $list.on('click', 'li.cf-answer-item', function (e) {
-            e.stopPropagation();
-            var $cb = $(this).find('input[type="checkbox"]');
-            $cb.prop('checked', !$cb.prop('checked')).trigger('change');
-          });
+            $clear.on('click', function () {
+              $from.val('');
+              $to.val('');
+              _updateDateBadge($badge, $card, '', '');
+              $(document).trigger('configuredFilterRemoved', [{ solrKey: q.id, isDate: true }]);
+            });
 
-          // Checkbox change — update badge + fire events
-          $list.on('change', 'input[type="checkbox"]', function () {
-            var $cb = $(this);
-            var $li = $cb.closest('li');
-            var isSelectAll = $cb.hasClass('cf-select-all');
+            $dropdown.append($card);
 
-            if (isSelectAll) {
-              var checked = $cb.is(':checked');
-              // Toggle all visible answer items
-              $list.find('li.cf-answer-item:not(.cf-answer-select-all):visible').each(function () {
-                var $itemCb = $(this).find('input[type="checkbox"]');
-                if ($itemCb.prop('checked') !== checked) {
-                  $itemCb.prop('checked', checked).trigger('change');
-                }
+            // No async fetch needed — decrement pending immediately
+            pending--;
+            if (pending === 0) {
+              $dropdown.data('loaded', true);
+              $(document).trigger('configuredFiltersLoaded');
+            }
+
+            // ── CHECKBOX BRANCH (unchanged) ──────────────────────────────────
+          } else {
+
+            // Live filter — type to narrow the list, dropdown stays open
+            $input.on('input', function () {
+              var term = $(this).val().toLowerCase();
+              $list.find('li.cf-answer-item').each(function () {
+                var text = $(this).find('span').text().toLowerCase();
+                $(this).toggle(text.indexOf(term) !== -1);
               });
-              return;
-            }
+              var hasVisible = $list.find('li.cf-answer-item:visible').length > 0;
+              $list.find('li.cf-answer-empty').toggle(!hasVisible);
+              $card.addClass('open');
+            });
 
-            var checked = $cb.is(':checked');
-            var answer = $li.find('span').text();
+            // Clicking a row toggles its checkbox, keeps panel open
+            $list.on('click', 'li.cf-answer-item', function (e) {
+              e.stopPropagation();
+              var $cb = $(this).find('input[type="checkbox"]');
+              $cb.prop('checked', !$cb.prop('checked')).trigger('change');
+            });
 
-            $li.toggleClass('is-checked', checked);
+            // Checkbox change — update badge + fire events
+            $list.on('change', 'input[type="checkbox"]', function () {
+              var $cb = $(this);
+              var $li = $cb.closest('li');
+              var isSelectAll = $cb.hasClass('cf-select-all');
 
-            var $allItems = $list.find('li.cf-answer-item:not(.cf-answer-select-all)');
-            var $checkedItems = $allItems.find('input:checked');
-
-            // Sync select-all state
-            var $selectAllCb = $list.find('.cf-select-all');
-            if ($checkedItems.length === 0) {
-              $selectAllCb.prop({ checked: false, indeterminate: false });
-            } else if ($checkedItems.length === $allItems.length) {
-              $selectAllCb.prop({ checked: true, indeterminate: false });
-            } else {
-              $selectAllCb.prop({ checked: false, indeterminate: true });
-            }
-
-            var count = $checkedItems.length;
-            $badge.text(count);
-            $card.toggleClass('has-selection', count > 0);
-
-            if (checked) {
-              $(document).trigger('configuredFilterApplied', [{ solrKey: q.id, qLabel: q.label, answer: answer }]);
-            } else {
-              $(document).trigger('configuredFilterRemoved', [{ solrKey: q.id, answer: answer }]);
-            }
-          });
-
-          $dropdown.append($card);
-
-          // Fetch answer values for this question
-          $.getJSON(Drupal.settings.basePath + 'modularform/filter/answer-values', {
-            key: q.id,
-            form_id: formId,
-          })
-            .done(function (adata) {
-              $list.empty();
-              var results = adata.results || [];
-
-              if (!results.length) {
-                $list.html('<li class="cf-answer-empty">' + Drupal.t('No values.') + '</li>');
+              if (isSelectAll) {
+                var checked = $cb.is(':checked');
+                $list.find('li.cf-answer-item:not(.cf-answer-select-all):visible').each(function () {
+                  var $itemCb = $(this).find('input[type="checkbox"]');
+                  if ($itemCb.prop('checked') !== checked) {
+                    $itemCb.prop('checked', checked).trigger('change');
+                  }
+                });
                 return;
               }
 
-              // Select all row
-              var $selectAll = $(
-                '<li class="cf-answer-item cf-answer-select-all">' +
-                '<input type="checkbox" class="cf-select-all" />' +
-                '<span>' + Drupal.t('Select all') + '</span>' +
-                '</li>',
-              );
-              $list.append($selectAll);
+              var checked = $cb.is(':checked');
+              var answer = $li.find('span').text();
 
-              $.each(results, function (j, item) {
-                $list.append(
-                  '<li class="cf-answer-item">' +
-                  '<input type="checkbox" />' +
-                  '<span>' + item.label + '</span>' +
-                  '</li>',
-                );
-              });
+              $li.toggleClass('is-checked', checked);
 
-              // Always keep a hidden "no matches" row for when search filters everything out
-              $list.append('<li class="cf-answer-empty" style="display:none">' + Drupal.t('No matches.') + '</li>');
-            })
-            .fail(function () {
-              $list.html('<li class="cf-answer-empty">' + Drupal.t('Failed to load.') + '</li>');
-            })
-            .always(function () {
-              pending--;
-              if (pending === 0) {
-                $dropdown.data('loaded', true);
-                $(document).trigger('configuredFiltersLoaded');  // ← MOVE IT HERE
+              var $allItems = $list.find('li.cf-answer-item:not(.cf-answer-select-all)');
+              var $checkedItems = $allItems.find('input:checked');
+
+              var $selectAllCb = $list.find('.cf-select-all');
+              if ($checkedItems.length === 0) {
+                $selectAllCb.prop({ checked: false, indeterminate: false });
+              } else if ($checkedItems.length === $allItems.length) {
+                $selectAllCb.prop({ checked: true, indeterminate: false });
+              } else {
+                $selectAllCb.prop({ checked: false, indeterminate: true });
+              }
+
+              var count = $checkedItems.length;
+              $badge.text(count);
+              $card.toggleClass('has-selection', count > 0);
+
+              if (checked) {
+                $(document).trigger('configuredFilterApplied', [{ solrKey: q.id, qLabel: q.label, answer: answer }]);
+              } else {
+                $(document).trigger('configuredFilterRemoved', [{ solrKey: q.id, answer: answer }]);
               }
             });
+
+            $dropdown.append($card);
+
+            // Fetch answer values
+            $.getJSON(Drupal.settings.basePath + 'modularform/filter/answer-values', {
+              key: q.id,
+              form_id: formId,
+            })
+              .done(function (adata) {
+                $list.empty();
+                var results = adata.results || [];
+
+                if (!results.length) {
+                  $list.html('<li class="cf-answer-empty">' + Drupal.t('No values.') + '</li>');
+                  return;
+                }
+
+                var $selectAll = $(
+                  '<li class="cf-answer-item cf-answer-select-all">' +
+                  '<input type="checkbox" class="cf-select-all" />' +
+                  '<span>' + Drupal.t('Select all') + '</span>' +
+                  '</li>',
+                );
+                $list.append($selectAll);
+
+                $.each(results, function (j, item) {
+                  $list.append(
+                    '<li class="cf-answer-item">' +
+                    '<input type="checkbox" />' +
+                    '<span>' + item.label + '</span>' +
+                    '</li>',
+                  );
+                });
+
+                $list.append('<li class="cf-answer-empty" style="display:none">' + Drupal.t('No matches.') + '</li>');
+              })
+              .fail(function () {
+                $list.html('<li class="cf-answer-empty">' + Drupal.t('Failed to load.') + '</li>');
+              })
+              .always(function () {
+                pending--;
+                if (pending === 0) {
+                  $dropdown.data('loaded', true);
+                  $(document).trigger('configuredFiltersLoaded');
+                }
+              });
+          }
         });
       })
       .fail(function () {
         $dropdown.html('<span class="configured-filter-empty">' + Drupal.t('Failed to load filters.') + '</span>');
-      })
+      });
+  }
+
+  // Helper — place this alongside _getFormId()
+  function _updateDateBadge($badge, $card, from, to) {
+    var count = (from ? 1 : 0) + (to ? 1 : 0);
+    $badge.text(count);
+    $card.toggleClass('has-selection', count > 0);
   }
 
   function _getFormId() {

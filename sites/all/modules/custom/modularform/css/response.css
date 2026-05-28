@@ -66,8 +66,8 @@
 
 .gform-filter-bar {
   display: flex;
-  flex-direction: column;  /* was row */
-  align-items: stretch;    /* was flex-start */
+  flex-direction: column; /* was row */
+  align-items: stretch; /* was flex-start */
   gap: 10px;
   padding: 12px 0;
   font-size: 13px;
@@ -118,8 +118,8 @@
 /* Pair tag (question › answer) — light purple tint */
 .gform-filter-tag--pair {
   background: #f7f7f7;
-  color: #3C3489;
-  border: 1px solid #CECBF6;
+  color: #3c3489;
+  border: 1px solid #cecbf6;
 }
 
 .gform-filter-tag__label {
@@ -129,7 +129,7 @@
 }
 
 .gform-filter-tag--pair .gform-filter-tag__label {
-  color: #3C3489;  /* was #f7f7f7 */
+  color: #3c3489; /* was #f7f7f7 */
 }
 
 .gform-filter-tag__remove {
@@ -155,8 +155,8 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  width: 100%;            /* add this */
-  max-width: none;        /* remove the 340px cap */
+  width: 100%; /* add this */
+  max-width: none; /* remove the 340px cap */
 }
 
 .gform-filter-step__head {
@@ -170,8 +170,8 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #EEEDFE;
-  color: #534AB7;
+  background: #eeedfe;
+  color: #534ab7;
   font-size: 11px;
   font-weight: 500;
   display: flex;
@@ -219,7 +219,7 @@
 }
 
 .gform-filter-step input[type="text"]:focus {
-  border-color: #7B6FD0;
+  border-color: #7b6fd0;
   box-shadow: 0 0 0 3px rgba(123, 111, 208, 0.15);
 }
 
@@ -270,8 +270,8 @@
 }
 
 .gform-filter-list li:hover {
-  background: #EEEDFE;
-  color: #3C3489;
+  background: #eeedfe;
+  color: #3c3489;
 }
 
 .gform-filter-list li.gform-filter-list--empty {
@@ -291,12 +291,12 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 8px;
-  background: #EEEDFE;
-  border: 1px solid #CECBF6;
+  background: #eeedfe;
+  border: 1px solid #cecbf6;
   border-radius: 6px;
   padding: 7px 10px;
   font-size: 13px;
-  color: #3C3489;
+  color: #3c3489;
   line-height: 1.5;
 }
 
@@ -310,7 +310,7 @@
 
 .gform-filter-chosen__change {
   font-size: 11px;
-  color: #7B6FD0;
+  color: #7b6fd0;
   cursor: pointer;
   white-space: nowrap;
   padding-top: 2px;
@@ -329,7 +329,7 @@
 
 .gform-filter-add {
   align-self: flex-end;
-  background: #7B6FD0;
+  background: #7b6fd0;
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -343,7 +343,7 @@
 }
 
 .gform-filter-add:hover:not(:disabled) {
-  background: #534AB7;
+  background: #534ab7;
 }
 
 .gform-filter-add:disabled {
@@ -384,8 +384,8 @@
 /* ── Configured Filters ─────────────────────────── */
 
 #configured-filters-toggle.gform-quick-filter--active {
-  background: #EEEDFE;
-  border-color: #7B6FD0;
+  background: #eeedfe;
+  border-color: #7b6fd0;
 }
 
 .configured-filter-empty {
@@ -426,7 +426,7 @@
 .cf-question-label {
   font-size: 11px;
   font-weight: 600;
-  color: #534AB7;
+  color: #534ab7;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 0 2px;
@@ -442,7 +442,7 @@
 
 .cf-field-input {
   width: 100%;
-  border: 1px solid #CECBF6;
+  border: 1px solid #cecbf6;
   border-radius: 6px;
   padding: 6px 32px 6px 10px;
   font-size: 13px;
@@ -461,14 +461,14 @@
 
 .cf-field-input:focus,
 .cf-question-card.open .cf-field-input {
-  border-color: #7B6FD0;
-  box-shadow: 0 0 0 3px rgba(123,111,208,0.15);
+  border-color: #7b6fd0;
+  box-shadow: 0 0 0 3px rgba(123, 111, 208, 0.15);
 }
 
 .cf-field-badge {
   position: absolute;
   right: 26px;
-  background: #7B6FD0;
+  background: #7b6fd0;
   color: #fff;
   font-size: 11px;
   font-weight: 600;
@@ -486,7 +486,7 @@
   position: absolute;
   right: 8px;
   font-size: 14px;
-  color: #7B6FD0;
+  color: #7b6fd0;
   pointer-events: none;
   transition: transform 0.15s;
 }
@@ -507,7 +507,7 @@
   background: #fff;
   border: 1px solid #ddd;
   border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
   overflow: hidden;
   min-width: 220px;
 }
@@ -537,12 +537,12 @@
 }
 
 .cf-answer-item:hover {
-  background: #EEEDFE;
-  color: #3C3489;
+  background: #eeedfe;
+  color: #3c3489;
 }
 
 .cf-answer-item input[type="checkbox"] {
-  accent-color: #7B6FD0;
+  accent-color: #7b6fd0;
   cursor: pointer;
   width: 14px;
   height: 14px;
@@ -552,7 +552,7 @@
 }
 
 .cf-answer-item.is-checked {
-  color: #3C3489;
+  color: #3c3489;
   font-weight: 500;
 }
 
@@ -582,10 +582,10 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid #CECBF6;
+  border: 1px solid #cecbf6;
   border-radius: 20px;
   background: #fff;
-  color: #534AB7;
+  color: #534ab7;
   font-size: 12px;
   font-weight: 500;
   padding: 4px 12px;
@@ -595,12 +595,12 @@
 }
 
 .gform-quick-filter:hover {
-  background: #EEEDFE;
+  background: #eeedfe;
 }
 
 .gform-quick-filter--active {
-  background: #EEEDFE;
-  border-color: #7B6FD0;
+  background: #eeedfe;
+  border-color: #7b6fd0;
 }
 
 #quick-filter-email-input {
@@ -623,12 +623,12 @@
 }
 
 #quick-filter-email-value:focus {
-  border-color: #7B6FD0;
+  border-color: #7b6fd0;
   box-shadow: 0 0 0 3px rgba(123, 111, 208, 0.15);
 }
 
 #quick-filter-email-apply {
-  background: #7B6FD0;
+  background: #7b6fd0;
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -639,7 +639,7 @@
 }
 
 #quick-filter-email-apply:hover {
-  background: #534AB7;
+  background: #534ab7;
 }
 
 #quick-filter-email-clear {
@@ -725,11 +725,16 @@
   margin-bottom: 60px;
 }
 
-.gform-table thead th:nth-child(1) { width: 28%; } /* Respondent */
-.gform-table thead th:nth-child(2) { width: 22%; } /* Form */
-.gform-table thead th:nth-child(3) { width: 20%; } /* Submitted */
-.gform-table thead th:nth-child(4) { width: 20%; } /* Updated (conditional) */
-.gform-table thead th:last-child   { width: 10%; } /* Operations */
+.gform-table thead th:nth-child(1) { width: 28%; }
+/* Respondent */
+.gform-table thead th:nth-child(2) { width: 22%; }
+/* Form */
+.gform-table thead th:nth-child(3) { width: 20%; }
+/* Submitted */
+.gform-table thead th:nth-child(4) { width: 20%; }
+/* Updated (conditional) */
+.gform-table thead th:last-child { width: 10%; }
+/* Operations */
 
 .gform-table thead th {
   font-size: 11px;
@@ -887,6 +892,26 @@
 .gform-link--danger:hover {
   background: #ffebee !important;
   color: #b71c1c !important;
+}
+/* ── Date ─────────────────────────────────────────────────────────── */
+.cf-date-range {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  align-items: flex-end;
+}
+.cf-date-label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.8em;
+  gap: 3px;
+}
+.cf-date-from,
+.cf-date-to {
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  padding: 4px 6px;
 }
 
 /* ── Empty state ─────────────────────────────────────────────────────────── */

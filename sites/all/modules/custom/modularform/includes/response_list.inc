@@ -30,8 +30,25 @@ function modularform_response_list_page() {
     }
 
     foreach ($pair_filters as $pair) {
-      if (!empty($pair['solr_key']) && isset($pair['answer'])) {
-        $fq[] = $pair['solr_key'] . ':"' . addslashes($pair['answer']) . '"';
+      if (empty($pair['solr_key'])) {
+        continue;
+      }
+
+      // Validate key format regardless of filter type
+      if (!preg_match('/^[a-z]+_val_q_\d+_[a-z0-9]+$/', $pair['solr_key'])) {
+        continue;
+      }
+
+      $solr_key = $pair['solr_key'];
+      $has_date = !empty($pair['date_from']) || !empty($pair['date_to']);
+
+      if ($has_date) {
+        $from = !empty($pair['date_from']) ? _modularform_solr_date($pair['date_from'], 'start') : '*';
+        $to   = !empty($pair['date_to'])   ? _modularform_solr_date($pair['date_to'],   'end')   : '*';
+        $fq[] = $solr_key . ':[' . $from . ' TO ' . $to . ']';
+      }
+      elseif (isset($pair['answer']) && $pair['answer'] !== '') {
+        $fq[] = $solr_key . ':"' . addslashes($pair['answer']) . '"';
       }
     }
 
@@ -162,6 +179,22 @@ function modularform_response_list_page() {
 }
 
 /**
+ *
+ * Helper function to format date
+ *
+ * @param $ymd
+ * @param $boundary
+ *
+ * @return string
+ */
+function _modularform_solr_date($ymd, $boundary = 'start') {
+  if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd)) {
+    return '*';
+  }
+  return $ymd . ($boundary === 'end' ? 'T23:59:59Z' : 'T00:00:00Z');
+}
+
+/**
  * AJAX callback: returns just the response table + pager as HTML.
  * Accepts the same GET params as modularform_response_list_page().
  */
@@ -287,6 +320,12 @@ function modularform_filter_answer_values() {
   drupal_exit();
 }
 
+/**
+ *
+ * Get questions.
+ *
+ * @return void
+ */
 function modularform_filter_questions() {
   $form_id = isset($_GET['form_id']) ? (int) $_GET['form_id'] : 0;
   $configured_only = isset($_GET['configured']) ? (bool) $_GET['configured'] : FALSE;
@@ -319,8 +358,9 @@ function modularform_filter_questions() {
       continue;
     }
     $results[] = [
-      'id' => $prefix . '_' . $row->q_id,
-      'label' => $row->label,
+      'id'       => $prefix . '_' . $row->q_id,
+      'label'    => $row->label,
+      'datatype' => $type_name,
     ];
   }
 
