@@ -13,38 +13,20 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 function modularform_export_menu() {
-
   $items['modularform/export/page'] = [
-    'title'           => 'Export Forms',
-    'page callback'   => 'modularform_export_page',
-    'page arguments'  => [],
+    'title' => 'Export Forms',
+    'page callback' => 'modularform_export_page',
+    'page arguments' => [],
     'access callback' => 'user_is_logged_in',
-    'type'            => MENU_CALLBACK,
-  ];
-
-  // Legacy test routes — remove once export page is confirmed working
-  $items['modularform/export/test'] = [
-    'title'           => 'Test Export',
-    'page callback'   => 'modularform_export_test',
-    'page arguments'  => [],
-    'access callback' => TRUE,
-    'type'            => MENU_CALLBACK,
-  ];
-
-  $items['modularform/export/responses/test'] = [
-    'title'           => 'Test Responses Export',
-    'page callback'   => 'modularform_export_responses_test',
-    'page arguments'  => [],
-    'access callback' => TRUE,
-    'type'            => MENU_CALLBACK,
+    'type' => MENU_CALLBACK,
   ];
 
   $items['modularform/export/download/%'] = [
-    'title'           => 'Download Export',
-    'page callback'   => '_modularform_export_download',
-    'page arguments'  => [3],
+    'title' => 'Download Export',
+    'page callback' => '_modularform_export_download',
+    'page arguments' => [3],
     'access callback' => TRUE,
-    'type'            => MENU_CALLBACK,
+    'type' => MENU_CALLBACK,
   ];
 
   return $items;
@@ -62,13 +44,13 @@ function modularform_export_theme() {
   return [
     'modularform_export_page' => [
       'variables' => [
-        'records'      => [],
-        'token'        => '',
-        'fids_hidden'  => '',
-        'count'        => 0,
+        'records' => [],
+        'token' => '',
+        'fids_hidden' => '',
+        'count' => 0,
       ],
       'template' => 'modularform-export-page',
-      'path'     => $module_path . '/templates',
+      'path' => $module_path . '/templates',
     ],
   ];
 }
@@ -81,7 +63,7 @@ function modularform_export_theme() {
  * Page callback: modularform/export/page?fids=1,2,3
  */
 function modularform_export_page() {
-  $raw  = isset($_GET['fids']) ? $_GET['fids'] : '';
+  $raw = isset($_GET['fids']) ? $_GET['fids'] : '';
   $fids = _modularform_export_parse_fids($raw);
 
   if (empty($fids)) {
@@ -105,11 +87,11 @@ function modularform_export_page() {
 
     if (!empty($_POST['op_forms'])) {
       modularform_export_start($confirmed_fids);
-      batch_process('forms');
+      batch_process('/forms/manage');
     }
     elseif (!empty($_POST['op_responses'])) {
       modularform_export_responses_start($confirmed_fids);
-      batch_process('forms');
+      batch_process('/forms/manage');
     }
   }
 
@@ -118,12 +100,12 @@ function modularform_export_page() {
   $module_path = drupal_get_path('module', 'modularform_export');
 
   return [
-    '#theme'       => 'modularform_export_page',
-    '#records'     => $records,
-    '#token'       => drupal_get_token('modularform_export_page'),
+    '#theme' => 'modularform_export_page',
+    '#records' => $records,
+    '#token' => drupal_get_token('modularform_export_page'),
     '#fids_hidden' => implode(',', array_keys($records)),
-    '#count'       => count($records),
-    '#attached'    => [
+    '#count' => count($records),
+    '#attached' => [
       'css' => [$module_path . '/css/export-page.css'],
     ],
   ];
@@ -137,6 +119,7 @@ function modularform_export_page() {
  * Parses a comma-separated fids string into a clean array of ints.
  *
  * @param string $raw
+ *
  * @return int[]
  */
 function _modularform_export_parse_fids($raw) {
@@ -157,6 +140,7 @@ function _modularform_export_parse_fids($raw) {
  * Loads and validates form records for the given fids, keyed by id.
  *
  * @param int[] $fids
+ *
  * @return object[]  Keyed by form id.
  */
 function _modularform_export_load_forms(array $fids) {
@@ -202,9 +186,9 @@ function modularform_export_responses_test() {
 function modularform_export_libraries_info() {
   return [
     'openspout' => [
-      'name'    => 'OpenSpout',
+      'name' => 'OpenSpout',
       'version' => '4.x',
-      'files'   => ['php' => ['src/autoloader.php']],
+      'files' => ['php' => ['src/autoloader.php']],
     ],
   ];
 }
@@ -242,13 +226,13 @@ function modularform_export_start(array $fids) {
   $operations[] = ['_modularform_export_zip', []];
 
   batch_set([
-    'title'            => t('Exporting forms'),
-    'init_message'     => t('Preparing export...'),
+    'title' => t('Exporting forms'),
+    'init_message' => t('Preparing export...'),
     'progress_message' => t('Processed @current of @total forms.'),
-    'error_message'    => t('An error occurred during export.'),
-    'finished'         => '_modularform_export_finished',
-    'operations'       => $operations,
-    'file'             => drupal_get_path('module', 'modularform_export') . '/includes/modularform_export.batch.inc',
+    'error_message' => t('An error occurred during export.'),
+    'finished' => '_modularform_export_finished',
+    'operations' => $operations,
+    'file' => drupal_get_path('module', 'modularform_export') . '/includes/modularform_export.batch.inc',
   ]);
 }
 
@@ -272,13 +256,13 @@ function modularform_export_responses_start(array $fids) {
   $operations[] = ['_modularform_export_zip', []];
 
   batch_set([
-    'title'            => t('Exporting form responses'),
-    'init_message'     => t('Preparing export...'),
+    'title' => t('Exporting form responses'),
+    'init_message' => t('Preparing export...'),
     'progress_message' => t('Processed @current of @total forms.'),
-    'error_message'    => t('An error occurred during export.'),
-    'finished'         => '_modularform_export_finished',
-    'operations'       => $operations,
-    'file'             => drupal_get_path('module', 'modularform_export') . '/includes/modularform_export_responses.inc',
+    'error_message' => t('An error occurred during export.'),
+    'finished' => '_modularform_export_finished',
+    'operations' => $operations,
+    'file' => drupal_get_path('module', 'modularform_export') . '/includes/modularform_export_responses.inc',
   ]);
 }
 
@@ -291,7 +275,7 @@ function _modularform_export_zip(&$context) {
     return;
   }
 
-  $timestamp     = REQUEST_TIME;
+  $timestamp = REQUEST_TIME;
   $zip_real_path = drupal_realpath('private://modularform_exports') . '/export_' . $timestamp . '.zip';
 
   $zip = new ZipArchive();
@@ -313,7 +297,7 @@ function _modularform_export_zip(&$context) {
   }
 
   $context['results']['zip'] = $zip_real_path;
-  $context['message']        = t('Archive created successfully.');
+  $context['message'] = t('Archive created successfully.');
 }
 
 /**
@@ -347,7 +331,9 @@ function modularform_export_cron() {
   }
   $expiry = REQUEST_TIME - 86400;
   foreach (new DirectoryIterator($real_dir) as $file) {
-    if ($file->isDot() || $file->isDir()) { continue; }
+    if ($file->isDot() || $file->isDir()) {
+      continue;
+    }
     if ($file->getMTime() < $expiry) {
       file_unmanaged_delete($file->getPathname());
       watchdog('modularform_export', 'Deleted expired export file: @file', ['@file' => $file->getFilename()], WATCHDOG_INFO);
@@ -366,8 +352,8 @@ function _modularform_export_download($filename) {
   }
   $uri = 'private://modularform_exports/' . $filename;
   file_transfer($uri, [
-    'Content-Type'        => 'application/zip',
+    'Content-Type' => 'application/zip',
     'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-    'Content-Length'      => filesize($zip_path),
+    'Content-Length' => filesize($zip_path),
   ]);
 }
