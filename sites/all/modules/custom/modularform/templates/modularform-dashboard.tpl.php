@@ -7,7 +7,7 @@
  *   $header  — array of column header labels
  *   $rows    — array of form rows for the initial server-rendered table
  *              each row: [title, owner, status, created, response_count,
- *   links[]]
+ *   links[], id]
  *
  * The search input and filters trigger AJAX (dashboard.js) which
  * rewrites #mf-form-rows without a page reload.
@@ -25,9 +25,9 @@ $recent = array_slice($rows, 0, 4);
 <div class="gform-wrapper">
   <div class="gform-container">
 
-    <!-- ══════════════════════════════
+    <!-- ════════════════════════════
          HEADER
-    ══════════════════════════════ -->
+    ════════════════════════════ -->
     <div class="gform-header">
       <div class="gform-header-icon">
         <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -41,14 +41,14 @@ $recent = array_slice($rows, 0, 4);
       <h1 class="gform-title"><?php print t('Forms'); ?></h1>
     </div>
 
-    <!-- ══════════════════════════════
+    <!-- ════════════════════════════
          RECENT THUMBNAILS
-    ══════════════════════════════ -->
+    ════════════════════════════ -->
     <div class="gform-section-label"><?php print t('Recent'); ?></div>
     <div class="gform-thumb-grid">
 
       <?php
-      /* ── "Create new" tile ── */
+      /* — "Create new" tile — */
       $new_color = $thumb_colors[0];
       $new_content =
         '<div class="gform-thumb">' .
@@ -109,9 +109,9 @@ $recent = array_slice($rows, 0, 4);
 
     </div><!-- /gform-thumb-grid -->
 
-    <!-- ══════════════════════════════
-         SEARCH ROW  (row 1)
-    ══════════════════════════════ -->
+    <!-- ════════════════════════════
+         SEARCH ROW
+    ════════════════════════════ -->
     <div id="mf-search-row">
       <div id="mf-search-wrap">
         <i class="ti ti-search" aria-hidden="true"></i>
@@ -126,9 +126,9 @@ $recent = array_slice($rows, 0, 4);
       </div>
     </div>
 
-    <!-- ══════════════════════════════
-         FILTER ROW  (row 2)
-    ══════════════════════════════ -->
+    <!-- ════════════════════════════
+         FILTER ROW
+    ════════════════════════════ -->
     <div id="mf-filters">
 
       <select id="mf-filter-status"
@@ -160,9 +160,9 @@ $recent = array_slice($rows, 0, 4);
 
     </div><!-- /mf-filters -->
 
-    <!-- ══════════════════════════════
+    <!-- ════════════════════════════
          ALL FORMS TABLE
-    ══════════════════════════════ -->
+    ════════════════════════════ -->
     <div class="gform-section-label"><?php print t('All forms'); ?></div>
 
     <div class="gform-card">
@@ -171,6 +171,19 @@ $recent = array_slice($rows, 0, 4);
         <span id="mf-meta" aria-live="polite">
           <?php print count($rows) . ' ' . t('forms'); ?>
         </span>
+        <!-- Export toggle button -->
+        <button id="mf-export-toggle" class="mf-export-toggle-btn"
+                aria-pressed="false"
+                title="<?php print t('Select forms to export'); ?>">
+          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"
+               aria-hidden="true" width="14" height="14">
+            <path d="M8 1v8M5 6l3 3 3-3" stroke="currentColor" stroke-width="1.5"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 11v2a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2"
+                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <?php print t('Export'); ?>
+        </button>
       </div>
 
       <div class="gform-table-wrap" id="mf-table-wrap">
@@ -178,6 +191,12 @@ $recent = array_slice($rows, 0, 4);
                aria-label="<?php print t('Forms list'); ?>">
           <thead>
           <tr>
+            <!-- Checkbox column header — hidden until selecting mode -->
+            <th class="gform-th-check" aria-hidden="true">
+              <input type="checkbox" id="mf-check-all"
+                     aria-label="<?php print t('Select all forms'); ?>"
+                     tabindex="-1"/>
+            </th>
             <?php foreach ($header as $cell): ?>
               <th><?php print $cell; ?></th>
             <?php endforeach; ?>
@@ -187,7 +206,14 @@ $recent = array_slice($rows, 0, 4);
           <tbody id="mf-form-rows">
           <?php if (!empty($rows)): ?>
             <?php foreach ($rows as $row): ?>
-              <tr>
+              <tr data-fid="<?php print (int) $row[6]; ?>">
+                <!-- Checkbox cell — hidden until selecting mode -->
+                <td class="gform-td-check" aria-hidden="true">
+                  <input type="checkbox" class="mf-row-check"
+                         value="<?php print (int) $row[6]; ?>"
+                         aria-label="<?php print t('Select') . ' ' . check_plain($row[0]); ?>"
+                         tabindex="-1"/>
+                </td>
                 <!-- Name -->
                 <td class="gform-td-name">
                   <a href="<?php print url('forms/view/' . $row[6]); ?>" class="gform-name-link">
@@ -196,21 +222,17 @@ $recent = array_slice($rows, 0, 4);
                         <svg viewBox="0 0 13 13" fill="white"
                              xmlns="http://www.w3.org/2000/svg">
                           <rect x="1.5" y="2" width="10" height="1.8" rx=".9"/>
-                          <rect x="1.5" y="5.5" width="10" height="1.8"
-                                rx=".9"/>
+                          <rect x="1.5" y="5.5" width="10" height="1.8" rx=".9"/>
                           <rect x="1.5" y="9" width="7" height="1.8" rx=".9"/>
                         </svg>
                       </span>
-                      <span
-                        class="gform-name-text"><?php print $row[0]; ?></span>
+                      <span class="gform-name-text"><?php print $row[0]; ?></span>
                     </div>
                   </a>
                 </td>
                 <!-- Responses -->
                 <td class="gform-td-responses">
-                  <?php
-                  $resp_count = (int) $row[4];
-                  ?>
+                  <?php $resp_count = (int) $row[4]; ?>
                   <a href="<?php print url('forms/response/list', ['query' => ['form_id' => $row[6]]]); ?>"
                      class="mf-resp-pill<?php print $resp_count === 0 ? ' mf-resp-pill--empty' : ''; ?>"
                      title="<?php print t('View all responses'); ?>">
@@ -229,22 +251,18 @@ $recent = array_slice($rows, 0, 4);
                       <rect x="4.5" y="7.5" width="3" height="1" rx=".5"
                             fill="currentColor"/>
                     </svg>
-                    <span
-                      class="mf-resp-pill__count"><?php print $resp_count; ?></span>
-                    <span
-                      class="mf-resp-pill__label"><?php print $resp_count === 1 ? t('response') : t('responses'); ?></span>
+                    <span class="mf-resp-pill__count"><?php print $resp_count; ?></span>
+                    <span class="mf-resp-pill__label"><?php print $resp_count === 1 ? t('response') : t('responses'); ?></span>
                   </a>
                 </td>
                 <!-- Owner -->
                 <td><?php print $row[1]; ?></td>
                 <!-- Status -->
                 <td>
-                  <?php
-                  $status_val = ($row[2] === t('Published')) ? 'published' : 'draft';
-                  ?>
+                  <?php $status_val = ($row[2] === t('Published')) ? 'published' : 'draft'; ?>
                   <span class="mf-badge mf-badge--<?php print $status_val; ?>">
-                      <?php print $row[2]; ?>
-                    </span>
+                    <?php print $row[2]; ?>
+                  </span>
                 </td>
                 <!-- Created -->
                 <td><?php print $row[3]; ?></td>
@@ -270,7 +288,7 @@ $recent = array_slice($rows, 0, 4);
             <?php endforeach; ?>
           <?php else: ?>
             <tr class="gform-empty-row">
-              <td colspan="6"><?php print t('No forms found.'); ?></td>
+              <td colspan="7"><?php print t('No forms found.'); ?></td>
             </tr>
           <?php endif; ?>
           </tbody>
@@ -296,3 +314,19 @@ $recent = array_slice($rows, 0, 4);
 
   </div><!-- /gform-container -->
 </div><!-- /gform-wrapper -->
+
+<!-- ════════════════════════════
+     EXPORT ACTION BAR
+     Slides up from the bottom when ≥1 form is checked
+════════════════════════════ -->
+<div id="mf-export-bar" aria-live="polite" aria-atomic="true">
+  <span id="mf-export-bar-count"></span>
+  <div class="mf-export-bar-actions">
+    <button id="mf-export-bar-cancel" class="mf-export-bar-btn mf-export-bar-btn--ghost">
+      <?php print t('Cancel'); ?>
+    </button>
+    <a id="mf-export-bar-go" href="#" class="mf-export-bar-btn mf-export-bar-btn--primary">
+      <?php print t('Review Export'); ?>
+    </a>
+  </div>
+</div>

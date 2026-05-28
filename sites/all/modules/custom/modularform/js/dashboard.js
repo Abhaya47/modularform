@@ -1,3 +1,6 @@
+/**
+ * @file dashboard.js
+ */
 (function ($, Drupal) {
   'use strict';
 
@@ -21,14 +24,112 @@
       var $empty      = $('#mf-empty');
       var $spinner    = $('#mf-spinner');
       var $pager      = $('#mf-pager');
+      var $table      = $('#mf-table');
+
+      /* ── Export selection DOM refs ── */
+      var $exportToggle = $('#mf-export-toggle');
+      var $exportBar    = $('#mf-export-bar');
+      var $exportCount  = $('#mf-export-bar-count');
+      var $exportGo     = $('#mf-export-bar-go');
+      var $exportCancel = $('#mf-export-bar-cancel');
+      var $checkAll     = $('#mf-check-all');
 
       /* ── State ── */
       var xhr         = null;
       var searchTimer = null;
       var currentPage = 0;
       var initialLoad = true;
+      var selecting   = false;
 
-      /* ── Bindings ── */
+      /* ══════════════════════════════════════════
+         EXPORT SELECTION MODE
+      ══════════════════════════════════════════ */
+
+      function enterSelectMode() {
+        selecting = true;
+        $table.addClass('is-selecting');
+        $exportToggle.addClass('is-active').attr('aria-pressed', 'true');
+        // Make checkboxes keyboard-reachable
+        $table.find('.mf-row-check, #mf-check-all').attr('tabindex', '0');
+        updateExportBar();
+      }
+
+      function exitSelectMode() {
+        selecting = false;
+        $table.removeClass('is-selecting');
+        $exportToggle.removeClass('is-active').attr('aria-pressed', 'false');
+        // Uncheck everything
+        $checkAll.prop('checked', false);
+        $tbody.find('.mf-row-check').prop('checked', false);
+        // Hide checkboxes from keyboard
+        $table.find('.mf-row-check, #mf-check-all').attr('tabindex', '-1');
+        $exportBar.removeClass('is-visible');
+      }
+
+      $exportToggle.on('click', function () {
+        if (selecting) {
+          exitSelectMode();
+        } else {
+          enterSelectMode();
+        }
+      });
+
+      $exportCancel.on('click', function () {
+        exitSelectMode();
+      });
+
+      /* Select-all checkbox in thead */
+      $checkAll.on('change', function () {
+        var checked = $(this).is(':checked');
+        $tbody.find('.mf-row-check').prop('checked', checked);
+        updateExportBar();
+      });
+
+      /* Individual row checkboxes — delegated so it works after AJAX re-render */
+      $tbody.on('change', '.mf-row-check', function () {
+        var total   = $tbody.find('.mf-row-check').length;
+        var checked = $tbody.find('.mf-row-check:checked').length;
+        $checkAll.prop('indeterminate', checked > 0 && checked < total);
+        $checkAll.prop('checked', checked === total && total > 0);
+        updateExportBar();
+      });
+
+      /* Clicking the row itself (not the checkbox or a link) checks the box
+         when in selecting mode */
+      $tbody.on('click', 'tr', function (e) {
+        if (!selecting) { return; }
+        // Don't interfere with checkbox clicks, links, or dropdown buttons
+        if ($(e.target).is('input, a, button') || $(e.target).closest('a, button, .action-dropdown').length) {
+          return;
+        }
+        var $cb = $(this).find('.mf-row-check');
+        $cb.prop('checked', !$cb.is(':checked')).trigger('change');
+      });
+
+      function getCheckedFids() {
+        return $tbody.find('.mf-row-check:checked').map(function () {
+          return $(this).val();
+        }).get();
+      }
+
+      function updateExportBar() {
+        var fids = getCheckedFids();
+        if (fids.length === 0) {
+          $exportBar.removeClass('is-visible');
+          return;
+        }
+        var label = fids.length === 1
+          ? Drupal.t('1 form selected')
+          : Drupal.t('@n forms selected', {'@n': fids.length});
+        $exportCount.text(label);
+        $exportGo.attr('href', Drupal.settings.basePath + 'modularform/export/page?fids=' + fids.join(','));
+        $exportBar.addClass('is-visible');
+      }
+
+      /* ══════════════════════════════════════════
+         SEARCH & FILTER BINDINGS
+      ══════════════════════════════════════════ */
+
       $search.on('input', function () {
         clearTimeout(searchTimer);
         searchTimer = setTimeout(function () {
@@ -42,7 +143,10 @@
       $sort.on('change',       function () { currentPage = 0; doSearch(); });
       $owner.on('change',      function () { currentPage = 0; doSearch(); });
 
-      /* ── Core fetch ── */
+      /* ══════════════════════════════════════════
+         CORE FETCH
+      ══════════════════════════════════════════ */
+
       function doSearch() {
         if (xhr) { xhr.abort(); }
 
@@ -70,6 +174,11 @@
             initialLoad = false;
             renderPager(data.total || 0, data.page || 0);
             updateMeta(data.total || 0, $.trim($search.val()));
+            // Re-apply tabindex state after re-render
+            if (selecting) {
+              $tbody.find('.mf-row-check').attr('tabindex', '0');
+              updateExportBar();
+            }
           })
           .fail(function (jqXHR, status) {
             if (status !== 'abort') { showError('request_failed'); }
@@ -77,7 +186,10 @@
           .always(function () { setLoading(false); });
       }
 
-      /* ── Render rows ── */
+      /* ══════════════════════════════════════════
+         RENDER ROWS
+      ══════════════════════════════════════════ */
+
       function renderRows(rows) {
         $empty.prop('hidden', true);
         $tbody.empty();
@@ -87,25 +199,54 @@
           return;
         }
 
+        var cbTabindex = selecting ? '0' : '-1';
         var html = '';
+
         rows.forEach(function (row) {
           var badge = row.status_val
             ? 'mf-badge mf-badge--published'
             : 'mf-badge mf-badge--draft';
 
+          var respCount = parseInt(row.response_count || 0, 10);
+          var respPillClass = 'mf-resp-pill' + (respCount === 0 ? ' mf-resp-pill--empty' : '');
+          var respLabel = respCount === 1 ? Drupal.t('response') : Drupal.t('responses');
+
           html +=
-            '<tr>' +
+            '<tr data-fid="' + esc(row.id) + '">' +
+            /* Checkbox cell */
+            '<td class="gform-td-check" aria-hidden="true">' +
+            '<input type="checkbox" class="mf-row-check" value="' + esc(row.id) + '"' +
+            ' aria-label="' + Drupal.t('Select') + ' ' + esc(row.title) + '"' +
+            ' tabindex="' + cbTabindex + '"/>' +
+            '</td>' +
+            /* Name */
             '<td class="gform-td-name"><div class="gform-name-inner">' +
             '<span class="gform-form-icon"><svg viewBox="0 0 13 13" fill="white" xmlns="http://www.w3.org/2000/svg">' +
             '<rect x="1.5" y="2" width="10" height="1.8" rx=".9"/>' +
             '<rect x="1.5" y="5.5" width="10" height="1.8" rx=".9"/>' +
             '<rect x="1.5" y="9" width="7" height="1.8" rx=".9"/>' +
             '</svg></span>' +
-            '<a href="' + esc(row.urls.edit) + '" class="gform-name-text">' + esc(row.title) + '</a>' +
+            '<a href="' + esc(row.urls.view) + '" class="gform-name-text">' + esc(row.title) + '</a>' +
             '</div></td>' +
-            '<td>' + esc(row.owner)   + '</td>' +
+            /* Responses */
+            '<td class="gform-td-responses">' +
+            '<a href="' + esc(row.urls.responses) + '" class="' + respPillClass + '" title="' + Drupal.t('View all responses') + '">' +
+            '<svg class="mf-resp-pill__icon" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+            '<path d="M7 1.5C3.96 1.5 1.5 3.69 1.5 6.4c0 1.18.46 2.26 1.22 3.1L2 12.5l2.9-1.1A6.1 6.1 0 0 0 7 11.3c3.04 0 5.5-2.19 5.5-4.9S10.04 1.5 7 1.5Z" fill="currentColor" opacity=".18"/>' +
+            '<path d="M7 1.5C3.96 1.5 1.5 3.69 1.5 6.4c0 1.18.46 2.26 1.22 3.1L2 12.5l2.9-1.1A6.1 6.1 0 0 0 7 11.3c3.04 0 5.5-2.19 5.5-4.9S10.04 1.5 7 1.5Z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>' +
+            '<rect x="4.5" y="5.5" width="5" height="1" rx=".5" fill="currentColor"/>' +
+            '<rect x="4.5" y="7.5" width="3" height="1" rx=".5" fill="currentColor"/>' +
+            '</svg>' +
+            '<span class="mf-resp-pill__count">' + respCount + '</span>' +
+            '<span class="mf-resp-pill__label">' + respLabel + '</span>' +
+            '</a></td>' +
+            /* Owner */
+            '<td>' + esc(row.owner) + '</td>' +
+            /* Status */
             '<td><span class="' + badge + '">' + esc(row.status) + '</span></td>' +
+            /* Created */
             '<td>' + esc(row.created) + '</td>' +
+            /* Ops */
             '<td class="gform-td-ops">' + buildOps(row.urls) + '</td>' +
             '</tr>';
         });
@@ -113,7 +254,10 @@
         $tbody.html(html);
       }
 
-      /* ── Render pager ── */
+      /* ══════════════════════════════════════════
+         RENDER PAGER
+      ══════════════════════════════════════════ */
+
       function renderPager(total, page) {
         var pages = Math.ceil(total / LIMIT);
 
@@ -129,7 +273,7 @@
         var html = '<ul class="mf-pager">';
 
         html += '<li class="mf-pager__item mf-pager__prev' + (page === 0 ? ' is-disabled' : '') + '">' +
-          '<a href="#" data-page="' + (page - 1) + '">' + Drupal.t('« Prev') + '</a></li>';
+          '<a href="#" data-page="' + (page - 1) + '">' + Drupal.t('← Prev') + '</a></li>';
 
         pageRange(page, pages).forEach(function (p) {
           if (p === '...') {
@@ -141,7 +285,7 @@
         });
 
         html += '<li class="mf-pager__item mf-pager__next' + (page >= pages - 1 ? ' is-disabled' : '') + '">' +
-          '<a href="#" data-page="' + (page + 1) + '">' + Drupal.t('Next »') + '</a></li>';
+          '<a href="#" data-page="' + (page + 1) + '">' + Drupal.t('Next →') + '</a></li>';
 
         html += '</ul>';
         $pager.html(html);
@@ -156,7 +300,10 @@
         });
       }
 
-      /* ── Page range helper ── */
+      /* ══════════════════════════════════════════
+         HELPERS
+      ══════════════════════════════════════════ */
+
       function pageRange(current, total) {
         if (total <= 7) {
           var r = [];
@@ -173,7 +320,6 @@
         return pages;
       }
 
-      /* ── Ops dropdown ── */
       function buildOps(urls) {
         return (
           '<div class="action-dropdown">' +
@@ -187,7 +333,6 @@
         );
       }
 
-      /* ── Meta line ── */
       function updateMeta(total, query) {
         var label = total === 1 ? Drupal.t('form') : Drupal.t('forms');
         var text  = query
@@ -196,7 +341,6 @@
         $meta.html(text);
       }
 
-      /* ── Helpers ── */
       function setLoading(on) {
         $spinner.toggleClass('mf-spinner--active', on);
         $search.attr('aria-busy', on ? 'true' : 'false');
@@ -206,7 +350,7 @@
         var msg = code === 'search_unavailable'
           ? Drupal.t('Search is temporarily unavailable.')
           : Drupal.t('An error occurred. Please refresh and try again.');
-        $tbody.html('<tr><td colspan="5" class="gform-error-row">' + msg + '</td></tr>');
+        $tbody.html('<tr><td colspan="7" class="gform-error-row">' + msg + '</td></tr>');
       }
 
       function esc(str) {
