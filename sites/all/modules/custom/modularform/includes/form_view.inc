@@ -48,32 +48,53 @@ function _modularform_load_questions($form_id) {
 function _modularform_load_members($form_id) {
   $cache = &drupal_static(__FUNCTION__, []);
 
-  if (!isset($cache[$form_id])) {
-    $members = db_select('modularform_form_members', 'm')
-      ->fields('m')
-      ->condition('m.form_id', (int) $form_id)
-      ->orderBy('m.roles', 'ASC')
-      ->orderBy('m.created_at', 'ASC')
-      ->execute()
-      ->fetchAll(PDO::FETCH_ASSOC);
-
-    if (!empty($members)) {
-      $uids = array_column($members, 'uid');
-      $users = user_load_multiple($uids);
-
-      foreach ($members as &$m) {
-        $uid = (int) $m['uid'];
-        $m['name'] = isset($users[$uid]) ? format_username($users[$uid]) : '?';
-      }
-      unset($m);
-    }
-
-    $cache[$form_id] = $members;
+  if (isset($cache[$form_id])) {
+    return $cache[$form_id];
   }
 
+  // Confirmed Drupal members
+  $members = db_select('modularform_form_members', 'm')
+    ->fields('m')
+    ->condition('m.form_id', (int) $form_id)
+    ->condition('m.uid', 0, '>')
+    ->orderBy('m.roles', 'ASC')
+    ->orderBy('m.created_at', 'ASC')
+    ->execute()
+    ->fetchAll(PDO::FETCH_ASSOC);
+
+  if (!empty($members)) {
+    $uids = array_column($members, 'uid');
+    $users = user_load_multiple($uids);
+    foreach ($members as &$m) {
+      $uid = (int) $m['uid'];
+      $m['name']  = isset($users[$uid]) ? format_username($users[$uid]) : '?';
+      $m['email'] = isset($users[$uid]) ? $users[$uid]->mail : '';
+      $m['kind']  = 'member';  // confirmed Drupal user
+    }
+    unset($m);
+  }
+
+  // Pending invites (not yet accepted)
+  $invites = db_select('modularform_form_invites', 'i')
+    ->fields('i', ['email', 'token', 'notified', 'created_at'])
+    ->condition('i.form_id', (int) $form_id)
+    ->condition('i.status', 0)  // 0 = pending only
+    ->orderBy('i.created_at', 'ASC')
+    ->execute()
+    ->fetchAll(PDO::FETCH_ASSOC);
+
+  foreach ($invites as &$inv) {
+    $inv['kind']   = 'invite';   // external, not yet registered
+    $inv['name']   = $inv['email'];
+    $inv['roles']  = 2;          // participant by intent
+    $inv['status'] = 0;          // always pending — hasn't submitted anything
+    $inv['uid']    = 0;
+  }
+  unset($inv);
+
+  $cache[$form_id] = array_merge($members, $invites);
   return $cache[$form_id];
 }
-
 /* =============================================================================
    3. PAGE CALLBACK
    ============================================================================= */
@@ -95,34 +116,136 @@ function modularform_view_page($form_id) {
     ['group' => JS_DEFAULT, 'every_page' => FALSE]
   );
 
-  $questions = _modularform_load_questions($form_id);
-  $members = _modularform_load_members($form_id);
+  $questions  = _modularform_load_questions($form_id);
+  $members    = _modularform_load_members($form_id);
+  $stats      = _modularform_view_get_stats($form_id, $form, $members);
+  $timeline   = _modularform_view_get_timeline($form_id);
 
   $filterable_form = drupal_get_form('modularform_filterable_form', $questions);
 
   module_load_include('inc', 'modularform_analytics', 'modularform_analytics.wordcloud');
   $tag_cloud = modularform_analytics_get_tag_counts($form_id);
 
-  // ← Invoke the library hook
   $libraries = module_invoke('modularform_analytics', 'library');
   if (isset($libraries['wordcloud'])) {
     drupal_add_library('modularform_analytics', 'wordcloud');
   }
+  drupal_add_js(['modularformWordCloud' => ['words' => $tag_cloud]], 'setting');
 
-  drupal_add_js(
-    ['modularformWordCloud' => ['words' => $tag_cloud]],
-    'setting'
-  );
+  // ── Labels / display maps ─────────────────────────────────────────────────
+  $status_labels        = ['Drafted', 'Published'];
+  $status_classes       = ['mfv-badge-amber', 'mfv-badge-green'];
+  $visibility_labels    = ['Public', 'Restricted', 'Private'];
+  $visibility_icons     = ['ti-world', 'ti-lock-open', 'ti-lock'];
+  $role_labels          = ['Creator', 'Viewer', 'Participant'];
+  $member_status_labels  = ['Pending', 'Submitted'];
+  $member_status_classes = ['mfv-badge-amber', 'mfv-badge-green'];
+
+  // ── Formatted dates ───────────────────────────────────────────────────────
+  $created_date   = !empty($form['created_at'])     ? date('M j, Y',       $form['created_at'])     : '—';
+  $closes_date    = !empty($form['closes_at'])      ? date('M j, Y g:i A', $form['closes_at'])      : '—';
+  $scheduled_date = !empty($form['scheduled_date']) ? date('M j, Y g:i A', $form['scheduled_date']) : NULL;
+  $last_response  = !empty($stats['last_submitted_at'])
+    ? format_interval(REQUEST_TIME - $stats['last_submitted_at'], 1) . ' ago'
+    : 'No responses yet';
+
+  // ── Derived response counts ───────────────────────────────────────────────
+  $submitted = (int) $stats['submitted'];
+  $total     = (int) $stats['total'];
+  $pending   = $total - $submitted;
+  $pct       = $total > 0 ? round($submitted / $total * 100) : 0;
+
+  // ── Donut arc values ──────────────────────────────────────────────────────
+  $C             = 314.16;
+  $submitted_arc = $total > 0 ? round($C * ($submitted / $total), 2) : 0;
+  $pending_arc   = round($C - $submitted_arc, 2);
+
+  // ── Filterable question count ─────────────────────────────────────────────
+  $filterable_count = 0;
+  foreach ($questions as $q) {
+    if (!empty($q['is_filterable'])) $filterable_count++;
+  }
+
+  // ── Timeline bar chart max ────────────────────────────────────────────────
+  $max_count = 1;
+  foreach ($timeline as $bucket) {
+    if ((int) $bucket['count'] > $max_count) $max_count = (int) $bucket['count'];
+  }
+
+  $invite_count = 0;
+  foreach ($members as $m) {
+    if ($m['kind'] === 'invite') $invite_count++;
+  }
+
+  // ── Links ─────────────────────────────────────────────────────────────────
+  $links = [
+    'settings_edit'   => ['title' => t('Edit Settings'),    'href' => 'forms/edit/'    . $form_id],
+    'builder_preview' => ['title' => t('Preview Survey'),   'href' => 'forms/' . $form_id . '/builder/preview'],
+    'builder_edit'    => ['title' => t('Edit Survey'),      'href' => 'forms/' . $form_id . '/builder'],
+    'members'         => ['title' => t('Manage Members'),   'href' => 'forms/edit/'    . $form_id . '#edit-visibility'],
+    'invites'         => ['title' => t('Send Invites'),     'href' => 'forms/edit/'    . $form_id . '#edit-visibility'],
+    'export'          => ['title' => t('Export Responses'), 'href' => 'modularform/export/page?fids=' . $form_id],
+    'delete'          => ['title' => t('Delete Survey'),    'href' => 'forms/delete/'  . $form_id],
+  ];
+
+  // ── Resolved URLs ─────────────────────────────────────────────────────────
+  $url_preview  = url($links['builder_preview']['href']);
+  $url_edit     = url($links['builder_edit']['href']);
+  $url_settings = url($links['settings_edit']['href']);
+  $url_members  = url($links['members']['href']);
+  $url_invites  = url($links['invites']['href']);
+  $url_export   = url($links['export']['href']);
+  $url_delete   = url($links['delete']['href']);
 
   return theme('modularform_view_page', [
-    'form' => $form,
-    'questions' => $questions,
-    'members' => $members,
-    'stats' => _modularform_view_get_stats($form_id, $form, $members),
-    'timeline' => _modularform_view_get_timeline($form_id),
-    'tag_cloud' => $tag_cloud,
+    'form'            => $form,
+    'questions'       => $questions,
+    'members'         => $members,
+    'stats'           => $stats,
+    'timeline'        => $timeline,
+    'tag_cloud'       => $tag_cloud,
     'filterable_form' => $filterable_form,
-    'form_url' => url('modularform/' . $form_id),
+
+    'display' => [
+      'status_labels'         => $status_labels,
+      'status_classes'        => $status_classes,
+      'visibility_labels'     => $visibility_labels,
+      'visibility_icons'      => $visibility_icons,
+      'role_labels'           => $role_labels,
+      'member_status_labels'  => $member_status_labels,
+      'member_status_classes' => $member_status_classes,
+      'created_date'          => $created_date,
+      'closes_date'           => $closes_date,
+      'closed' => _modularform_is_closed($form),
+      'scheduled_date'        => $scheduled_date,
+      'last_response'         => $last_response,
+    ],
+
+    'counts' => [
+      'submitted'        => $submitted,
+      'total'            => $total,
+      'pending'          => $pending,
+      'pct'              => $pct,
+      'filterable_count' => $filterable_count,
+      'max_count'        => $max_count,
+      'invite_count'     => $invite_count,
+    ],
+
+    'donut' => [
+      'C'             => $C,
+      'submitted_arc' => $submitted_arc,
+      'pending_arc'   => $pending_arc,
+    ],
+
+    'urls' => [
+      'preview'  => $url_preview,
+      'edit'     => $url_edit,
+      'settings' => $url_settings,
+      'members'  => $url_members,
+      'invites'  => $url_invites,
+      'export'   => $url_export,
+      'delete'   => $url_delete,
+    ],
   ]);
 }
 
