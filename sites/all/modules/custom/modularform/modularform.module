@@ -68,7 +68,7 @@ function modularform_menu() {
     'title' => 'View Form',
     'page callback' => 'modularform_view_page',
     'page arguments' => [2],
-    'access callback' => TRUE
+    'access callback' => TRUE,
   ];
 
   $items['forms/edit/%'] = [
@@ -215,42 +215,42 @@ function modularform_menu() {
   ];
 
   $items['modularform/filter/form-search'] = [
-    'title'          => 'Response form search',
+    'title' => 'Response form search',
     'description' => 'Response form search ajax',
-    'page callback'  => 'modularform_filter_form_search',
-    'access callback'=> TRUE,
-    'file'           => 'includes/response_list.inc',
-    'type'           => MENU_CALLBACK,
+    'page callback' => 'modularform_filter_form_search',
+    'access callback' => TRUE,
+    'file' => 'includes/response_list.inc',
+    'type' => MENU_CALLBACK,
   ];
 
   $items['modularform/filter/questions'] = [
-    'title'          => 'Response question search',
-    'page callback'  => 'modularform_filter_questions',
-    'access callback'=> TRUE,
-    'file'           => 'includes/response_list.inc',
-    'type'           => MENU_CALLBACK,
+    'title' => 'Response question search',
+    'page callback' => 'modularform_filter_questions',
+    'access callback' => TRUE,
+    'file' => 'includes/response_list.inc',
+    'type' => MENU_CALLBACK,
   ];
 
   $items['modularform/filter/answer-values'] = [
-    'title'            => 'Response answer values',
-    'page callback'    => 'modularform_filter_answer_values',
-    'access callback'  => TRUE,
-    'file'             => 'includes/response_list.inc',
-    'type'             => MENU_CALLBACK,
+    'title' => 'Response answer values',
+    'page callback' => 'modularform_filter_answer_values',
+    'access callback' => TRUE,
+    'file' => 'includes/response_list.inc',
+    'type' => MENU_CALLBACK,
   ];
 
-  $items['forms/response/list/ajax'] = array(
-    'title'            => '',
-    'page callback'    => 'modularform_response_list_ajax',
-    'access callback'  => TRUE,
-    'file'             => 'includes/response_list.inc',
-    'type'             => MENU_CALLBACK,
-  );
+  $items['forms/response/list/ajax'] = [
+    'title' => '',
+    'page callback' => 'modularform_response_list_ajax',
+    'access callback' => TRUE,
+    'file' => 'includes/response_list.inc',
+    'type' => MENU_CALLBACK,
+  ];
 
   $items['api/modularform/auth'] = [
-    'page callback'   => 'modularform_api_auth',
+    'page callback' => 'modularform_api_auth',
     'access callback' => TRUE,
-    'type'            => MENU_CALLBACK,
+    'type' => MENU_CALLBACK,
   ];
   return $items;
 }
@@ -323,24 +323,22 @@ function _modularform_is_form_admin() {
  */
 function _modularform_form_member_role($fid) {
   global $user;
+  $cache = &drupal_static(__FUNCTION__, []);
 
-  // Site admin has implicit creator-level access on every form.
-  if (_modularform_is_site_admin()) {
-    return 0;
+  if (array_key_exists($fid, $cache)) {
+    return $cache[$fid];
   }
 
-  // Check created_by first.
-  $form = db_select('modularform_forms', 'f')
-    ->fields('f', ['created_by'])
-    ->condition('f.id', $fid)
-    ->execute()
-    ->fetchObject();
+  if (_modularform_is_site_admin()) {
+    return $cache[$fid] = 0;
+  }
+
+  $form = _modularform_get_form($fid);
 
   if ($form && $form->created_by == $user->uid) {
-    return 0;
+    return $cache[$fid] = 0;
   }
 
-  // Fall back to modularform_form_members.
   $member = db_select('modularform_form_members', 'fm')
     ->fields('fm', ['roles'])
     ->condition('fm.form_id', $fid)
@@ -348,7 +346,42 @@ function _modularform_form_member_role($fid) {
     ->execute()
     ->fetchObject();
 
-  return $member ? (int) $member->roles : FALSE;
+  return $cache[$fid] = ($member ? (int) $member->roles : FALSE);
+}
+
+function _modularform_get_form($fid) {
+  $cache = &drupal_static(__FUNCTION__, []);
+
+  if (!array_key_exists($fid, $cache)) {
+    $cache[$fid] = db_select('modularform_forms', 'f')
+      ->fields('f', [
+        'id',
+        'visibility',
+        'status',
+        'closes',
+        'closes_at',
+        'created_by',
+      ])
+      ->condition('f.id', $fid)
+      ->execute()
+      ->fetchObject() ?: NULL;
+  }
+
+  return $cache[$fid];
+}
+
+function _modularform_get_response($id) {
+  $cache = &drupal_static(__FUNCTION__, []);
+
+  if (!array_key_exists($id, $cache)) {
+    $cache[$id] = db_select('modularform_responses', 'r')
+      ->fields('r', ['form_id', 'user_id'])
+      ->condition('r.id', $id)
+      ->execute()
+      ->fetchObject() ?: NULL;
+  }
+
+  return $cache[$id];
 }
 
 // =====================
@@ -363,15 +396,8 @@ function _modularform_form_member_role($fid) {
  * - others: requires 'view forms' permission.
  */
 function form_view_access() {
-  if (_modularform_is_site_admin()) {
-    return TRUE;
-  }
-  if (_modularform_is_form_admin()) {
-    return user_access('view forms');
-  }
-  return user_access('view forms');  // regular users can still be granted this
+  return _modularform_is_site_admin() || user_access('view forms');
 }
-
 /**
  * Access callback: create a new form.
  *
@@ -440,22 +466,15 @@ function form_delete_access($fid = NULL) {
  * @param int $fid Form ID from the URL wildcard.
  */
 function modularform_fill_access($fid) {
-  watchdog('modularform', 'fill_access called with fid=@fid, user=@uid', [
-    '@fid' => $fid,
-    '@uid' => $GLOBALS['user']->uid,
-  ]);
   if (_modularform_is_site_admin()) {
     return TRUE;
   }
+
   if (!user_access('answer forms')) {
     return FALSE;
   }
 
-  $form = db_select('modularform_forms', 'f')
-    ->fields('f', ['id', 'visibility', 'status', 'closed', 'closes', 'closes_at'])
-    ->condition('f.id', $fid)
-    ->execute()
-    ->fetchObject();
+  $form = _modularform_get_form($fid);
 
   if (!$form) {
     return FALSE;
@@ -474,13 +493,18 @@ function modularform_fill_access($fid) {
     return TRUE;
   }
 
+  global $user;
+
+  if ($form->created_by == $user->uid) {
+    return TRUE;
+  }
+
   // Private form — validate invitation token.
   $token = isset($_GET['token']) ? check_plain($_GET['token']) : '';
   if (empty($token)) {
     return FALSE;
   }
 
-  global $user;
   $record = db_select('modularform_form_members', 'mfm')
     ->fields('mfm')
     ->condition('form_id', $fid)
@@ -496,8 +520,7 @@ function modularform_fill_access($fid) {
 /**
  * Determine whether a form is closed.
  *
- * A form is closed when either:
- *  - it has been manually closed (closed == 1), or
+ * A form is closed when:
  *  - it has a closing date enabled and that date has passed.
  *
  * @param object|array $form
@@ -507,13 +530,8 @@ function modularform_fill_access($fid) {
  */
 function _modularform_is_closed($form) {
   // Support both object and array (fetchObject vs fetchAssoc).
-  $closed    = is_array($form) ? $form['closed']    : $form->closed;
-  $closes    = is_array($form) ? $form['closes']    : $form->closes;
+  $closes = is_array($form) ? $form['closes'] : $form->closes;
   $closes_at = is_array($form) ? $form['closes_at'] : $form->closes_at;
-
-  if ($closed) {
-    return TRUE;
-  }
 
   if ($closes && !empty($closes_at) && REQUEST_TIME >= (int) $closes_at) {
     return TRUE;
@@ -536,13 +554,7 @@ function _modularform_is_closed($form) {
  * filtered in page callback).
  */
 function response_list_access() {
-  if (_modularform_is_site_admin()) {
-    return TRUE;
-  }
-  if (_modularform_is_form_admin()) {
-    return user_access('view responses');
-  }
-  return user_access('view responses');
+    return _modularform_is_site_admin() || user_access('view responses');
 }
 
 /**
@@ -563,11 +575,7 @@ function response_view_access($id) {
     return FALSE;
   }
 
-  $response = db_select('modularform_responses', 'r')
-    ->fields('r', ['form_id', 'user_id'])
-    ->condition('r.id', $id)
-    ->execute()
-    ->fetchObject();
+  $response = _modularform_get_response($id);
 
   if (!$response) {
     return FALSE;
@@ -606,20 +614,12 @@ function response_edit_access($id) {
   if (!user_access('edit responses')) {
     return FALSE;
   }
-  $response = db_select('modularform_responses', 'r')
-    ->fields('r', ['form_id', 'user_id'])
-    ->condition('r.id', $id)
-    ->execute()
-    ->fetchObject();
+  $response = _modularform_get_response($id);
   if (!$response) {
     return FALSE;
   }
 
-  $form = db_select('modularform_forms', 'f')
-    ->fields('f', ['id', 'status', 'closed', 'closes', 'closes_at'])
-    ->condition('f.id', $response->form_id)
-    ->execute()
-    ->fetchObject();
+  $form = _modularform_get_form($response->form_id);
   if (!$form || (int) $form->status !== 1 || _modularform_is_closed($form)) {
     return FALSE;
   }
@@ -656,11 +656,7 @@ function response_delete_access($id) {
     return FALSE;
   }
 
-  $response = db_select('modularform_responses', 'r')
-    ->fields('r', ['form_id', 'user_id'])
-    ->condition('r.id', $id)
-    ->execute()
-    ->fetchObject();
+  $response = _modularform_get_response($id);
 
   if (!$response) {
     return FALSE;
@@ -842,25 +838,25 @@ function modularform_theme() {
     ],
     'modularform_view_page' => [
       'variables' => [
-        'form'            => NULL,
-        'questions'       => [],
-        'members'         => [],
-        'stats'           => [],
-        'timeline'        => [],
-        'tag_cloud'       => [],
+        'form' => NULL,
+        'questions' => [],
+        'members' => [],
+        'stats' => [],
+        'timeline' => [],
+        'tag_cloud' => [],
         'filterable_form' => NULL,
-        'display'         => [],
-        'counts'          => [],
-        'donut'           => [],
-        'urls'            => [],
+        'display' => [],
+        'counts' => [],
+        'donut' => [],
+        'urls' => [],
       ],
       'template' => 'modularform-view-page',
-      'path'     => drupal_get_path('module', 'modularform') . '/templates',
+      'path' => drupal_get_path('module', 'modularform') . '/templates',
     ],
     'modularform_people_list' => [
       'variables' => ['people' => []],
-      'template'  => 'modularform-people-list',
-      'path'      => drupal_get_path('module', 'modularform') . '/templates',
+      'template' => 'modularform-people-list',
+      'path' => drupal_get_path('module', 'modularform') . '/templates',
     ],
   ];
 }
@@ -1072,6 +1068,7 @@ function modularform_entity_update($entity, $type) {
     }
   }
 }
+
 /**
  * Implements hook_entity_delete().
  */
@@ -1090,8 +1087,9 @@ function modularform_entity_delete($entity, $type) {
     }
   }
 }
+
 function modularform_restws_resource_info_alter(&$info) {
-  $info['modularform_response']['class']     = 'ModularformResponseResource';
+  $info['modularform_response']['class'] = 'ModularformResponseResource';
   $info['modularform_response']['menu_path'] = 'api/modularform/response';
 }
 
@@ -1107,7 +1105,6 @@ function modularform_restws_response_alter(&$values, $function, $format_name, $r
   $values = $resource_controller->read($id);
 }
 
-
 function modularform_file_download($uri) {
   if (strpos($uri, 'private://modularform/') !== 0 &&
     strpos($uri, 'temporary://modularform') !== 0) {
@@ -1119,7 +1116,7 @@ function modularform_file_download($uri) {
     $file = reset($files);
     if ($file) {
       return [
-        'Content-Type'        => $file->filemime,
+        'Content-Type' => $file->filemime,
         'Content-Disposition' => 'attachment; filename="' . $file->filename . '"',
       ];
     }
