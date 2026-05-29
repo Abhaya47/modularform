@@ -358,7 +358,6 @@ function _modularform_get_form($fid) {
         'id',
         'visibility',
         'status',
-        'closes',
         'closes_at',
         'created_by',
       ])
@@ -530,10 +529,9 @@ function modularform_fill_access($fid) {
  */
 function _modularform_is_closed($form) {
   // Support both object and array (fetchObject vs fetchAssoc).
-  $closes = is_array($form) ? $form['closes'] : $form->closes;
   $closes_at = is_array($form) ? $form['closes_at'] : $form->closes_at;
 
-  if ($closes && !empty($closes_at) && REQUEST_TIME >= (int) $closes_at) {
+  if (!empty($closes_at) && REQUEST_TIME >= (int) $closes_at) {
     return TRUE;
   }
 
