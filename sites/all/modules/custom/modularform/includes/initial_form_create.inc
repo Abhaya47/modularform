@@ -163,24 +163,8 @@ function modularform_create_form($form, &$form_state, $id = NULL) {
 
       // Existing people rendered as a deletable list
       if (!empty($people_list)) {
-        $items_html = '<ul class="modularform-people-existing" id="modularform-people-existing">';
-        foreach ($people_list as $person) {
-          // Parse role from stored value if present (uid:X:ROLE)
-          $role = isset($person['role']) ? (int) $person['role'] : 2;
-          $items_html .= '<li data-value="' . check_plain($person['value']) . '">'
-            . check_plain($person['label'])
-            . ' <select class="modularform-people-role" data-for="' . check_plain($person['value']) . '">'
-            . '<option value="2"' . ($role === 2 ? ' selected' : '') . '>' . t('Participant') . '</option>'
-            . '<option value="1"' . ($role === 1 ? ' selected' : '') . '>' . t('Viewer') . '</option>'
-            . '<option value="0"' . ($role === 0 ? ' selected' : '') . '>' . t('Creator') . '</option>'
-            . '</select>'
-            . ' <span class="modularform-people-delete" title="' . t('Remove') . '">×</span>'
-            . '</li>';
-        }
-        $items_html .= '</ul>';
-
         $form['visibility_options_wrapper']['people_wrapper']['existing_list'] = [
-          '#markup' => $items_html,
+          '#markup' => theme('modularform_people_list', ['people' => $people_list]),
         ];
       }
 
@@ -215,11 +199,12 @@ function modularform_create_form($form, &$form_state, $id = NULL) {
         'modularform',
         'select2',
       ];
-      $form['visibility_options_wrapper']['people_wrapper']['#attached']['js'][] = [
-        'data' => drupal_get_path('module', 'modularform') . '/js/modularform.people.js',
-        'type' => 'file',
+      $form['visibility_options_wrapper']['people_wrapper']['#attached']['js'][drupal_get_path('module', 'modularform') . '/js/modularform.people.js'] = [
+        'type'   => 'file',
         'weight' => 10,
       ];
+
+
     }
   }
 

@@ -857,6 +857,11 @@ function modularform_theme() {
       'template' => 'modularform-view-page',
       'path'     => drupal_get_path('module', 'modularform') . '/templates',
     ],
+    'modularform_people_list' => [
+      'variables' => ['people' => []],
+      'template'  => 'modularform-people-list',
+      'path'      => drupal_get_path('module', 'modularform') . '/templates',
+    ],
   ];
 }
 

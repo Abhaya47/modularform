@@ -334,3 +334,162 @@
   .mf-col-2 { grid-template-columns: 1fr; }
   .mf-toggle-row { flex-direction: column; gap: 10px; }
 }
+
+
+/* ?? People list ???????????????????????????????????????????????????????????? */
+
+.mf-plist-wrap {
+  border: 1px solid #e4e4e4;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  margin-top: 10px;
+}
+
+.mf-plist-header {
+  padding: 10px 12px;
+  background: #f9f9f9;
+  border-bottom: 1px solid #e4e4e4;
+}
+
+.mf-plist-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mf-plist-search-icon {
+  color: #aaa;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.mf-plist-search {
+  flex: 1;
+  border: none !important;
+  background: transparent !important;
+  padding: 4px 0 !important;
+  font-size: 13px !important;
+  color: #111 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  width: auto !important;
+}
+
+.mf-plist-search::placeholder {
+  color: #bbb;
+}
+
+.mf-plist-count {
+  font-size: 11px;
+  color: #aaa;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.mf-plist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #ddd transparent;
+}
+
+.mf-plist::-webkit-scrollbar {
+  width: 4px;
+}
+
+.mf-plist::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mf-plist::-webkit-scrollbar-thumb {
+  background: #ddd;
+  border-radius: 4px;
+}
+
+.mf-plist-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid #f3f3f3;
+  transition: background 0.1s;
+}
+
+.mf-plist-item:last-child {
+  border-bottom: none;
+}
+
+.mf-plist-item:hover {
+  background: #fafafa;
+}
+
+.mf-plist-item.mf-plist-removed {
+  opacity: 0.4;
+  text-decoration: line-through;
+  pointer-events: none;
+}
+
+.mf-plist-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #EEEDFE;
+  color: #534AB7;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mf-plist-label {
+  flex: 1;
+  font-size: 13px;
+  color: #222;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.mf-plist-role {
+  font-size: 12px;
+  border: 1px solid #e0e0e0 !important;
+  border-radius: 5px !important;
+  padding: 3px 6px !important;
+  background: #fff !important;
+  color: #444 !important;
+  width: auto !important;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.mf-plist-delete {
+  background: none;
+  border: none;
+  color: #ccc;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
+}
+
+.mf-plist-delete:hover {
+  color: #e53935;
+  background: #fdecea;
+}
+
+.mf-plist-empty {
+  padding: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: #aaa;
+}
