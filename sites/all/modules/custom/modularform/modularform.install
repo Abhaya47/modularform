@@ -382,6 +382,7 @@ function modularform_schema() {
         'size' => 'tiny',
         'unsigned' => TRUE,
         'not null' => TRUE,
+        'default' => 2,
       ],
       'status' => [
         'description' => t('Status of their response 0 for not submitted, 1 for submitted'),
@@ -917,4 +918,19 @@ function modularform_update_7012() {
   ];
 
   db_create_table('modularform_answer_files', $schema);
+}
+
+function modularform_update_7013() {
+  $table = 'modularform_form_members';
+
+  if (!db_field_exists($table, 'roles')) {
+    db_add_field($table, 'roles', [
+      'description' => t('Role 0 for creator, 1 for viewer, 2 for participant'),
+      'type' => 'int',
+      'size' => 'tiny',
+      'unsigned' => TRUE,
+      'not null' => TRUE,
+      'default' => 2,
+    ]);
+  }
 }

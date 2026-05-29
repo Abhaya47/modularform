@@ -5,16 +5,28 @@
       // ── Existing people list — delete on click ──────────────────────────
       $('#modularform-people-existing', context).once('modularform-people-existing')
         .on('click', '.modularform-people-delete', function () {
-          var $li    = $(this).closest('li');
-          var value  = $li.data('value');
+          var $li   = $(this).closest('li');
+          var value = $li.data('value');  // still uid:X or email:Y (without role)
           var $input = $('#modularform-people-input');
-
-          // Strikethrough
-          $li.css('text-decoration', 'line-through').find('.modularform-people-delete').hide();
-
-          // Remove from hidden field
+          $li.css('text-decoration', 'line-through').find('.modularform-people-delete, .modularform-people-role').hide();
+          // Remove any entry that starts with this value
           var current = $input.val().split(',').filter(function (v) {
-            return v.trim() !== '' && v.trim() !== value;
+            return v.trim() !== '' && v.trim().indexOf(value) !== 0;
+          });
+          $input.val(current.join(','));
+        })
+        // Role change handler — update the role suffix in hidden field
+        .on('change', '.modularform-people-role', function () {
+          var $li    = $(this).closest('li');
+          var value  = $li.data('value');  // uid:X or email:Y
+          var role   = $(this).val();
+          var $input = $('#modularform-people-input');
+          var current = $input.val().split(',').map(function (v) {
+            v = v.trim();
+            if (v.indexOf(value) === 0) {
+              return value + ':' + role;  // replace role suffix
+            }
+            return v;
           });
           $input.val(current.join(','));
         });
@@ -47,13 +59,15 @@
         var current = $input.val()
           ? $input.val().split(',').filter(function (v) { return v.trim() !== ''; })
           : [];
-
         chosen.forEach(function (item) {
-          if (current.indexOf(item.id) === -1) {
-            current.push(item.id);
+          var withRole = item.id + ':2';  // default role: participant
+          var alreadyIn = current.some(function (v) {
+            return v.indexOf(item.id) === 0;
+          });
+          if (!alreadyIn) {
+            current.push(withRole);
           }
         });
-
         $input.val(current.join(','));
       });
     }
