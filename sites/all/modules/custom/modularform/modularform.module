@@ -452,7 +452,7 @@ function modularform_fill_access($fid) {
   }
 
   $form = db_select('modularform_forms', 'f')
-    ->fields('f', ['id', 'visibility', 'status'])
+    ->fields('f', ['id', 'visibility', 'status', 'closed', 'closes', 'closes_at'])
     ->condition('f.id', $fid)
     ->execute()
     ->fetchObject();
@@ -461,7 +461,11 @@ function modularform_fill_access($fid) {
     return FALSE;
   }
 
-  if ($form->status!=1){
+  if ((int) $form->status !== 1) {
+    return FALSE;
+  }
+
+  if (_modularform_is_closed($form)) {
     return FALSE;
   }
 
@@ -487,6 +491,35 @@ function modularform_fill_access($fid) {
     ->fetchObject();
 
   return !empty($record);
+}
+
+/**
+ * Determine whether a form is closed.
+ *
+ * A form is closed when either:
+ *  - it has been manually closed (closed == 1), or
+ *  - it has a closing date enabled and that date has passed.
+ *
+ * @param object|array $form
+ *   Form row from the DB (object or associative array).
+ *
+ * @return bool
+ */
+function _modularform_is_closed($form) {
+  // Support both object and array (fetchObject vs fetchAssoc).
+  $closed    = is_array($form) ? $form['closed']    : $form->closed;
+  $closes    = is_array($form) ? $form['closes']    : $form->closes;
+  $closes_at = is_array($form) ? $form['closes_at'] : $form->closes_at;
+
+  if ($closed) {
+    return TRUE;
+  }
+
+  if ($closes && !empty($closes_at) && REQUEST_TIME >= (int) $closes_at) {
+    return TRUE;
+  }
+
+  return FALSE;
 }
 
 // =====================
@@ -573,18 +606,25 @@ function response_edit_access($id) {
   if (!user_access('edit responses')) {
     return FALSE;
   }
-
   $response = db_select('modularform_responses', 'r')
     ->fields('r', ['form_id', 'user_id'])
     ->condition('r.id', $id)
     ->execute()
     ->fetchObject();
-
   if (!$response) {
     return FALSE;
   }
 
-  // admin role: only the form creator can edit responses.
+  $form = db_select('modularform_forms', 'f')
+    ->fields('f', ['id', 'status', 'closed', 'closes', 'closes_at'])
+    ->condition('f.id', $response->form_id)
+    ->execute()
+    ->fetchObject();
+  if (!$form || (int) $form->status !== 1 || _modularform_is_closed($form)) {
+    return FALSE;
+  }
+
+  // Form creator can edit any response.
   if (_modularform_is_form_admin()) {
     if (_modularform_form_member_role($response->form_id) === 0) {
       return TRUE;
@@ -596,7 +636,6 @@ function response_edit_access($id) {
   if ($response->user_id == 0 || $response->user_id != $user->uid) {
     return FALSE;
   }
-
   return TRUE;
 }
 
@@ -808,10 +847,12 @@ function modularform_theme() {
         'members'         => [],
         'stats'           => [],
         'timeline'        => [],
-        'tag_cloud' => [],
-        'timeline_period' => 'day',
-        'filterable_form' => '',
-        'form_url'        => '',
+        'tag_cloud'       => [],
+        'filterable_form' => NULL,
+        'display'         => [],
+        'counts'          => [],
+        'donut'           => [],
+        'urls'            => [],
       ],
       'template' => 'modularform-view-page',
       'path'     => drupal_get_path('module', 'modularform') . '/templates',
@@ -987,33 +1028,45 @@ function modularform_entity_insert($entity, $type) {
  * Implements hook_entity_update().
  */
 function modularform_entity_update($entity, $type) {
-  // Handle form entity
   if ($type === 'modularform_form') {
     if (module_exists('modularform_search')) {
       modularform_search_solr_sync($entity, $type);
     }
-    // Notifications — only when status transitions to active (1 -> was not 1)
+
+    // Fire notifications only when status transitions to published
     if ((int) $entity->status === 1 && (int) $entity->original->status !== 1) {
       $now = (new DateTime('now', new DateTimeZone('UTC')))->getTimestamp();
+
+      // Restricted members (notified = 0 only)
       $rows = db_select('modularform_form_members', 'm')
         ->fields('m', ['uid', 'token'])
         ->condition('m.form_id', $entity->id)
         ->condition('m.roles', 2)
+        ->condition('m.notified', 0)
         ->execute()
         ->fetchAll(PDO::FETCH_ASSOC);
-      _modularform_queue_restricted_notifications($entity->id, $entity, $rows);
+
+      if (!empty($rows)) {
+        _modularform_queue_restricted_notifications($entity->id, $entity, $rows);
+
+        db_update('modularform_form_members')
+          ->fields(['notified' => 1, 'updated_at' => $now])
+          ->condition('form_id', $entity->id)
+          ->condition('uid', array_column($rows, 'uid'), 'IN')
+          ->execute();
+      }
+
+      // Private members + invites (notified = 0 only)
       _modularform_queue_private_notifications($entity->id, $entity, $now);
     }
   }
 
-  // Handle response entity
   if ($type === 'modularform_response') {
     if (module_exists('modularform_search')) {
       modularform_search_solr_sync($entity, $type);
     }
   }
 }
-
 /**
  * Implements hook_entity_delete().
  */

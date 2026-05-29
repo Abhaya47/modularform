@@ -68,89 +68,148 @@ function modularform_create_form($form, &$form_state, $id = NULL) {
   ];
 
   // ── Visibility ────────────────────────────────────────────────────────────
-
-  $form['visibility'] = [
-    '#type' => 'select',
-    '#title' => t('Visibility'),
-    '#options' => [
-      0 => t('Public'),
-      1 => t('Restricted (by role)'),
-      2 => t('Private (specific people)'),
-    ],
-    '#required' => FALSE,
-    '#default_value' => $val('visibility', 0),
-    '#ajax' => [
-      'callback' => 'modularform_visibility_ajax',
-      'wrapper' => 'visibility-options-wrapper',
-    ],
-  ];
-
-  $form['visibility_options_wrapper'] = [
-    '#type' => 'container',
-    '#attributes' => ['id' => 'visibility-options-wrapper'],
-  ];
-
-  $visibility = $val('visibility', 0);
-  $text_map = modularform_visibility_get_text_map();
-  $visibility_text = isset($text_map[$visibility]) ? $text_map[$visibility] : 'public';
-  if ($visibility_text === 'restricted') {
-    $roles = array_diff_key(user_roles(TRUE), [
-      DRUPAL_AUTHENTICATED_RID => TRUE,
-    ]);
-    $form['visibility_options_wrapper']['roles'] = [
-      '#type' => 'checkboxes',
-      '#title' => t('Allowed roles'),
-      '#options' => $roles,
-      '#required' => TRUE,
-      '#default_value' => $val('roles', []),
-      '#description' => t('Members of your organization with these roles can access this form.'),
-    ];
-  }
-
-  if ($visibility_text === 'private') {
-    $form['visibility_options_wrapper']['people_wrapper'] = [
-      '#type' => 'container',
-      '#tree' => TRUE,
-      '#attributes' => ['class' => ['modularform-people-wrapper']],
-    ];
-
-    $form['visibility_options_wrapper']['people_wrapper']['label'] = [
-      '#markup' => '<label>' . t('Add people') . '</label>' .
-        '<p class="description">' .
-        t('Search by username or email. Unknown emails will receive a registration invitation.') .
-        '</p>',
-    ];
-
-    // Visible anchor input — Select2 attaches to this element
-    $form['visibility_options_wrapper']['people_wrapper']['people_select'] = [
-      '#type' => 'textfield',
-      '#title' => '',
-      '#attributes' => [
-        'id' => 'modularform-people-select',
-        'class' => ['modularform-people-select'],
-        'data-ac-url' => url('modularform/user-autocomplete'),
-        'autocomplete' => 'on',
+  if ($id) {
+    $form['visibility'] = [
+      '#type' => 'select',
+      '#title' => t('Visibility'),
+      '#options' => [
+        0 => t('Public'),
+        1 => t('Restricted (by role)'),
+        2 => t('Private (specific people)'),
+      ],
+      '#required' => FALSE,
+      '#default_value' => $val('visibility', 0),
+      '#ajax' => [
+        'callback' => 'modularform_visibility_ajax',
+        'wrapper'  => 'visibility-options-wrapper',
       ],
     ];
 
-    // Hidden field that actually holds the value Drupal submits
-    $form['visibility_options_wrapper']['people_wrapper']['people_value'] = [
-      '#type' => 'hidden',
-      '#default_value' => '',
-      '#attributes' => [
-        'id' => 'modularform-people-input',
-        'class' => ['modularform-people-hidden'],
-      ],
+    $form['visibility_options_wrapper'] = [
+      '#type'       => 'container',
+      '#attributes' => ['id' => 'visibility-options-wrapper'],
     ];
 
-    $form['visibility_options_wrapper']['people_wrapper']['#attached']['library'][] = [
-      'modularform', 'select2',  // loads select2 first
-    ];
-    $form['visibility_options_wrapper']['people_wrapper']['#attached']['js'][] = [
-      'data' => drupal_get_path('module', 'modularform') . '/js/modularform.people.js',
-      'type' => 'file',
-      'weight' => 10,
-    ];
+    $visibility      = $val('visibility', 0);
+    $text_map        = modularform_visibility_get_text_map();
+    $visibility_text = isset($text_map[$visibility]) ? $text_map[$visibility] : 'public';
+
+    if ($visibility_text === 'restricted') {
+      $roles = array_diff_key(user_roles(TRUE), [DRUPAL_AUTHENTICATED_RID => TRUE]);
+      $form['visibility_options_wrapper']['roles'] = [
+        '#type'          => 'checkboxes',
+        '#title'         => t('Allowed roles'),
+        '#options'       => $roles,
+        '#required'      => TRUE,
+        '#default_value' => $val('roles', []),
+        '#description'   => t('Members of your organization with these roles can access this form.'),
+      ];
+    }
+
+    if ($visibility_text === 'private') {
+      // ── Load existing members + pending invites ──────────────────────────
+      $existing_members = db_select('modularform_form_members', 'm')
+        ->fields('m', ['uid', 'token'])
+        ->condition('m.form_id', $id)
+        ->condition('m.roles', 2)
+        ->condition('m.uid', 0, '>')
+        ->execute()
+        ->fetchAll(PDO::FETCH_ASSOC);
+
+      $existing_invites = db_select('modularform_form_invites', 'i')
+        ->fields('i', ['email', 'token'])
+        ->condition('i.form_id', $id)
+        ->condition('i.status', 0)   // 0 = pending, not yet consumed
+        ->execute()
+        ->fetchAll(PDO::FETCH_ASSOC);
+
+      // Build display list: [['label' => '...', 'value' => 'uid:X or email:Y'], ...]
+      $people_list = [];
+
+      if (!empty($existing_members)) {
+        $uids     = array_column($existing_members, 'uid');
+        $accounts = user_load_multiple($uids);
+        foreach ($existing_members as $row) {
+          $account = isset($accounts[$row['uid']]) ? $accounts[$row['uid']] : NULL;
+          if (!$account) {
+            continue;
+          }
+          $people_list[] = [
+            'label' => $account->name . ' (' . $account->mail . ')',
+            'value' => 'uid:' . $row['uid'],
+          ];
+        }
+      }
+
+      foreach ($existing_invites as $row) {
+        $people_list[] = [
+          'label' => $row['email'],
+          'value' => 'email:' . $row['email'],
+        ];
+      }
+
+      $form['visibility_options_wrapper']['people_wrapper'] = [
+        '#type'       => 'container',
+        '#tree'       => TRUE,
+        '#attributes' => ['class' => ['modularform-people-wrapper']],
+      ];
+
+      $form['visibility_options_wrapper']['people_wrapper']['label'] = [
+        '#markup' => '<label>' . t('Add people') . '</label>' .
+          '<p class="description">' .
+          t('Search by username or email. Unknown emails will receive a registration invitation.') .
+          '</p>',
+      ];
+
+      // Existing people rendered as a deletable list
+      if (!empty($people_list)) {
+        $items_html = '<ul class="modularform-people-existing" id="modularform-people-existing">';
+        foreach ($people_list as $person) {
+          $items_html .= '<li data-value="' . check_plain($person['value']) . '">'
+            . check_plain($person['label'])
+            . ' <span class="modularform-people-delete" title="' . t('Remove') . '">✕</span>'
+            . '</li>';
+        }
+        $items_html .= '</ul>';
+
+        $form['visibility_options_wrapper']['people_wrapper']['existing_list'] = [
+          '#markup' => $items_html,
+        ];
+      }
+
+      // Visible anchor input — Select2 attaches here
+      $form['visibility_options_wrapper']['people_wrapper']['people_select'] = [
+        '#type'       => 'textfield',
+        '#title'      => '',
+        '#attributes' => [
+          'id'           => 'modularform-people-select',
+          'class'        => ['modularform-people-select'],
+          'data-ac-url'  => url('modularform/user-autocomplete'),
+          'autocomplete' => 'on',
+        ],
+      ];
+
+      // Hidden field carries surviving + new entries; JS manages it
+      // Pre-populated with current members so absence-equals-delete works on submit
+      $initial_value = implode(',', array_column($people_list, 'value'));
+      $form['visibility_options_wrapper']['people_wrapper']['people_value'] = [
+        '#type'          => 'hidden',
+        '#default_value' => $initial_value,
+        '#attributes'    => [
+          'id'    => 'modularform-people-input',
+          'class' => ['modularform-people-hidden'],
+        ],
+      ];
+
+      $form['visibility_options_wrapper']['people_wrapper']['#attached']['library'][] = [
+        'modularform', 'select2',
+      ];
+      $form['visibility_options_wrapper']['people_wrapper']['#attached']['js'][] = [
+        'data'   => drupal_get_path('module', 'modularform') . '/js/modularform.people.js',
+        'type'   => 'file',
+        'weight' => 10,
+      ];
+    }
   }
 
   // ── Scheduled ─────────────────────────────────────────────────────────────
@@ -324,22 +383,44 @@ function modularform_create_form_submit($form, &$form_state) {
 
     $uids_to_add = [];
     if (isset($is_editing)) {
-      // Edit: sync existing rows, get back only the new uids.
       $uids_to_add = _modularform_restricted_people_edit($form_id, $selected_rids, $entity, $now);
     }
 
-    // Create: $uids_to_add is empty, add function resolves the full list.
-    // Edit:   $uids_to_add is the diff, add function inserts only those.
     _modularform_restricted_people_add($form_id, $selected_rids, $entity, $now, $uids_to_add);
+
+    // If already published, notify any unnotified members immediately.
+    if (isset($is_editing) && (int) $entity->status === 1) {
+      $rows = db_select('modularform_form_members', 'm')
+        ->fields('m', ['uid', 'token'])
+        ->condition('m.form_id', $form_id)
+        ->condition('m.roles', 2)
+        ->condition('m.notified', 0)
+        ->execute()
+        ->fetchAll(PDO::FETCH_ASSOC);
+
+      if (!empty($rows)) {
+        _modularform_queue_restricted_notifications($form_id, $entity, $rows);
+        db_update('modularform_form_members')
+          ->fields(['notified' => 1, 'updated_at' => $now])
+          ->condition('form_id', $form_id)
+          ->condition('uid', array_column($rows, 'uid'), 'IN')
+          ->execute();
+      }
+    }
   }
 
   elseif ($visibility_text === 'private') {
     $raw = $values['visibility_options_wrapper']['people_wrapper']['people_value'] ?? '';
 
     if (isset($is_editing)) {
-      $live_people = _modularform_edit_private_people($form_id, $raw, $entity, $now);
+      _modularform_edit_private_people($form_id, $raw, $entity, $now);
     }
     _modularform_save_private_people($form_id, $raw, $entity, $now);
+
+    // If already published, notify any unnotified members/invites immediately.
+    if (isset($is_editing) && (int) $entity->status === 1) {
+      _modularform_queue_private_notifications($form_id, $entity, $now);
+    }
   }
 
   $entity->save();
@@ -584,41 +665,37 @@ function _modularform_restricted_people_edit($form_id, array $selected_rids, $en
  *   path).
  */
 function _modularform_restricted_people_add($form_id, array $selected_rids, $entity, $now, array $uids_to_add = []) {
+  // On create path: resolve from roles. On edit path: diff is passed in directly.
+  if (empty($uids_to_add)) {
+    $uids_to_add = _modularform_get_protected_people($selected_rids);
+  }
+
   if (empty($uids_to_add)) {
     return;
   }
-  $uids_to_add = _modularform_get_protected_people($selected_rids);
 
   $query = db_insert('modularform_form_members')
-    ->fields([
-      'form_id',
-      'uid',
-      'roles',
-      'status',
-      'token',
-      'created_at',
-      'updated_at',
-    ]);
+    ->fields(['form_id', 'uid', 'roles', 'status', 'token', 'notified', 'created_at', 'updated_at']);
 
   $new_rows = [];
   foreach ($uids_to_add as $uid) {
-    $token = hash('sha256', $form_id . '_' . $uid . '_' . drupal_random_key(16));
+    $token      = hash('sha256', $form_id . '_' . $uid . '_' . drupal_random_key(16));
     $new_rows[] = ['uid' => (int) $uid, 'token' => $token];
 
     $query->values([
-      'form_id' => $form_id,
-      'uid' => (int) $uid,
-      'roles' => 2,
-      'status' => 0,
-      'token' => $token,
+      'form_id'    => $form_id,
+      'uid'        => (int) $uid,
+      'roles'      => 2,
+      'status'     => 0,
+      'token'      => $token,
+      'notified'   => 0,   // notifications only fire on publish
       'created_at' => $now,
       'updated_at' => $now,
     ]);
   }
 
   $query->execute();
-
-  _modularform_queue_restricted_notifications($form_id, $entity, $new_rows);
+  // No notification queuing here — entity_update handles that on publish.
 }
 
 /**
@@ -755,11 +832,11 @@ function _modularform_save_private_external($form_id, array $emails, $now) {
   foreach ($to_insert as $email) {
     $token = hash('sha256', $form_id . '_' . $email . '_' . drupal_random_key(16));
     $query->values([
-      'form_id' => $form_id,
-      'email' => $email,
-      'token' => $token,
-      'status' => 1,   // pending
-      'notified' => 0,
+      'form_id'    => $form_id,
+      'email'      => $email,
+      'token'      => $token,
+      'status'     => 0,   // 0 = pending, not yet accepted
+      'notified'   => 0,
       'created_at' => $now,
     ]);
   }
@@ -865,7 +942,6 @@ function _modularform_save_private_people($form_id, $raw, $entity, $now) {
   $parsed = _modularform_parse_private_people($raw);
   _modularform_save_private_drupal($form_id, $parsed['drupal'], $now);
   _modularform_save_private_external($form_id, $parsed['external'], $now);
-  _modularform_queue_private_notifications($form_id, $entity, $now);
 }
 
 /**
@@ -879,7 +955,6 @@ function _modularform_save_private_people($form_id, $raw, $entity, $now) {
 function _modularform_edit_private_people($form_id, $raw, $entity, $now) {
   $parsed = _modularform_parse_private_people($raw);
 
-  // ── Drupal users ───────────────────────────────────────────────────────────
   $existing_uids = db_select('modularform_form_members', 'm')
     ->fields('m', ['uid'])
     ->condition('m.form_id', $form_id)
@@ -888,7 +963,6 @@ function _modularform_edit_private_people($form_id, $raw, $entity, $now) {
     ->fetchCol();
 
   $to_remove = array_diff($existing_uids, $parsed['drupal']);
-
   if (!empty($to_remove)) {
     db_delete('modularform_form_members')
       ->condition('form_id', $form_id)
@@ -899,15 +973,14 @@ function _modularform_edit_private_people($form_id, $raw, $entity, $now) {
 
   _modularform_save_private_drupal($form_id, $parsed['drupal'], $now);
 
-  // ── External invites ───────────────────────────────────────────────────────
   $existing_emails = db_select('modularform_form_invites', 'i')
     ->fields('i', ['email'])
     ->condition('i.form_id', $form_id)
+    ->condition('i.status', 0)   // only consider pending invites for removal
     ->execute()
     ->fetchCol();
 
   $to_remove_emails = array_diff($existing_emails, $parsed['external']);
-
   if (!empty($to_remove_emails)) {
     db_delete('modularform_form_invites')
       ->condition('form_id', $form_id)
@@ -916,7 +989,7 @@ function _modularform_edit_private_people($form_id, $raw, $entity, $now) {
   }
 
   _modularform_save_private_external($form_id, $parsed['external'], $now);
-  _modularform_queue_private_notifications($form_id, $entity, $now);
+  // No notification call here — entity_update owns that on publish.
 }
 
 /**

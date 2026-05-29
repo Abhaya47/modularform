@@ -125,7 +125,27 @@
   margin-bottom: 6px;
 }
 
-.mf-create-page input[type="text"],
+.mf-create-page input[type="text"]:not(.select2-input) {
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 14px;
+  color: #111;
+  background: #fff;
+  transition: border-color 0.15s;
+}
+
+.mf-create-page input[type="text"]:not(.select2-input):focus {
+  outline: none;
+  border-color: #534AB7;
+  box-shadow: 0 0 0 3px rgba(83,74,183,0.1);
+}
+
+.mf-create-page .select2-container {
+  min-width: 260px;
+}
+
 .mf-create-page input[type="date"],
 .mf-create-page select,
 .mf-create-page textarea {

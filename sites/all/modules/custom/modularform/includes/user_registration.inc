@@ -10,7 +10,7 @@ function modularform_invite_register_page($token) {
   $invite = db_select('modularform_form_invites', 'i')
     ->fields('i')
     ->condition('i.token', $token)
-    ->condition('i.status', 1)
+    ->condition('i.status', 0)   // 0 = pending/valid, not yet consumed
     ->execute()
     ->fetchObject();
 
@@ -37,7 +37,7 @@ function modularform_user_insert(&$edit, $account, $category) {
   $invite = db_select('modularform_form_invites', 'i')
     ->fields('i', ['id', 'form_id'])
     ->condition('i.token', $token)
-    ->condition('i.status', 1)
+    ->condition('i.status', 0)   // 0 = still pending, i.e. valid to consume
     ->execute()
     ->fetchObject();
 
@@ -71,7 +71,7 @@ function modularform_user_insert(&$edit, $account, $category) {
 
   db_update('modularform_form_invites')
     ->fields([
-      'status'     => 1,         // no longer pending
+      'status'     => 1,   // 1 = accepted/consumed ✓
       'uid'        => $account->uid,
       'updated_at' => $now,
     ])

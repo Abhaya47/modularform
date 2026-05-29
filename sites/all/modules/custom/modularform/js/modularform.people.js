@@ -1,78 +1,61 @@
-(function ($, Drupal) {
+(function ($) {
   Drupal.behaviors.modularformPeople = {
     attach: function (context, settings) {
-      $('#modularform-people-select', context).once('modularform-people').each(function () {
-        var $select = $(this);
-        var $hidden = $('#modularform-people-input');
-        var acUrl   = $select.data('ac-url');
 
-        $select.select2({
-          tags: true,
-          multiple: true,
-          placeholder: Drupal.t('Search by name or email, or type an email to invite\u2026'),
-          minimumInputLength: 1,
+      // ── Existing people list — delete on click ──────────────────────────
+      $('#modularform-people-existing', context).once('modularform-people-existing')
+        .on('click', '.modularform-people-delete', function () {
+          var $li    = $(this).closest('li');
+          var value  = $li.data('value');
+          var $input = $('#modularform-people-input');
 
-          initSelection: function (element, callback) {
-            var val = $hidden.val();
-            if (!val) { callback([]); return; }
-            var items = [];
-            $.each(val.split(','), function (i, part) {
-              part = $.trim(part);
-              if (!part) { return; }
-              if (part.indexOf('email:') === 0) {
-                var addr = part.slice(6);
-                items.push({ id: part, text: addr + ' (' + Drupal.t('invite') + ')' });
-              }
-              else if (part.indexOf('uid:') === 0) {
-                items.push({ id: part, text: part });
-              }
-            });
-            callback(items);
-          },
+          // Strikethrough
+          $li.css('text-decoration', 'line-through').find('.modularform-people-delete').hide();
 
-          query: function (opts) {
-            $.ajax({
-              url: acUrl,
-              dataType: 'json',
-              data: { people: opts.term },
-              success: function (data) {
-                opts.callback({ results: data.results, more: false });
-              },
-              error: function () {
-                opts.callback({ results: [] });
-              }
-            });
-          },
+          // Remove from hidden field
+          var current = $input.val().split(',').filter(function (v) {
+            return v.trim() !== '' && v.trim() !== value;
+          });
+          $input.val(current.join(','));
+        });
 
-          createSearchChoice: function (term, data) {
-            var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            var match = data.filter(function (item) {
-              return item.text.toLowerCase() === term.toLowerCase();
-            });
-            if (match.length === 0 && emailRegex.test(term)) {
-              return { id: 'email:' + term, text: term + ' (' + Drupal.t('invite') + ')', invite: true };
-            }
-          },
+      // ── Select2 for new additions ───────────────────────────────────────
+      var $select = $('#modularform-people-select', context);
+      if (!$select.length) return;
 
-          formatSelection: function (item) {
-            return item.text.replace(/\s*\(invite\)\s*$/, '');
-          },
+      $select.once('modularform-select2').select2({
+        tags: true,
+        tokenSeparators: [','],
+        ajax: {
+          url: $select.data('ac-url'),
+          dataType: 'json',
+          quietMillis: 200,
+          data: function (term) { return { people: term }; },
+          results: function (data) { return { results: data.results }; },
+        },
+        createSearchChoice: function (term) {
+          // Allow raw email entry
+          if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(term)) {
+            return { id: 'email:' + term, text: term };
+          }
+          return null;
+        },
+        multiple: true,
+      }).on('change', function () {
+        var chosen  = $select.select2('data');
+        var $input  = $('#modularform-people-input');
+        var current = $input.val()
+          ? $input.val().split(',').filter(function (v) { return v.trim() !== ''; })
+          : [];
 
-          formatResult: function (item) {
-            if (item.invite) {
-              return '<span class="select2-result-invite">' + item.text + '</span>';
-            }
-            return '<span class="select2-result-user">' + item.text + '</span>';
+        chosen.forEach(function (item) {
+          if (current.indexOf(item.id) === -1) {
+            current.push(item.id);
           }
         });
 
-        // Sync into the hidden field on every change
-        $select.on('change', function () {
-          var val = $select.select2('val');
-          $hidden.val(val ? val.join(',') : '');
-          $hidden.trigger('change');
-        });
+        $input.val(current.join(','));
       });
     }
   };
-}(jQuery, Drupal));
+}(jQuery));
