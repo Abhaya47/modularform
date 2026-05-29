@@ -67,8 +67,6 @@ function modularform_search_form_document_callback($document, $entity, $entity_t
   // filterable integers
   $document->setField('is_status', (int) $entity->status);
   $document->setField('is_visibility', (int) $entity->visibility);
-  $document->setField('is_closes', (int) $entity->closes);
-  $document->setField('is_scheduled', (int) $entity->scheduled);
   $document->setField('is_editable', (int) $entity->editable);
   $document->setField('is_anonymous_responses', (int) $entity->anonymous_responses);
   $document->setField('is_created_by', (int) $entity->created_by);

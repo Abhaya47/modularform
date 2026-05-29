@@ -43,23 +43,11 @@ function modularform_schema() {
         'not null' => TRUE,
         'default' => 0,
       ],
-      'closes' => [
-        'description' => t('Whether form closes after a certain time or at a date'),
-        'type' => 'int',
-        'size' => 'tiny',
-        'default' => 0,
-      ],
       'closes_at' => [
         'description' => t('Form unavailable after'),
         'type' => 'int',
         'not null' => FALSE,
         'default' => NULL,
-      ],
-      'scheduled' => [
-        'description' => t('Scheduled Form 0 is no 1 is yes'),
-        'type' => 'int',
-        'size' => 'tiny',
-        'default' => 0,
       ],
       'scheduled_date' => [
         'description' => t('Form scheduled publishing date'),

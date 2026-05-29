@@ -41,7 +41,7 @@
             class="mfv-meta-slug">slug: <code><?php print check_plain($form['slug']); ?></code></span>
         <?php endif; ?>
 
-        <?php if ($form['closes'] && $form['closes_at']): ?>
+        <?php if ($form['closes_at']): ?>
           <span class="mfv-meta-text">
             <i class="ti ti-clock"
                aria-hidden="true"></i> Closes <?php print $display['closes_date']; ?>
@@ -86,93 +86,67 @@
     <div class="mfv-card">
       <div class="mfv-card-head">
         <div class="mfv-card-head-left">
-          <span class="mfv-card-icon mfv-ci-purple">
-            <i class="ti ti-info-circle" aria-hidden="true"></i></span>
+      <span class="mfv-card-icon mfv-ci-purple">
+        <i class="ti ti-info-circle" aria-hidden="true"></i></span>
           <div><h3>Form details</h3>
             <p>Basic information and settings</p></div>
         </div>
       </div>
       <div class="mfv-card-body">
-
-        <?php
-        $shown = 0;
-        $more = 0;
-        $cutoff = 5;
-        foreach ($members as $m):
-          if ($shown >= $cutoff) {
-            $more++;
-            continue;
-          }
-          $shown++;
-          $role = (int) $m['roles'];
-          $mstatus = (int) $m['status'];
-          $name = !empty($m['name']) ? $m['name'] : '?';
-          $kind = $m['kind'];  // 'member' or 'invite'
-
-          $parts = explode(' ', trim($name));
-          $initials = strtoupper(
-            substr($parts[0], 0, 1) .
-            (isset($parts[1]) ? substr($parts[1], 0, 1) : '')
-          );
-          ?>
-          <div class="mfv-member-row">
-
-            <div
-              class="mfv-avatar <?php print $kind === 'invite' ? 'mfv-av-invite' : 'mfv-av-' . $role; ?>">
-              <?php if ($kind === 'invite'): ?>
-                <i class="ti ti-mail" aria-hidden="true"></i>
-              <?php else: ?>
-                <?php print $initials; ?>
-              <?php endif; ?>
-            </div>
-
-            <div class="mfv-member-info">
-              <span
-                class="mfv-member-name"><?php print check_plain($name); ?></span>
-              <span class="mfv-member-role">
-          <?php if ($kind === 'invite'): ?>
-            Invite pending
-          <?php else: ?>
-            <?php print $display['role_labels'][$role]; ?>
-          <?php endif; ?>
-        </span>
-            </div>
-
-            <?php if ($kind === 'invite'): ?>
-              <span class="mfv-badge mfv-badge-gray">
-          <i class="ti ti-clock" aria-hidden="true"></i> Awaiting
-        </span>
-            <?php elseif ($role !== 0): ?>
-              <span
-                class="mfv-badge <?php print $display['member_status_classes'][$mstatus]; ?>">
-          <?php print $display['member_status_labels'][$mstatus]; ?>
-        </span>
-            <?php endif; ?>
-
-          </div>
-        <?php endforeach; ?>
-
-        <?php if ($more > 0): ?>
-          <a href="<?php print $urls['members']; ?>" class="mfv-members-more">
-            +<?php print $more; ?> more
-            <i class="ti ti-arrow-right" aria-hidden="true"></i>
-          </a>
-        <?php endif; ?>
-
-        <?php if ($counts['invite_count'] > 0): ?>
-          <div class="mfv-invite-note">
-            <i class="ti ti-mail" aria-hidden="true"></i>
-            <?php print $counts['invite_count']; ?> pending
-            invite<?php print $counts['invite_count'] !== 1 ? 's' : ''; ?>
-            awaiting registration
+        <?php if (!empty($form['description'])): ?>
+          <div class="mfv-info-row">
+            <span class="mfv-info-label"><i class="ti ti-align-left" aria-hidden="true"></i> Description</span>
+            <span class="mfv-info-value mfv-info-desc"><?php print check_markup($form['description']); ?></span>
           </div>
         <?php endif; ?>
-
+        <div class="mfv-info-row">
+          <span class="mfv-info-label"><i class="ti ti-calendar" aria-hidden="true"></i> Created</span>
+          <span class="mfv-info-value"><?php print $display['created_date']; ?></span>
+        </div>
+        <div class="mfv-info-row">
+          <span class="mfv-info-label"><i class="ti ti-clock" aria-hidden="true"></i> Closes at</span>
+          <span class="mfv-info-value">
+        <?php if ($form['closes_at']): ?>
+          <?php print $display['closes_date']; ?>
+        <?php else: ?>
+          <span class="mfv-badge mfv-badge-gray">Never</span>
+        <?php endif; ?>
+      </span>
+        </div>
+        <div class="mfv-info-row">
+          <span class="mfv-info-label"><i class="ti ti-calendar-event" aria-hidden="true"></i> Scheduled</span>
+          <span class="mfv-info-value">
+        <?php if ($form['scheduled'] && $display['scheduled_date']): ?>
+          <?php print $display['scheduled_date']; ?>
+        <?php else: ?>
+          <span class="mfv-badge mfv-badge-gray">Not scheduled</span>
+        <?php endif; ?>
+      </span>
+        </div>
+        <div class="mfv-info-row">
+          <span class="mfv-info-label"><i class="ti ti-pencil" aria-hidden="true"></i> Editable responses</span>
+          <span class="mfv-info-value">
+        <?php if ($form['editable']): ?>
+          <span class="mfv-badge mfv-badge-green">Enabled</span>
+        <?php else: ?>
+          <span class="mfv-badge mfv-badge-gray">Disabled</span>
+        <?php endif; ?>
+      </span>
+        </div>
+        <div class="mfv-info-row">
+          <span class="mfv-info-label"><i class="ti ti-ghost" aria-hidden="true"></i> Anonymous responses</span>
+          <span class="mfv-info-value">
+        <?php if ($form['anonymous_responses']): ?>
+          <span class="mfv-badge mfv-badge-green">Enabled</span>
+        <?php else: ?>
+          <span class="mfv-badge mfv-badge-amber">Disabled</span>
+        <?php endif; ?>
+      </span>
+        </div>
       </div>
     </div>
 
     <div class="mfv-side-col">
-
       <div class="mfv-card">
         <div class="mfv-card-head">
           <div class="mfv-card-head-left">
@@ -404,8 +378,8 @@
     <div class="mfv-card">
       <div class="mfv-card-head">
         <div class="mfv-card-head-left">
-          <span class="mfv-card-icon mfv-ci-coral">
-            <i class="ti ti-users" aria-hidden="true"></i></span>
+      <span class="mfv-card-icon mfv-ci-coral">
+        <i class="ti ti-users" aria-hidden="true"></i></span>
           <div><h3>Members</h3>
             <p>Viewers &amp; participants</p></div>
         </div>
@@ -415,43 +389,70 @@
       </div>
       <div class="mfv-card-body">
         <?php
-        $shown = 0;
+        $shown  = 0;
+        $more   = 0;
+        $cutoff = 5;
         foreach ($members as $m):
-          if ($shown >= 5) {
-            break;
-          }
+          if ($shown >= $cutoff) { $more++; continue; }
           $shown++;
-          $role = (int) $m['roles'];
+          $role    = (int) $m['roles'];
           $mstatus = (int) $m['status'];
-          $name = !empty($m['name']) ? $m['name'] : '?';
-          $parts = explode(' ', trim($name));
+          $name    = !empty($m['name']) ? $m['name'] : '?';
+          $kind    = $m['kind'];
+          $parts   = explode(' ', trim($name));
           $initials = strtoupper(
-            substr($parts[0], 0, 1) . (isset($parts[1]) ? substr($parts[1], 0, 1) : '')
+            substr($parts[0], 0, 1) .
+            (isset($parts[1]) ? substr($parts[1], 0, 1) : '')
           );
           ?>
           <div class="mfv-member-row">
-            <div
-              class="mfv-avatar mfv-av-<?php print $role; ?>"><?php print $initials; ?></div>
-            <div class="mfv-member-info">
-              <span
-                class="mfv-member-name"><?php print check_plain($name); ?></span>
-              <span
-                class="mfv-member-role"><?php print $display['role_labels'][$role]; ?></span>
+
+            <div class="mfv-avatar <?php print $kind === 'invite' ? 'mfv-av-invite' : 'mfv-av-' . $role; ?>">
+              <?php if ($kind === 'invite'): ?>
+                <i class="ti ti-mail" aria-hidden="true"></i>
+              <?php else: ?>
+                <?php print $initials; ?>
+              <?php endif; ?>
             </div>
-            <?php if ($role !== 0): ?>
-              <span
-                class="mfv-badge <?php print $display['member_status_classes'][$mstatus]; ?>">
-                <?php print $display['member_status_labels'][$mstatus]; ?>
-              </span>
+
+            <div class="mfv-member-info">
+              <span class="mfv-member-name"><?php print check_plain($name); ?></span>
+              <span class="mfv-member-role">
+            <?php if ($kind === 'invite'): ?>
+              Invite pending
+            <?php else: ?>
+              <?php print $display['role_labels'][$role]; ?>
             <?php endif; ?>
+          </span>
+            </div>
+
+            <?php if ($kind === 'invite'): ?>
+              <span class="mfv-badge mfv-badge-gray">
+            <i class="ti ti-clock" aria-hidden="true"></i> Awaiting
+          </span>
+            <?php elseif ($role !== 0): ?>
+              <span class="mfv-badge <?php print $display['member_status_classes'][$mstatus]; ?>">
+            <?php print $display['member_status_labels'][$mstatus]; ?>
+          </span>
+            <?php endif; ?>
+
           </div>
         <?php endforeach; ?>
-        <?php if (count($members) > 5): ?>
+
+        <?php if ($more > 0): ?>
           <a href="<?php print $urls['members']; ?>" class="mfv-members-more">
-            +<?php print (count($members) - 5); ?> more members
+            +<?php print $more; ?> more
             <i class="ti ti-arrow-right" aria-hidden="true"></i>
           </a>
         <?php endif; ?>
+
+        <?php if ($counts['invite_count'] > 0): ?>
+          <div class="mfv-invite-note">
+            <i class="ti ti-mail" aria-hidden="true"></i>
+            <?php print $counts['invite_count']; ?> pending invite<?php print $counts['invite_count'] !== 1 ? 's' : ''; ?> awaiting registration
+          </div>
+        <?php endif; ?>
+
       </div>
     </div>
 

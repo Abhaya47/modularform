@@ -353,7 +353,6 @@ function modularform_create_form_submit($form, &$form_state) {
     $d = $values['scheduled_date_wrapper']['scheduled_date'];
     $scheduled_date = mktime(0, 0, 0, $d['month'], $d['day'], $d['year']);
   }
-  $entity->scheduled = !empty($values['scheduled']) ? 1 : 0;
   $entity->scheduled_date = $scheduled_date;
 
   // ── closes_at ─────────────────────────────────────────────────────────────
@@ -362,7 +361,6 @@ function modularform_create_form_submit($form, &$form_state) {
     $d = $values['closes_at_wrapper']['closes_at'];
     $closes_at = mktime(0, 0, 0, $d['month'], $d['day'], $d['year']);
   }
-  $entity->closes = !empty($values['closes']) ? 1 : 0;
   $entity->closes_at = $closes_at;
   $entity->editable = !empty($values['editable']) ? 1 : 0;
   $entity->anonymous_responses = !empty($values['anonymous_responses']) ? 1 : 0;

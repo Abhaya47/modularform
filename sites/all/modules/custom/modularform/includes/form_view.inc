@@ -277,7 +277,7 @@ function _modularform_view_get_stats($form_id, array $form, array $members) {
   )->fetchAssoc();
 
   $days_left = NULL;
-  if ($form['closes'] && $form['closes_at']) {
+  if (!empty($form['closes_at'])) {
     $diff = (int) $form['closes_at'] - REQUEST_TIME;
     $days_left = $diff > 0 ? (int) ceil($diff / 86400) : 0;
   }
