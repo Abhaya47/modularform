@@ -423,6 +423,7 @@ function modularform_create_form_submit($form, &$form_state) {
   $entity->save();
 
   $message = !empty($id) ? 'Form %title updated.' : 'Form %title saved in draft.';
+  drupal_static_reset('_modularform_form_member_role');
   drupal_set_message(t($message, ['%title' => $entity->title]));
   if ($id) {
     drupal_goto('forms/manage');

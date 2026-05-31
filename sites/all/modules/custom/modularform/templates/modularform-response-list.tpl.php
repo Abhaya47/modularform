@@ -221,7 +221,7 @@
 
     <div class="gform-back-link">
       <?php print theme('pager'); ?>
-      <?php print l('← ' . t('Back to all forms'), 'forms'); ?>
+      <?php print l('← ' . t('Back to all forms'), 'forms/manage'); ?>
     </div>
 
   </div>

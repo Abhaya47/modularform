@@ -246,26 +246,28 @@ function _modularform_dashboard_sql(array $conditions, $user, $sort, $limit = 25
   $is_admin = _modularform_is_site_admin();
 
   $query = db_select('modularform_forms', 'f')
-    ->fields('f', [
-      'id',
-      'title',
-      'status',
-      'visibility',
-      'created_by',
-      'created_at',
-    ])
+    ->fields('f', ['id', 'title', 'status', 'visibility', 'created_by', 'created_at'])
     ->isNull('f.deleted_at');
-  // After ->fields('f', [...]) add:
-  $query->addExpression(
-    '(SELECT COUNT(*) FROM {modularform_responses} r WHERE r.form_id = f.id)',
-    'response_count'
-  );
-  if (!$is_admin) {
+
+  if ($is_admin) {
+    $query->addExpression(
+      '(SELECT COUNT(*) FROM {modularform_responses} r WHERE r.form_id = f.id)',
+      'response_count'
+    );
+  }
+  else {
     $query->leftJoin(
       'modularform_form_members', 'fm',
-      'fm.form_id = f.id AND fm.uid = :uid AND fm.roles = :role',
-      [':uid' => $user->uid, ':role' => 0]
+      'fm.form_id = f.id AND fm.uid = :uid',
+      [':uid' => $user->uid]
     );
+
+    $query->addExpression(
+      '(SELECT COUNT(*) FROM {modularform_responses} r WHERE r.form_id = f.id AND (f.created_by = :count_uid OR fm.roles = :creator))',
+      'response_count',
+      [':count_uid' => $user->uid, ':creator' => 0]
+    );
+
     $or = db_or();
     $or->condition('f.created_by', $user->uid);
     $or->isNotNull('fm.form_id');
@@ -279,30 +281,26 @@ function _modularform_dashboard_sql(array $conditions, $user, $sort, $limit = 25
     $or->condition('f.description', $like, 'LIKE');
     $query->condition($or);
   }
+
   if (isset($conditions['status'])) {
     $query->condition('f.status', (int) $conditions['status']);
   }
+
   if (isset($conditions['visibility'])) {
     $query->condition('f.visibility', (int) $conditions['visibility']);
   }
+
   if (isset($conditions['created_by'])) {
     $query->condition('f.created_by', (int) $conditions['created_by']);
   }
 
   switch ($sort) {
-    case 'title_asc':
-      $query->orderBy('f.title', 'ASC');
-      break;
-    case 'title_desc':
-      $query->orderBy('f.title', 'DESC');
-      break;
-    case 'created_asc':
-      $query->orderBy('f.created_at', 'ASC');
-      break;
-    default:
-      $query->orderBy('f.created_at', 'DESC');
-      break;
+    case 'title_asc':   $query->orderBy('f.title', 'ASC');       break;
+    case 'title_desc':  $query->orderBy('f.title', 'DESC');      break;
+    case 'created_asc': $query->orderBy('f.created_at', 'ASC');  break;
+    default:            $query->orderBy('f.created_at', 'DESC'); break;
   }
+
   $query->range($page * $limit, $limit);
   return $query->execute()->fetchAll();
 }
