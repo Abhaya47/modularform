@@ -106,7 +106,7 @@ function modularform_perma_delete($form_id) {
     ->fetchObject();
   if (!$form) {
     drupal_set_message(t('Form not found or has not been deleted first.'), 'error');
-    drupal_goto('forms/deleted');
+    drupal_goto('forms/trash');
   }
   $txn = db_transaction();
   try {

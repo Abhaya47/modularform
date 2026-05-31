@@ -303,10 +303,6 @@ function modularform_create_form($form, &$form_state, $id = NULL) {
   return $form;
 }
 
-function your_form_add_more_callback($form, &$form_state) {
-  return $form['visibility_options_wrapper']['people'];
-}
-
 // ── AJAX callbacks ────────────────────────────────────────────────────────────
 
 function modularform_scheduled_ajax($form, &$form_state) {
@@ -424,6 +420,7 @@ function modularform_create_form_submit($form, &$form_state) {
 
   $message = !empty($id) ? 'Form %title updated.' : 'Form %title saved in draft.';
   drupal_static_reset('_modularform_form_member_role');
+  drupal_static_reset('_modularform_get_form');
   drupal_set_message(t($message, ['%title' => $entity->title]));
   if ($id) {
     drupal_goto('forms/manage');
@@ -520,51 +517,6 @@ function modularform_user_autocomplete() {
 
   drupal_json_output(['results' => $results, 'more' => FALSE]);
   drupal_exit();
-}
-
-// ── Form field builder (called from modularform_create_form) ──────────────────
-// Drop this block in place of the old $form['visibility_options_wrapper']['people']
-// block inside the if ($visibility === 'private') branch.
-function _modularform_people_field(&$form, &$form_state) {
-  $acUrl = url('modularform/user-autocomplete');
-
-  // Single hidden field carries a comma-separated list of
-  //   uid:<uid>          — existing Drupal user
-  //   email:<address>    — external invite
-  // Example: "uid:3,uid:7,email:newperson@example.com"
-  $field = [
-    '#type' => 'hidden',
-    '#default_value' => '',
-    '#attributes' => [
-      'id' => 'modularform-people-input',
-      'class' => ['modularform-people-hidden'],
-      'data-ac-url' => $acUrl,
-    ],
-  ];
-
-  // Visible label + Select2 container rendered via #prefix on a sibling markup
-  $wrapper = [
-    '#type' => 'container',
-    '#tree' => TRUE,
-    '#attributes' => ['class' => ['modularform-people-wrapper']],
-  ];
-
-  $wrapper['label'] = [
-    '#markup' => '<label>' . t('Add people') . '</label>
-                  <p class="description">' .
-      t('Search by username or email. Unknown emails will receive an invitation.') .
-      '</p>',
-  ];
-
-  $wrapper['people_value'] = $field;
-
-  // Attach our JS behaviour — Select2 is already loaded via hook_library
-  $wrapper['#attached']['js'][] = [
-    'data' => drupal_get_path('module', 'modularform') . '/js/modularform.people.js',
-    'type' => 'file',
-  ];
-
-  return $wrapper;
 }
 
 /**
