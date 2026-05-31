@@ -700,64 +700,6 @@ function modularform_entity_info() {
     'module' => 'modularform',
   ];
 
-  // 2. Section Entity
-  $info['modularform_section'] = [
-    'label' => t('Form Section'),
-    'base table' => 'modularform_sections', // Fixed: was 'sections'
-    'entity class' => 'Entity',
-    'controller class' => 'EntityAPIController',
-    'fieldable' => TRUE,
-    'entity keys' => [
-      'id' => 'id',
-      'label' => 'name',
-    ],
-    'bundles' => [
-      'modularform_section' => [
-        'label' => t('Form Section'),
-      ],
-    ],
-    'module' => 'modularform',
-  ];
-
-  // 3. Question Entity
-  $info['modularform_question'] = [
-    'label' => t('Form Question'),
-    'base table' => 'modularform_questions', // Fixed: was 'questions'
-    'entity class' => 'Entity',
-    'controller class' => 'EntityAPIController',
-    'fieldable' => TRUE,
-    'entity keys' => [
-      'id' => 'q_id',
-      'label' => 'label',
-    ],
-    'bundles' => [
-      'modularform_question' => [
-        'label' => t('Form Question'),
-      ],
-    ],
-    'module' => 'modularform',
-  ];
-
-  // 4. Question Option Entity
-  $info['modularform_option'] = [
-    'label' => t('Question Option'),
-    'base table' => 'modularform_question_options',
-    // Fixed: was 'question_options'
-    'entity class' => 'Entity',
-    'controller class' => 'EntityAPIController',
-    'fieldable' => FALSE,
-    'entity keys' => [
-      'id' => 'o_id',
-      'label' => 'option',
-    ],
-    'bundles' => [
-      'modularform_option' => [
-        'label' => t('Question Option'),
-      ],
-    ],
-    'module' => 'modularform',
-  ];
-
   // 5. Response Entity
   $info['modularform_response'] = [
     'label' => t('Form Response'),
@@ -776,25 +718,6 @@ function modularform_entity_info() {
     ],
     'module' => 'modularform',
   ];
-
-  // 6. Answer Entity
-  $info['modularform_answer'] = [
-    'label' => t('Form Answer'),
-    'base table' => 'modularform_answers', // Fixed: was 'answers'
-    'entity class' => 'Entity',
-    'controller class' => 'EntityAPIController',
-    'fieldable' => FALSE,
-    'entity keys' => [
-      'id' => 'id',
-    ],
-    'bundles' => [
-      'modularform_answer' => [
-        'label' => t('Form Answer'),
-      ],
-    ],
-    'module' => 'modularform',
-  ];
-
   return $info;
 }
 

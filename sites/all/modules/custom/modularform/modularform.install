@@ -459,6 +459,11 @@ function modularform_schema() {
         'not null' => TRUE,
         'default' => 0,
       ],
+      'updated_at' => [
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ],
     ],
     'primary key' => ['id'],
     'indexes' => [
@@ -919,6 +924,17 @@ function modularform_update_7013() {
       'unsigned' => TRUE,
       'not null' => TRUE,
       'default' => 2,
+    ]);
+  }
+}
+
+function modularform_update_7014() {
+  $table = 'modularform_form_invites';
+  if (!db_field_exists($table, 'updated_at')) {
+    db_add_field($table, 'updated_at', [
+      'type' => 'int',
+      'not null' => TRUE,
+      'default' => 0,
     ]);
   }
 }

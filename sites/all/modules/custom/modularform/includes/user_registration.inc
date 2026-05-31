@@ -37,7 +37,7 @@ function modularform_user_insert(&$edit, $account, $category) {
   $invite = db_select('modularform_form_invites', 'i')
     ->fields('i', ['id', 'form_id'])
     ->condition('i.token', $token)
-    ->condition('i.status', 0)   // 0 = still pending, i.e. valid to consume
+    ->condition('i.status', 0)
     ->execute()
     ->fetchObject();
 
@@ -47,23 +47,25 @@ function modularform_user_insert(&$edit, $account, $category) {
 
   $now = REQUEST_TIME;
 
-  // Assign temporary user role
+  // Assign role directly — safe here because user insert is already done
   $role = user_role_load_by_name('temporary user');
   if ($role) {
-    db_merge('users_roles')
-      ->key(['uid' => $account->uid, 'rid' => $role->rid])
-      ->fields(['uid' => $account->uid, 'rid' => $role->rid])
+    db_insert('users_roles')
+      ->fields([
+        'uid' => $account->uid,
+        'rid' => $role->rid,
+      ])
       ->execute();
   }
 
   db_insert('modularform_form_members')
     ->fields([
-      'form_id'    => $invite->form_id,
-      'uid'        => $account->uid,
-      'roles'      => 2,
-      'status'     => 0,
-      'token'      => $token,   // reuse the invite token
-      'notified'   => 1,        // they already got the email
+      'form_id' => $invite->form_id,
+      'uid' => $account->uid,
+      'roles' => 2,
+      'status' => 0,
+      'token' => $token,
+      'notified' => 1,
       'created_at' => $now,
       'updated_at' => $now,
     ])
@@ -71,10 +73,34 @@ function modularform_user_insert(&$edit, $account, $category) {
 
   db_update('modularform_form_invites')
     ->fields([
-      'status'     => 1,   // 1 = accepted/consumed ✓
-      'uid'        => $account->uid,
+      'status' => 1,
       'updated_at' => $now,
     ])
     ->condition('id', $invite->id)
     ->execute();
+
+  $_SESSION['pending_invite_form_id'] = $invite->form_id;
+  $_SESSION['pending_invite_token_used'] = $token;
+}
+
+
+function modularform_user_presave(&$edit, $account, $category) {
+  // Only activate if this is a new account coming via an invite
+  if (!empty($_SESSION['pending_invite_token']) && empty($account->uid)) {
+    $edit['status'] = 1;
+    $account->status = 1;
+  }
+}
+
+function modularform_user_login(&$edit, $account) {
+  if (empty($_SESSION['pending_invite_form_id'])) {
+    return;
+  }
+
+  $form_id = $_SESSION['pending_invite_form_id'];
+  $token = $_SESSION['pending_invite_token_used'];  // need to stash this too
+  unset($_SESSION['pending_invite_form_id']);
+  unset($_SESSION['pending_invite_token_used']);
+
+  drupal_goto('forms/' . $form_id . '/fill', ['query' => ['token' => $token]]);
 }
