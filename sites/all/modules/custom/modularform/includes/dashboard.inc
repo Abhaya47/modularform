@@ -302,8 +302,13 @@ function _modularform_dashboard_fetch(array $conditions, $user, $sort = 'created
     module_load_include('inc', 'modularform_search', 'includes/modularform_forms_search');
     $result = modularform_search_query_forms($conditions);
     if ($result !== NULL && !isset($result['error'])) {
+      // Apply the same tenancy gate as the SQL path.
+      if (!_modularform_is_site_admin()) {
+        $result = array_values(array_filter($result, function($form) {
+          return form_view_access($form->id);
+        }));
+      }
       $sorted = _modularform_apply_sort($result, $sort);
-      // slice for pagination since Solr returned everything
       return array_slice($sorted, $page * $limit, $limit);
     }
   }

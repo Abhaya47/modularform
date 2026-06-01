@@ -28,8 +28,7 @@ function modularform_answer_form_submit($form, &$form_state) {
 
   $form_record = _modularform_get_form($fid);
 
-  $is_anonymous_form = !empty($form_record['anonymous_responses']);
-
+  $is_anonymous_form = !empty($form_record->anonymous_responses);
   if ($is_anonymous_form) {
     $email = NULL;
   }
@@ -83,7 +82,7 @@ function modularform_answer_form_submit($form, &$form_state) {
   $multi_inserts = [];
   $file_inserts = [];
   $datatype_map = modularform_datatype_map();
-  $type_map     = modularform_type_map();
+  $type_map = modularform_type_map();
 
   foreach ($values as $sec_key => $section) {
     if (in_array($sec_key, $skip) || !is_array($section)) {
@@ -490,6 +489,7 @@ function modularform_response_edit_form_submit($form, &$form_state) {
     drupal_set_message(t('An error occurred while saving. Please try again.'), 'error');
   }
 }
+
 /**
  * Maps a raw form value to the correct answer row columns based on question
  * type.
@@ -553,15 +553,19 @@ function _modularform_map_answer_value($q_type, $raw) {
 function _modularform_save_answer_files($q_id, $is_multiple, $response_id, $answer_id, $now) {
   $upload_key = 'file_' . $q_id;
   $destination = 'private://modularform/responses/' . $response_id;
-  file_prepare_directory($destination, FILE_CREATE_DIRECTORY | FILE_MODIFY_PERMISSIONS);
-
-  $validators = ['file_validate_size' => [25 * 1024 * 1024]];
+  $validators = _modularform_file_validators($q_id); // replaces hardcoded array
   $uploads = [];
 
+  file_prepare_directory($destination, FILE_CREATE_DIRECTORY | FILE_MODIFY_PERMISSIONS);
   if ($is_multiple) {
+    // file_save_upload only reads $_FILES by a flat key, so for a multi-file
+    // input we need to reconstruct the $_FILES entries one at a time and call
+    // it per file. We do that by temporarily rewriting $_FILES['files'] to
+    // look like a single-file upload for each index.
     $file_names = $_FILES['files']['name'][$upload_key] ?? [];
     $file_tmps = $_FILES['files']['tmp_name'][$upload_key] ?? [];
     $file_errors = $_FILES['files']['error'][$upload_key] ?? [];
+    $file_types = $_FILES['files']['type'][$upload_key] ?? [];
     $file_sizes = $_FILES['files']['size'][$upload_key] ?? [];
 
     foreach ($file_names as $i => $filename) {
@@ -569,26 +573,28 @@ function _modularform_save_answer_files($q_id, $is_multiple, $response_id, $answ
         continue;
       }
 
-      $filename = file_munge_filename(trim(drupal_basename($filename)), '');
-      $uri = file_destination($destination . '/' . $filename, FILE_EXISTS_RENAME);
+      // Temporarily splice this index into $_FILES as a single-file entry
+      // so file_save_upload can process it normally.
+      $_FILES['files']['name'][$upload_key] = $filename;
+      $_FILES['files']['tmp_name'][$upload_key] = $file_tmps[$i];
+      $_FILES['files']['error'][$upload_key] = $file_errors[$i];
+      $_FILES['files']['type'][$upload_key] = $file_types[$i];
+      $_FILES['files']['size'][$upload_key] = $file_sizes[$i];
 
-      if (!move_uploaded_file($file_tmps[$i], drupal_realpath($uri))) {
-        watchdog('modularform', 'Failed to move uploaded file @file', ['@file' => $filename], WATCHDOG_ERROR);
-        continue;
+      $file = file_save_upload($upload_key, $validators, $destination, FILE_EXISTS_RENAME);
+      if ($file) {
+        $file->status = FILE_STATUS_PERMANENT;
+        file_save($file);
+        $uploads[] = $file;
       }
-
-      $file = new stdClass();
-      $file->uid = $GLOBALS['user']->uid;
-      $file->filename = $filename;
-      $file->uri = $uri;
-      $file->filemime = file_get_mimetype($filename);
-      $file->filesize = $file_sizes[$i];
-      $file->status = FILE_STATUS_PERMANENT;
-      $file->timestamp = $now;
-
-      file_save($file);
-      $uploads[] = $file;
     }
+
+    // Restore the original array structure in case anything downstream reads it.
+    $_FILES['files']['name'][$upload_key] = $file_names;
+    $_FILES['files']['tmp_name'][$upload_key] = $file_tmps;
+    $_FILES['files']['error'][$upload_key] = $file_errors;
+    $_FILES['files']['type'][$upload_key] = $file_types;
+    $_FILES['files']['size'][$upload_key] = $file_sizes;
   }
   else {
     $file = file_save_upload($upload_key, $validators, $destination, FILE_EXISTS_RENAME);
@@ -599,12 +605,71 @@ function _modularform_save_answer_files($q_id, $is_multiple, $response_id, $answ
     }
   }
 
-  // Register usage — caller handles answer_files insert.
   foreach ($uploads as $file) {
     file_usage_add($file, 'modularform', 'response', $response_id);
   }
 
   return $uploads;
+}
+
+/**
+ * Builds the file validators array for a given question by reading its
+ * stored validation rules from the DB.
+ *
+ * Maps rule_type values:
+ *   max_filesize  → file_validate_size (converts MB to bytes)
+ *   allowed_types → file_validate_extensions (expands group to extensions)
+ *
+ * Always adds file_validate_name_length as a safe default.
+ *
+ * @param int $q_id
+ *
+ * @return array Drupal file validators array.
+ */
+function _modularform_file_validators($q_id) {
+  $type_map = [
+    'image' => 'jpg jpeg png gif webp',
+    'document' => 'pdf doc docx odt',
+    'video' => 'mp4 mov avi',
+    'audio' => 'mp3 wav ogg',
+    'archive' => 'zip tar gz',
+  ];
+
+  $rules = db_select('modularform_validation_rules', 'vr')
+    ->fields('vr', ['rule_type', 'rule_value'])
+    ->condition('vr.q_id', $q_id)
+    ->condition('vr.rule_type', ['max_filesize', 'allowed_types'], 'IN')
+    ->orderBy('rule_type')
+    ->range(0, 2)
+    ->execute()
+    ->fetchAllKeyed();
+
+  $validators = [];
+
+  // max_filesize — stored in MB, Drupal wants bytes
+  if (isset($rules['max_filesize']) && is_numeric($rules['max_filesize'])) {
+    $validators['file_validate_size'] = [(int) $rules['max_filesize'] * 1024 * 1024];
+  }
+  else {
+    $validators['file_validate_size'] = [25 * 1024 * 1024];
+  }
+
+  // allowed_types — expand group to extensions
+  // 'any' = no restriction, skip validator entirely
+  if (isset($rules['allowed_types'])) {
+    $group = $rules['allowed_types'];
+    if ($group !== 'any' && isset($type_map[$group])) {
+      $validators['file_validate_extensions'] = [$type_map[$group]];
+    }
+  }
+  else {
+    // safe default
+    $validators['file_validate_extensions'] = ['pdf doc docx png jpg jpeg gif zip txt'];
+  }
+
+  $validators['file_validate_name_length'] = [];
+
+  return $validators;
 }
 
 /**

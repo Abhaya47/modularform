@@ -264,16 +264,22 @@ function _modularform_sync_question(&$form_state, $id, &$el, &$elements, $values
   // Rule types
   $q_val_rules = array_filter($elements, fn($el) => $el['type'] === 'validation_rule' && $el['parent'] === $id);
   foreach ($q_val_rules as $r_id => $r_el) {
-    $submitted_rule_type = drupal_array_get_nested_value($values, [
-      $sec_id,
-      $id,
-      'validation',
-      'adv_rules',
-      $r_id,
-      'rule_type',
-    ]);
+    $r_base = [$sec_id, $id, 'validation', 'adv_rules', $r_id];
+
+    $submitted_rule_type = drupal_array_get_nested_value($values, array_merge($r_base, ['rule_type']));
     if (isset($submitted_rule_type)) {
       $elements[$r_id]['rule_type'] = $submitted_rule_type;
+    }
+
+    // sync rule_value so select/text inputs survive AJAX rebuilds
+    $submitted_rule_value = drupal_array_get_nested_value($values, array_merge($r_base, ['rule_value_wrapper', 'rule_value']));
+    if (isset($submitted_rule_value)) {
+      $elements[$r_id]['rule_value'] = $submitted_rule_value;
+    }
+
+    $submitted_error_msg = drupal_array_get_nested_value($values, array_merge($r_base, ['error_message']));
+    if (isset($submitted_error_msg)) {
+      $elements[$r_id]['error_message'] = $submitted_error_msg;
     }
   }
 }
@@ -596,10 +602,12 @@ function _modularform_render_adv_rules(&$form, $sec_id, $q_id, $q_type, $q_val_r
 
       case 'select':
         $form['elements_container'][$sec_id][$q_id]['validation']['adv_rules'][$r_id]['rule_value_wrapper']['rule_value'] = [
-          '#type' => 'select',
-          '#title' => t('Value'),
-          '#options' => _modularform_rule_value_options($q_type, $current_rule_type),
+          '#type'          => 'select',
+          '#title'         => t('Value'),
+          '#options'       => _modularform_rule_value_options($q_type, $current_rule_type),
           '#default_value' => $r_el['rule_value'] ?? '',
+          '#empty_value'   => '',
+          '#empty_option'  => t('- Select -'),
         ];
         break;
 
@@ -1055,6 +1063,7 @@ function _modularform_build_records($fid, &$form_state) {
     }
 
     $r_vals = $values[$orig_sec][$q_id]['validation']['adv_rules'][$r_id] ?? [];
+    watchdog('modularform_debug', '<pre>@data</pre>', ['@data' => print_r($r_vals, TRUE)]);
     $rule_type = $r_vals['rule_type'] ?? '';
     $rule_value = $r_vals['rule_value_wrapper']['rule_value'] ?? '';
     $error_msg = $r_vals['error_message'] ?? '';
