@@ -186,21 +186,21 @@ function modularform_menu() {
   $items['modularform/tags/autocomplete'] = [
     'title' => 'Tag autocomplete',
     'page callback' => 'modularform_tags_autocomplete',
-    'access callback' => TRUE,
+    'access callback' => 'user_is_logged_in', // tags are internal data
     'type' => MENU_CALLBACK,
   ];
 
   $items['modularform/user-autocomplete'] = [
     'title' => 'User autocomplete',
     'page callback' => 'modularform_user_autocomplete',
-    'access callback' => TRUE,
+    'access callback' => '_modularform_is_form_admin', // only admins/analysts assign members
     'type' => MENU_CALLBACK,
   ];
 
   $items['forms/ajax/search'] = [
     'title' => '',
     'page callback' => 'modularform_dashboard_ajax',
-    'access callback' => TRUE,
+    'access callback' => 'form_list_access', // same as the dashboard it serves
     'type' => MENU_CALLBACK,
     'file' => 'includes/dashboard.inc',
   ];
@@ -209,7 +209,7 @@ function modularform_menu() {
     'title' => 'Response form search',
     'description' => 'Response form search ajax',
     'page callback' => 'modularform_filter_form_search',
-    'access callback' => TRUE,
+    'access callback' => 'response_list_access', // same as the response list it serves
     'file' => 'includes/response_list.inc',
     'type' => MENU_CALLBACK,
   ];
@@ -217,7 +217,7 @@ function modularform_menu() {
   $items['modularform/filter/questions'] = [
     'title' => 'Response question search',
     'page callback' => 'modularform_filter_questions',
-    'access callback' => TRUE,
+    'access callback' => 'response_list_access',
     'file' => 'includes/response_list.inc',
     'type' => MENU_CALLBACK,
   ];
@@ -225,7 +225,7 @@ function modularform_menu() {
   $items['modularform/filter/answer-values'] = [
     'title' => 'Response answer values',
     'page callback' => 'modularform_filter_answer_values',
-    'access callback' => TRUE,
+    'access callback' => 'response_list_access',
     'file' => 'includes/response_list.inc',
     'type' => MENU_CALLBACK,
   ];
@@ -233,7 +233,7 @@ function modularform_menu() {
   $items['forms/response/list/ajax'] = [
     'title' => '',
     'page callback' => 'modularform_response_list_ajax',
-    'access callback' => TRUE,
+    'access callback' => 'response_list_access', // same as the page it reloads
     'file' => 'includes/response_list.inc',
     'type' => MENU_CALLBACK,
   ];
@@ -1060,24 +1060,3 @@ function modularform_restws_response_alter(&$values, $function, $format_name, $r
   // Replace entirely with your custom read() output
   $values = $resource_controller->read($id);
 }
-
-function modularform_file_download($uri) {
-  if (strpos($uri, 'private://modularform/') !== 0 &&
-    strpos($uri, 'temporary://modularform') !== 0) {
-    return NULL;
-  }
-
-  if (user_access('answer forms') || user_access('view responses')) {
-    $files = file_load_multiple([], ['uri' => $uri]);
-    $file = reset($files);
-    if ($file) {
-      return [
-        'Content-Type' => $file->filemime,
-        'Content-Disposition' => 'attachment; filename="' . $file->filename . '"',
-      ];
-    }
-  }
-
-  return -1;
-}
-

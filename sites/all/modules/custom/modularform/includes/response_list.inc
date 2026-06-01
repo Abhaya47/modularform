@@ -352,8 +352,11 @@ function modularform_filter_answer_values() {
   $term = isset($_GET['term']) ? check_plain($_GET['term']) : '';
 
   // Basic validation — key must look like {type}_val_q_{id}_{hash}
-  if (!$solr_key || !$form_id || !preg_match('/^[a-z]+_val_q_\d+_[a-z0-9]+$/', $solr_key)) {
-    drupal_json_output(['error' => 'invalid_params']);
+  if (!$solr_key || !$form_id
+    || !preg_match('/^[a-z]+_val_q_\d+_[a-z0-9]+$/', $solr_key)
+    || !form_view_access($form_id)
+  ) {
+    drupal_json_output(['error' => 'access_denied']);
     drupal_exit();
   }
 
@@ -384,8 +387,8 @@ function modularform_filter_questions() {
   $form_id = isset($_GET['form_id']) ? (int) $_GET['form_id'] : 0;
   $configured_only = isset($_GET['configured']) ? (bool) $_GET['configured'] : FALSE;
 
-  if (!$form_id) {
-    drupal_json_output(['error' => 'invalid_params']);
+  if (!$form_id || !form_view_access($form_id)) {
+    drupal_json_output(['error' => 'access_denied']);
     drupal_exit();
   }
 

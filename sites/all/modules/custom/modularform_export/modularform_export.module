@@ -25,7 +25,7 @@ function modularform_export_menu() {
     'title' => 'Download Export',
     'page callback' => '_modularform_export_download',
     'page arguments' => [3],
-    'access callback' => TRUE,
+    'access callback' => 'user_is_logged_in', // minimum — zip is scoped to the user anyway
     'type' => MENU_CALLBACK,
   ];
 
@@ -147,6 +147,7 @@ function _modularform_export_load_forms(array $fids) {
   if (empty($fids)) {
     return [];
   }
+
   $result = db_select('modularform_forms', 'f')
     ->fields('f', ['id', 'title', 'status', 'created_at'])
     ->condition('f.id', $fids, 'IN')
@@ -155,7 +156,10 @@ function _modularform_export_load_forms(array $fids) {
 
   $records = [];
   foreach ($result as $row) {
-    $records[(int) $row->id] = $row;
+    // Reuse your existing access check — same gate as viewing a form.
+    if (form_view_access($row->id)) {
+      $records[(int) $row->id] = $row;
+    }
   }
   return $records;
 }
@@ -312,7 +316,7 @@ function _modularform_export_finished($success, $results, $operations) {
 
   if ($success && !empty($results['zip'])) {
     $filename = basename($results['zip']);
-    variable_set('modularform_export_last_zip_' . $filename, $results['zip']);
+    variable_set('modularform_export_last_zip_' . $filename . '_' . $GLOBALS['user']->uid, $results['zip']);
     $url = url('modularform/export/download/' . $filename);
     drupal_set_message(t('Export complete. <a href="@url">Download your export</a>.', ['@url' => $url]));
   }
@@ -345,15 +349,18 @@ function modularform_export_cron() {
  * Page callback: serve a zip file for download.
  */
 function _modularform_export_download($filename) {
-  $zip_path = variable_get('modularform_export_last_zip_' . $filename, NULL);
+  global $user;
+  $zip_path = variable_get('modularform_export_last_zip_' . $filename . '_' . $user->uid, NULL);
+
   if (!$zip_path || !file_exists($zip_path)) {
     drupal_not_found();
     return;
   }
+
   $uri = 'private://modularform_exports/' . $filename;
   file_transfer($uri, [
-    'Content-Type' => 'application/zip',
+    'Content-Type'        => 'application/zip',
     'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-    'Content-Length' => filesize($zip_path),
+    'Content-Length'      => filesize($zip_path),
   ]);
 }
