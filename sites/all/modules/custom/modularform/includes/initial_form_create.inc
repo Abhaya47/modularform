@@ -425,7 +425,7 @@ function modularform_create_form_submit($form, &$form_state) {
   if ($id) {
     drupal_goto('forms/manage');
   }
-  drupal_goto('forms/' . $entity->id . '/builder');
+  drupal_goto('forms/' . $form_id . '/builder');
 }
 
 /**

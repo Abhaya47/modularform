@@ -379,20 +379,21 @@ function modularform_filterable_form_submit($form, &$form_state) {
   $questions = $form_state['build_info']['args'][0];
   $form_id = !empty($questions[0]['form_id']) ? (int) $questions[0]['form_id'] : 0;
 
+  $on = $off = [];
   foreach ($form_state['values'] as $key => $value) {
-    if (strpos($key, 'q_') !== 0) {
-      continue;
-    }
+    if (strpos($key, 'q_') !== 0) continue;
     $q_id = substr($key, 2);
-
+    if ((int)(bool)$value) { $on[] = $q_id; } else { $off[] = $q_id; }
+  }
+  if ($on) {
     db_update('modularform_questions')
-      ->fields([
-        'is_filterable' => (int) (bool) $value,
-        'updated_at' => REQUEST_TIME,
-      ])
-      ->condition('q_id', $q_id)
-      ->condition('form_id', $form_id)
-      ->execute();
+      ->fields(['is_filterable' => 1, 'updated_at' => REQUEST_TIME])
+      ->condition('q_id', $on, 'IN')->condition('form_id', $form_id)->execute();
+  }
+  if ($off) {
+    db_update('modularform_questions')
+      ->fields(['is_filterable' => 0, 'updated_at' => REQUEST_TIME])
+      ->condition('q_id', $off, 'IN')->condition('form_id', $form_id)->execute();
   }
 
   drupal_static_reset('_modularform_load_questions');

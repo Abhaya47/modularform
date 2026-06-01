@@ -26,11 +26,7 @@ function modularform_answer_form_submit($form, &$form_state) {
   $now = REQUEST_TIME;
   $skip = ['submit', 'form_build_id', 'form_token', 'form_id', 'op'];
 
-  $form_record = db_select('modularform_forms', 'f')
-    ->fields('f', ['anonymous_responses'])
-    ->condition('f.id', $fid)
-    ->execute()
-    ->fetchAssoc();
+  $form_record = _modularform_get_form($fid);
 
   $is_anonymous_form = !empty($form_record['anonymous_responses']);
 
@@ -86,6 +82,8 @@ function modularform_answer_form_submit($form, &$form_state) {
   // Collectors for bulk child inserts.
   $multi_inserts = [];
   $file_inserts = [];
+  $datatype_map = modularform_datatype_map();
+  $type_map     = modularform_type_map();
 
   foreach ($values as $sec_key => $section) {
     if (in_array($sec_key, $skip) || !is_array($section)) {
@@ -108,7 +106,7 @@ function modularform_answer_form_submit($form, &$form_state) {
         $answer_row = [
           'response_id' => $response_id,
           'q_id' => $q_id,
-          'datatype' => modularform_type_map()[$q_type],
+          'datatype' => $type_map[$q_type],
           'value_varchar' => NULL,
           'value_text' => NULL,
           'value_int' => NULL,

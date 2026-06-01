@@ -246,21 +246,26 @@ function _modularform_edit_rules($state) {
   return $rules[$state] ?? $rules['draft'];
 }
 
+
 function modularform_type_map(): array {
-  return [
-    'text' => 0,
-    'textarea' => 1,
-    'radio' => 2,
-    'boolean' => 3,
-    'checkbox' => 4,
-    'file' => 5,
-    'dropdown' => 6,
-    'tag' => 7,
-    'richtext' => 8,
-    'date' => 9,
-    'time' => 10,
-    'list' => 11,
-  ];
+  $cache = &drupal_static(__FUNCTION__);
+  if (!isset($cache)) {
+    $cache = [
+      'text'      => 0,
+      'textarea'  => 1,
+      'radio'     => 2,
+      'boolean'   => 3,
+      'checkbox'  => 4,
+      'file'      => 5,
+      'dropdown'  => 6,
+      'tag'       => 7,
+      'richtext'  => 8,
+      'date'      => 9,
+      'time'      => 10,
+      'list'      => 11,
+    ];
+  }
+  return $cache;
 }
 
 function modularform_datatype_map(): array {

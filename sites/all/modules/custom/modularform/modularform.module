@@ -382,7 +382,7 @@ function _modularform_get_form($fid) {
 
   if (!array_key_exists($fid, $cache)) {
     $cache[$fid] = db_select('modularform_forms', 'f')
-      ->fields('f', ['id', 'visibility', 'status', 'closes_at', 'created_by'])
+      ->fields('f', ['id', 'visibility', 'status', 'closes_at', 'created_by', 'anonymous_responses'])
       ->condition('f.id', $fid)
       ->execute()
       ->fetchObject() ?: NULL;

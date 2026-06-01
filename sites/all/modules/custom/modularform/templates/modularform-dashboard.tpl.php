@@ -66,8 +66,7 @@ $recent = array_slice($rows, 0, 4);
         'attributes' => ['class' => ['gform-thumb-link']],
       ]);
       ?>
-
-      <?php foreach ($recent as $i => $row):
+      <?php foreach (array_slice($recent, 0, 3) as $i => $row):
         $color = $thumb_colors[$i % count($thumb_colors)];
         $name = isset($row[0]) ? $row[0] : '';
         $date = isset($row[3]) ? $row[3] : '';

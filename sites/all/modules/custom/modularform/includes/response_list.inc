@@ -23,11 +23,11 @@ function modularform_response_list_page() {
   if (!_modularform_is_site_admin()) {
     $candidate_ids = $form_id_filter
       ? [$form_id_filter]
-      : db_select('modularform_forms', 'f')
-        ->fields('f', ['id'])
+      : db_select('modularform_form_members', 'fm')
+        ->fields('fm', ['form_id'])
+        ->condition('fm.uid', $user->uid)
         ->execute()
         ->fetchCol();
-
     $all_access = [];
     $own_only = [];
 
@@ -141,7 +141,6 @@ function modularform_response_list_page() {
       break;
     }
   }
-  $show_form_filter = _modularform_is_site_admin() || _modularform_is_form_admin();
   // ── Pager + fetch ───────────────────────────────────────────────────────────
   $responses = $query->extend('PagerDefault')->limit(25)->execute()->fetchAll();
 

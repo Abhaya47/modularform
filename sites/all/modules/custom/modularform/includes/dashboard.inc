@@ -333,21 +333,19 @@ function _modularform_dashboard_sql(array $conditions, $user, $sort, $limit = 25
   $is_admin = _modularform_is_site_admin();
 
   $query = db_select('modularform_forms', 'f')
-    ->fields('f', [
-      'id',
-      'title',
-      'status',
-      'visibility',
-      'created_by',
-      'created_at',
-    ])
+    ->fields('f', ['id', 'title', 'status', 'visibility', 'created_by', 'created_at'])
     ->isNull('f.deleted_at');
 
+  // ── Response count via JOIN aggregate, not correlated subquery ─────────────
   if ($is_admin) {
-    $query->addExpression(
-      '(SELECT COUNT(*) FROM {modularform_responses} r WHERE r.form_id = f.id)',
-      'response_count'
-    );
+    $query->leftJoin('modularform_responses', 'r', 'r.form_id = f.id');
+    $query->addExpression('COUNT(r.id)', 'response_count');
+    $query->groupBy('f.id');
+    $query->groupBy('f.title');
+    $query->groupBy('f.status');
+    $query->groupBy('f.visibility');
+    $query->groupBy('f.created_by');
+    $query->groupBy('f.created_at');
   }
   else {
     $query->leftJoin(
@@ -356,11 +354,22 @@ function _modularform_dashboard_sql(array $conditions, $user, $sort, $limit = 25
       [':uid' => $user->uid]
     );
 
-    $query->addExpression(
-      '(SELECT COUNT(*) FROM {modularform_responses} r WHERE r.form_id = f.id AND (f.created_by = :count_uid OR fm.roles = :creator))',
-      'response_count',
+    // Only count responses the user is entitled to see:
+    // their own forms (created_by) or where they are a co-owner (roles = 0).
+    $query->leftJoin(
+      'modularform_responses', 'r',
+      'r.form_id = f.id AND (f.created_by = :count_uid OR fm.roles = :creator)',
       [':count_uid' => $user->uid, ':creator' => 0]
     );
+    $query->addExpression('COUNT(r.id)', 'response_count');
+    $query->groupBy('f.id');
+    $query->groupBy('f.title');
+    $query->groupBy('f.status');
+    $query->groupBy('f.visibility');
+    $query->groupBy('f.created_by');
+    $query->groupBy('f.created_at');
+    $query->groupBy('fm.roles');
+    $query->groupBy('fm.form_id');
 
     $or = db_or();
     $or->condition('f.created_by', $user->uid);
@@ -368,39 +377,31 @@ function _modularform_dashboard_sql(array $conditions, $user, $sort, $limit = 25
     $query->condition($or);
   }
 
+  // ── Filters ─────────────────────────────────────────────────────────────────
   if (!empty($conditions['search'])) {
     $like = '%' . db_like($conditions['search']) . '%';
-    $or = db_or();
-    $or->condition('f.title', $like, 'LIKE');
-    $or->condition('f.description', $like, 'LIKE');
-    $query->condition($or);
+    $query->condition(
+      db_or()
+        ->condition('f.title', $like, 'LIKE')
+        ->condition('f.description', $like, 'LIKE')
+    );
   }
-
   if (isset($conditions['status'])) {
     $query->condition('f.status', (int) $conditions['status']);
   }
-
   if (isset($conditions['visibility'])) {
     $query->condition('f.visibility', (int) $conditions['visibility']);
   }
-
   if (isset($conditions['created_by'])) {
     $query->condition('f.created_by', (int) $conditions['created_by']);
   }
 
+  // ── Sort ────────────────────────────────────────────────────────────────────
   switch ($sort) {
-    case 'title_asc':
-      $query->orderBy('f.title', 'ASC');
-      break;
-    case 'title_desc':
-      $query->orderBy('f.title', 'DESC');
-      break;
-    case 'created_asc':
-      $query->orderBy('f.created_at', 'ASC');
-      break;
-    default:
-      $query->orderBy('f.created_at', 'DESC');
-      break;
+    case 'title_asc':   $query->orderBy('f.title', 'ASC');      break;
+    case 'title_desc':  $query->orderBy('f.title', 'DESC');     break;
+    case 'created_asc': $query->orderBy('f.created_at', 'ASC'); break;
+    default:            $query->orderBy('f.created_at', 'DESC');
   }
 
   $query->range($page * $limit, $limit);

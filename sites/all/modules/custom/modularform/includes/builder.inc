@@ -1322,21 +1322,16 @@ function _modularform_bulk_upsert($table, array $records, array $update_cols) {
 }
 
 function _modularform_resolve_edit_state($fid) {
-  $form_status = db_select('modularform_forms', 'f')
-    ->fields('f', ['status'])
-    ->condition('id', $fid)
-    ->execute()
-    ->fetchField();
+  $form = _modularform_get_form($fid);
 
-  if ((int) $form_status === 0) {
+  if (!$form || (int) $form->status === 0) {
     return 'draft';
   }
 
-  $has_responses = (bool) db_select('modularform_responses', 'r')
-    ->condition('form_id', $fid)
-    ->countQuery()
-    ->execute()
-    ->fetchField();
+  $response_count = db_query(
+    'SELECT COUNT(id) FROM {modularform_responses} WHERE form_id = :fid',
+    [':fid' => $fid]
+  )->fetchField();
 
-  return $has_responses ? 'published_has_responses' : 'published_no_responses';
+  return $response_count ? 'published_has_responses' : 'published_no_responses';
 }
