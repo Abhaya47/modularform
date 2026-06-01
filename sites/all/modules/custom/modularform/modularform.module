@@ -924,7 +924,7 @@ function modularform_mail($key, &$message, $params) {
       $message['body'][] = t('A new form "@title" has been published and is available for your role.', [
         '@title' => $form->title,
       ]);
-      $message['body'][] = url('forms/' . $form->slug . '/fill', ['absolute' => TRUE]);
+      $message['body'][] = url('forms/' . $form->id . '/fill', ['absolute' => TRUE]);
       $message['body'][] = t('Thank you.');
       break;
   }
