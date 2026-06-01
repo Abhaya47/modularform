@@ -9,34 +9,20 @@ module_load_include('inc', 'modularform_analytics', 'includes/modularform_analyt
  */
 
 /**
- * Implements hook_menu().
+ * Implements hook_menu_alter().
+ * Tightens access on the analytics routes defined by modularform_analytics.
  */
-function modularform_analytics_menu() {
-  $items = [];
-  $items['modularform/analytics'] = [
-    'title'           => 'Analytics',
-    'description'     => 'Modularform Analytics',
-    'page callback'   => 'system_admin_menu_block_page',
-    'access callback' => TRUE,
-    'file path'       => drupal_get_path('module', 'system'),
-    'file'            => 'system.admin.inc',
-    'type'            => MENU_NORMAL_ITEM,
-    'menu_name' => 'main-menu',
-
-  ];
-
-  $items['modularform/analytics/wordcloud'] = [
-    'title'           => 'Tag Word Cloud',
-    'description'     => 'Visualise tag usage as a word cloud.',
-    'page callback'   => 'modularform_analytics_wordcloud_page',
-    'access callback' => TRUE,
-    'file'            => 'includes/modularform_analytics.wordcloud.inc',
-    'type'            => MENU_NORMAL_ITEM,
-    'menu_name' => 'main-menu',
-  ];
-
-  return $items;
+function modularform_analytics_menu_alter(&$items) {
+  $routes = ['modularform/analytics', 'modularform/analytics/wordcloud'];
+  foreach ($routes as $path) {
+    if (isset($items[$path])) {
+      $items[$path]['access callback']  = '_modularform_analytics_access_real';
+      $items[$path]['access arguments'] = [];
+    }
+  }
 }
+
+
 
 /**
  * Implements hook_permission().
@@ -48,6 +34,25 @@ function modularform_analytics_permission() {
       'description' => t('View analytics pages including the tag word cloud.'),
     ],
   ];
+}
+
+/**
+ * Access callback for all analytics routes.
+ *
+ * - site administrator: always.
+ * - admin / analyst: yes if they hold 'view analytics' from the core module
+ *   AND 'access modularform analytics' from this module.
+ * - others: no.
+ */
+function _modularform_analytics_access_real() {
+  if (_modularform_is_site_admin()) {
+    return TRUE;
+  }
+  if (_modularform_is_form_admin()) {
+    return user_access('view analytics')
+      && user_access('access modularform analytics');
+  }
+  return FALSE;
 }
 
 /**

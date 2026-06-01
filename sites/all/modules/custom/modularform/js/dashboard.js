@@ -49,7 +49,6 @@
         selecting = true;
         $table.addClass('is-selecting');
         $exportToggle.addClass('is-active').attr('aria-pressed', 'true');
-        // Make checkboxes keyboard-reachable
         $table.find('.mf-row-check, #mf-check-all').attr('tabindex', '0');
         updateExportBar();
       }
@@ -58,34 +57,26 @@
         selecting = false;
         $table.removeClass('is-selecting');
         $exportToggle.removeClass('is-active').attr('aria-pressed', 'false');
-        // Uncheck everything
         $checkAll.prop('checked', false);
         $tbody.find('.mf-row-check').prop('checked', false);
-        // Hide checkboxes from keyboard
         $table.find('.mf-row-check, #mf-check-all').attr('tabindex', '-1');
         $exportBar.removeClass('is-visible');
       }
 
       $exportToggle.on('click', function () {
-        if (selecting) {
-          exitSelectMode();
-        } else {
-          enterSelectMode();
-        }
+        if (selecting) { exitSelectMode(); } else { enterSelectMode(); }
       });
 
       $exportCancel.on('click', function () {
         exitSelectMode();
       });
 
-      /* Select-all checkbox in thead */
       $checkAll.on('change', function () {
         var checked = $(this).is(':checked');
         $tbody.find('.mf-row-check').prop('checked', checked);
         updateExportBar();
       });
 
-      /* Individual row checkboxes — delegated so it works after AJAX re-render */
       $tbody.on('change', '.mf-row-check', function () {
         var total   = $tbody.find('.mf-row-check').length;
         var checked = $tbody.find('.mf-row-check:checked').length;
@@ -94,11 +85,8 @@
         updateExportBar();
       });
 
-      /* Clicking the row itself (not the checkbox or a link) checks the box
-         when in selecting mode */
       $tbody.on('click', 'tr', function (e) {
         if (!selecting) { return; }
-        // Don't interfere with checkbox clicks, links, or dropdown buttons
         if ($(e.target).is('input, a, button') || $(e.target).closest('a, button, .action-dropdown').length) {
           return;
         }
@@ -174,7 +162,6 @@
             initialLoad = false;
             renderPager(data.total || 0, data.page || 0);
             updateMeta(data.total || 0, $.trim($search.val()));
-            // Re-apply tabindex state after re-render
             if (selecting) {
               $tbody.find('.mf-row-check').attr('tabindex', '0');
               updateExportBar();
@@ -203,34 +190,18 @@
         var html = '';
 
         rows.forEach(function (row) {
+          var urls = row.urls || {};
+
           var badge = row.status_val
             ? 'mf-badge mf-badge--published'
             : 'mf-badge mf-badge--draft';
 
-          var respCount = parseInt(row.response_count || 0, 10);
+          var respCount     = parseInt(row.response_count || 0, 10);
           var respPillClass = 'mf-resp-pill' + (respCount === 0 ? ' mf-resp-pill--empty' : '');
-          var respLabel = respCount === 1 ? Drupal.t('response') : Drupal.t('responses');
+          var respLabel     = respCount === 1 ? Drupal.t('response') : Drupal.t('responses');
 
-          html +=
-            '<tr data-fid="' + esc(row.id) + '">' +
-            /* Checkbox cell */
-            '<td class="gform-td-check" aria-hidden="true">' +
-            '<input type="checkbox" class="mf-row-check" value="' + esc(row.id) + '"' +
-            ' aria-label="' + Drupal.t('Select') + ' ' + esc(row.title) + '"' +
-            ' tabindex="' + cbTabindex + '"/>' +
-            '</td>' +
-            /* Name */
-            '<td class="gform-td-name"><div class="gform-name-inner">' +
-            '<span class="gform-form-icon"><svg viewBox="0 0 13 13" fill="white" xmlns="http://www.w3.org/2000/svg">' +
-            '<rect x="1.5" y="2" width="10" height="1.8" rx=".9"/>' +
-            '<rect x="1.5" y="5.5" width="10" height="1.8" rx=".9"/>' +
-            '<rect x="1.5" y="9" width="7" height="1.8" rx=".9"/>' +
-            '</svg></span>' +
-            '<a href="' + esc(row.urls.view) + '" class="gform-name-text">' + esc(row.title) + '</a>' +
-            '</div></td>' +
-            /* Responses */
-            '<td class="gform-td-responses">' +
-            '<a href="' + esc(row.urls.responses) + '" class="' + respPillClass + '" title="' + Drupal.t('View all responses') + '">' +
+          // pill inner HTML shared between link and span
+          var respInner =
             '<svg class="mf-resp-pill__icon" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
             '<path d="M7 1.5C3.96 1.5 1.5 3.69 1.5 6.4c0 1.18.46 2.26 1.22 3.1L2 12.5l2.9-1.1A6.1 6.1 0 0 0 7 11.3c3.04 0 5.5-2.19 5.5-4.9S10.04 1.5 7 1.5Z" fill="currentColor" opacity=".18"/>' +
             '<path d="M7 1.5C3.96 1.5 1.5 3.69 1.5 6.4c0 1.18.46 2.26 1.22 3.1L2 12.5l2.9-1.1A6.1 6.1 0 0 0 7 11.3c3.04 0 5.5-2.19 5.5-4.9S10.04 1.5 7 1.5Z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>' +
@@ -238,16 +209,55 @@
             '<rect x="4.5" y="7.5" width="3" height="1" rx=".5" fill="currentColor"/>' +
             '</svg>' +
             '<span class="mf-resp-pill__count">' + respCount + '</span>' +
-            '<span class="mf-resp-pill__label">' + respLabel + '</span>' +
-            '</a></td>' +
+            '<span class="mf-resp-pill__label">' + respLabel + '</span>';
+
+          // name link — view takes priority, fall back to fill/answer
+          var nameUrl  = urls.view || urls.answer || null;
+          var nameCell = nameUrl
+            ? '<a href="' + esc(nameUrl) + '" class="gform-name-text">' + esc(row.title) + '</a>'
+            : '<span class="gform-name-text">' + esc(row.title) + '</span>';
+
+          // responses pill — only a link if the user can view responses
+          var respCell = urls.responses
+            ? '<a href="' + esc(urls.responses) + '" class="' + respPillClass + '" title="' + Drupal.t('View all responses') + '">' + respInner + '</a>'
+            : '<span class="' + respPillClass + '">' + respInner + '</span>';
+
+          html +=
+            '<tr data-fid="' + esc(row.id) + '">' +
+
+            /* Checkbox */
+            '<td class="gform-td-check" aria-hidden="true">' +
+            '<input type="checkbox" class="mf-row-check" value="' + esc(row.id) + '"' +
+            ' aria-label="' + Drupal.t('Select') + ' ' + esc(row.title) + '"' +
+            ' tabindex="' + cbTabindex + '"/>' +
+            '</td>' +
+
+            /* Name */
+            '<td class="gform-td-name"><div class="gform-name-inner">' +
+            '<span class="gform-form-icon">' +
+            '<svg viewBox="0 0 13 13" fill="white" xmlns="http://www.w3.org/2000/svg">' +
+            '<rect x="1.5" y="2" width="10" height="1.8" rx=".9"/>' +
+            '<rect x="1.5" y="5.5" width="10" height="1.8" rx=".9"/>' +
+            '<rect x="1.5" y="9" width="7" height="1.8" rx=".9"/>' +
+            '</svg></span>' +
+            nameCell +
+            '</div></td>' +
+
+            /* Responses */
+            '<td class="gform-td-responses">' + respCell + '</td>' +
+
             /* Owner */
             '<td>' + esc(row.owner) + '</td>' +
+
             /* Status */
             '<td><span class="' + badge + '">' + esc(row.status) + '</span></td>' +
+
             /* Created */
             '<td>' + esc(row.created) + '</td>' +
+
             /* Ops */
-            '<td class="gform-td-ops">' + buildOps(row.urls) + '</td>' +
+            '<td class="gform-td-ops">' + buildOps(urls) + '</td>' +
+
             '</tr>';
         });
 
@@ -321,15 +331,33 @@
       }
 
       function buildOps(urls) {
+        var items = '';
+
+        if (urls.preview) {
+          items += '<a href="' + esc(urls.preview) + '">' + Drupal.t('Preview Survey') + '</a>';
+        }
+        if (urls.edit) {
+          items += '<a href="' + esc(urls.edit) + '">' + Drupal.t('Edit Survey') + '</a>';
+        }
+        if (urls.settings) {
+          items += '<a href="' + esc(urls.settings) + '">' + Drupal.t('Edit Settings') + '</a>';
+        }
+        if (urls.answer) {
+          items += '<a href="' + esc(urls.answer) + '">' + Drupal.t('Fill Form') + '</a>';
+        }
+        if (urls.delete) {
+          items += '<a href="' + esc(urls.delete) + '" class="mf-op-delete">' + Drupal.t('Delete Survey') + '</a>';
+        }
+
+        if (!items) {
+          return '<span class="mf-no-ops">' + Drupal.t('—') + '</span>';
+        }
+
         return (
           '<div class="action-dropdown">' +
           '<button class="action-dropbtn">' + Drupal.t('Actions') + ' &#9660;</button>' +
-          '<div class="action-dropdown-content">' +
-          '<a href="' + esc(urls.preview)  + '">' + Drupal.t('Preview Survey')  + '</a>' +
-          '<a href="' + esc(urls.edit)     + '">' + Drupal.t('Edit Survey')     + '</a>' +
-          '<a href="' + esc(urls.settings) + '">' + Drupal.t('Edit Settings')   + '</a>' +
-          '<a href="' + esc(urls.delete)   + '" class="mf-op-delete">' + Drupal.t('Delete Survey') + '</a>' +
-          '</div></div>'
+          '<div class="action-dropdown-content">' + items + '</div>' +
+          '</div>'
         );
       }
 

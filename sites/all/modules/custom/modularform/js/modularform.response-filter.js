@@ -36,6 +36,9 @@
         var $clearAll = $bar.find('#filter-clear-all');
 
         // ── Initial state ──────────────────────────────────────────────────
+        if (!Drupal.settings.modularform_show_form_filter) {
+          $stepForm.hide();
+        }
 
         $stepQ.addClass('gform-filter-step--locked');
         $qSearch.prop('disabled', true);

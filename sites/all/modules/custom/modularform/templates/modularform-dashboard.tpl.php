@@ -175,12 +175,15 @@ $recent = array_slice($rows, 0, 4);
         <button id="mf-export-toggle" class="mf-export-toggle-btn"
                 aria-pressed="false"
                 title="<?php print t('Select forms to export'); ?>">
-          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"
+          <svg viewBox="0 0 16 16" fill="none"
+               xmlns="http://www.w3.org/2000/svg"
                aria-hidden="true" width="14" height="14">
-            <path d="M8 1v8M5 6l3 3 3-3" stroke="currentColor" stroke-width="1.5"
+            <path d="M8 1v8M5 6l3 3 3-3" stroke="currentColor"
+                  stroke-width="1.5"
                   stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M2 11v2a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2"
-                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  stroke="currentColor" stroke-width="1.5"
+                  stroke-linecap="round"/>
           </svg>
           <?php print t('Export'); ?>
         </button>
@@ -216,26 +219,40 @@ $recent = array_slice($rows, 0, 4);
                 </td>
                 <!-- Name -->
                 <td class="gform-td-name">
-                  <a href="<?php print url('forms/view/' . $row[6]); ?>" class="gform-name-link">
+                  <?php
+                  $name_link = isset($row[5]['view'])
+                    ? $row[5]['view']
+                    : (isset($row[5]['name']) ? $row[5]['name'] : NULL);
+
+                  $name_options = [];
+                  if ($name_link && !empty($name_link['query'])) {
+                    $name_options['query'] = $name_link['query'];
+                  }
+                  $name_url = $name_link ? url($name_link['href'], $name_options) : '#';
+                  ?>
+                  <a href="<?php print $name_url; ?>" class="gform-name-link">
                     <div class="gform-name-inner">
                       <span class="gform-form-icon">
                         <svg viewBox="0 0 13 13" fill="white"
                              xmlns="http://www.w3.org/2000/svg">
                           <rect x="1.5" y="2" width="10" height="1.8" rx=".9"/>
-                          <rect x="1.5" y="5.5" width="10" height="1.8" rx=".9"/>
+                          <rect x="1.5" y="5.5" width="10" height="1.8"
+                                rx=".9"/>
                           <rect x="1.5" y="9" width="7" height="1.8" rx=".9"/>
                         </svg>
                       </span>
-                      <span class="gform-name-text"><?php print $row[0]; ?></span>
+                      <span
+                        class="gform-name-text"><?php print $row[0]; ?></span>
                     </div>
                   </a>
                 </td>
                 <!-- Responses -->
                 <td class="gform-td-responses">
                   <?php $resp_count = (int) $row[4]; ?>
-                  <a href="<?php print url('forms/response/list', ['query' => ['form_id' => $row[6]]]); ?>"
-                     class="mf-resp-pill<?php print $resp_count === 0 ? ' mf-resp-pill--empty' : ''; ?>"
-                     title="<?php print t('View all responses'); ?>">
+                  <a
+                    href="<?php print url('forms/response/list', ['query' => ['form_id' => $row[6]]]); ?>"
+                    class="mf-resp-pill<?php print $resp_count === 0 ? ' mf-resp-pill--empty' : ''; ?>"
+                    title="<?php print t('View all responses'); ?>">
                     <svg class="mf-resp-pill__icon" viewBox="0 0 14 14"
                          fill="none" xmlns="http://www.w3.org/2000/svg"
                          aria-hidden="true">
@@ -251,8 +268,10 @@ $recent = array_slice($rows, 0, 4);
                       <rect x="4.5" y="7.5" width="3" height="1" rx=".5"
                             fill="currentColor"/>
                     </svg>
-                    <span class="mf-resp-pill__count"><?php print $resp_count; ?></span>
-                    <span class="mf-resp-pill__label"><?php print $resp_count === 1 ? t('response') : t('responses'); ?></span>
+                    <span
+                      class="mf-resp-pill__count"><?php print $resp_count; ?></span>
+                    <span
+                      class="mf-resp-pill__label"><?php print $resp_count === 1 ? t('response') : t('responses'); ?></span>
                   </a>
                 </td>
                 <!-- Owner -->
@@ -277,7 +296,11 @@ $recent = array_slice($rows, 0, 4);
                         <?php foreach ($row[5] as $link): ?>
                           <?php
                           $attrs = isset($link['attributes']) ? $link['attributes'] : [];
-                          print l($link['title'], $link['href'], ['attributes' => $attrs]);
+                          $options = ['attributes' => $attrs];
+                          if (!empty($link['query'])) {
+                            $options['query'] = $link['query'];
+                          }
+                          print l($link['title'], $link['href'], $options);
                           ?>
                         <?php endforeach; ?>
                       <?php endif; ?>
@@ -322,10 +345,12 @@ $recent = array_slice($rows, 0, 4);
 <div id="mf-export-bar" aria-live="polite" aria-atomic="true">
   <span id="mf-export-bar-count"></span>
   <div class="mf-export-bar-actions">
-    <button id="mf-export-bar-cancel" class="mf-export-bar-btn mf-export-bar-btn--ghost">
+    <button id="mf-export-bar-cancel"
+            class="mf-export-bar-btn mf-export-bar-btn--ghost">
       <?php print t('Cancel'); ?>
     </button>
-    <a id="mf-export-bar-go" href="#" class="mf-export-bar-btn mf-export-bar-btn--primary">
+    <a id="mf-export-bar-go" href="#"
+       class="mf-export-bar-btn mf-export-bar-btn--primary">
       <?php print t('Review Export'); ?>
     </a>
   </div>

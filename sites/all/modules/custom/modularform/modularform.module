@@ -244,6 +244,20 @@ function modularform_menu() {
     'type' => MENU_CALLBACK,
   ];
 
+  // in modularform_menu()
+  $items['modularform/analytics/wordcloud'] = [
+    'title'            => 'Form Analytics',
+    'description'      => 'Visualise tag usage as a word cloud.',
+    'page callback'    => 'modularform_analytics_wordcloud_page',
+    'access callback'  => 'modularform_analytics_access',
+    'access arguments' => [],
+    'weight' => 10,
+    'file path'        => drupal_get_path('module', 'modularform_analytics'),
+    'file'             => 'includes/modularform_analytics.wordcloud.inc',
+    'type'             => MENU_NORMAL_ITEM,
+    'menu_name'        => 'main-menu',
+  ];
+
   return $items;
 }
 
@@ -293,11 +307,6 @@ function modularform_permission() {
     'delete responses' => [
       'title' => t('Delete responses'),
       'description' => t('Delete submitted responses.'),
-    ],
-    // Analytics
-    'view analytics' => [
-      'title' => t('View analytics'),
-      'description' => t('View form analytics and statistics.'),
     ],
   ];
 }
@@ -528,7 +537,13 @@ function form_delete_access($fid = NULL) {
  *
  * @param int $fid Form ID.
  */
-function modularform_fill_access($fid) {
+/**
+ * @param int $fid
+ * @param string|null $token  Optional — pass when checking from a link build
+ *                            context. Falls back to $_GET['token'] when NULL
+ *                            (normal page-load path).
+ */
+function modularform_fill_access($fid, $token = NULL) {
   if (_modularform_is_site_admin()) {
     return TRUE;
   }
@@ -545,7 +560,6 @@ function modularform_fill_access($fid) {
   if (_modularform_is_closed($form)) {
     return FALSE;
   }
-  // public form — open to anyone with the permission
   if ((int) $form->visibility === 0) {
     return TRUE;
   }
@@ -553,11 +567,15 @@ function modularform_fill_access($fid) {
   if ($form->created_by == $user->uid) {
     return TRUE;
   }
-  // private form — validate invitation token
-  $token = isset($_GET['token']) ? check_plain($_GET['token']) : '';
+
+  // Resolve token — explicit argument takes priority over $_GET
+  if ($token === NULL) {
+    $token = isset($_GET['token']) ? check_plain($_GET['token']) : '';
+  }
   if (empty($token)) {
     return FALSE;
   }
+
   $record = db_select('modularform_form_members', 'mfm')
     ->fields('mfm')
     ->condition('form_id', $fid)
@@ -685,6 +703,12 @@ function response_delete_access($id) {
   return TRUE;
 }
 
+// modularform.module
+// stub — returns FALSE until analytics module enables it
+function modularform_analytics_access() {
+  return FALSE;
+}
+
 /**
  * Implements hook_entity_info().
  */
@@ -763,6 +787,7 @@ function modularform_theme() {
         'form' => NULL,
         'header' => [],
         'rows' => [],
+        'show_form_filter' => ''
       ],
       'template' => 'modularform-response-list', // → response-list.tpl.php
       'path' => drupal_get_path('module', 'modularform') . '/templates',

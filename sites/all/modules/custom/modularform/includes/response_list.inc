@@ -3,23 +3,63 @@
 module_load_include('inc', 'modularform', 'modularform.rules');
 
 function modularform_response_list_page() {
+  global $user;
+
+  // ── Base query ──────────────────────────────────────────────────────────────
   $form_id_filter = isset($_GET['form_id']) ? (int) $_GET['form_id'] : NULL;
   $pair_filters = isset($_GET['filters']) && is_array($_GET['filters'])
     ? array_values($_GET['filters'])
     : [];
 
-  // ── Build base query ───────────────────────────────────────────────────────
   $query = db_select('modularform_responses', 'r')
     ->fields('r', ['id', 'form_id', 'email', 'submitted_at', 'updated_at'])
     ->orderBy('r.submitted_at', 'DESC');
 
-  // ── Form filter ────────────────────────────────────────────────────────────
   if ($form_id_filter) {
     $query->condition('r.form_id', $form_id_filter);
   }
 
-  // ── Pair filters via Solr ──────────────────────────────────────────────────
-  // ── Solr filters (pairs + email) ───────────────────────────────────────────
+  // ── Role-based visibility ───────────────────────────────────────────────────
+  if (!_modularform_is_site_admin()) {
+    $candidate_ids = $form_id_filter
+      ? [$form_id_filter]
+      : db_select('modularform_forms', 'f')
+        ->fields('f', ['id'])
+        ->execute()
+        ->fetchCol();
+
+    $all_access = [];
+    $own_only = [];
+
+    foreach ($candidate_ids as $fid) {
+      $role = _modularform_form_member_role($fid);
+      if (in_array($role, ['creator', 0, 1], TRUE)) {
+        $all_access[] = (int) $fid;
+      }
+      elseif ($role === 2) {
+        $own_only[] = (int) $fid;
+      }
+    }
+
+    if (empty($all_access) && empty($own_only)) {
+      return '<p>' . t('You do not have permission to view any responses.') . '</p>';
+    }
+
+    $or = db_or();
+    if (!empty($all_access)) {
+      $or->condition('r.form_id', $all_access, 'IN');
+    }
+    if (!empty($own_only)) {
+      $or->condition(
+        db_and()
+          ->condition('r.form_id', $own_only, 'IN')
+          ->condition('r.user_id', $user->uid)
+      );
+    }
+    $query->condition($or);
+  }
+
+  // ── Solr filters ────────────────────────────────────────────────────────────
   $email_filter = isset($_GET['email']) ? check_plain(trim($_GET['email'])) : '';
 
   if (!empty($pair_filters) || $email_filter) {
@@ -33,8 +73,6 @@ function modularform_response_list_page() {
       if (empty($pair['solr_key'])) {
         continue;
       }
-
-      // Validate key format regardless of filter type
       if (!preg_match('/^[a-z]+_val_q_\d+_[a-z0-9]+$/', $pair['solr_key'])) {
         continue;
       }
@@ -44,7 +82,7 @@ function modularform_response_list_page() {
 
       if ($has_date) {
         $from = !empty($pair['date_from']) ? _modularform_solr_date($pair['date_from'], 'start') : '*';
-        $to   = !empty($pair['date_to'])   ? _modularform_solr_date($pair['date_to'],   'end')   : '*';
+        $to = !empty($pair['date_to']) ? _modularform_solr_date($pair['date_to'], 'end') : '*';
         $fq[] = $solr_key . ':[' . $from . ' TO ' . $to . ']';
       }
       elseif (isset($pair['answer']) && $pair['answer'] !== '') {
@@ -56,14 +94,12 @@ function modularform_response_list_page() {
       $fq[] = 'ss_email:"' . addslashes($email_filter) . '"';
     }
 
-    $params = [
+    module_load_include('inc', 'modularform_search', 'includes/modularform_forms_search');
+    $docs = _modularform_search_solr_query('*:*', [
       'fq' => $fq,
       'fl' => 'entity_id',
       'rows' => 500,
-    ];
-
-    module_load_include('inc', 'modularform_search', 'includes/modularform_forms_search');
-    $docs = _modularform_search_solr_query('*:*', $params);
+    ]);
 
     if ($docs === NULL) {
       drupal_set_message(t('Filter service temporarily unavailable. Showing unfiltered results.'), 'warning');
@@ -72,32 +108,30 @@ function modularform_response_list_page() {
       $query->condition('r.id', [0], 'IN');
     }
     else {
-      $ids = array_map(function($doc) {
-        return (int) $doc->entity_id;
-      }, $docs);
+      $ids = array_map(fn($doc) => (int) $doc->entity_id, $docs);
       $query->condition('r.id', $ids, 'IN');
     }
   }
 
-  // ── Load form metadata for display ────────────────────────────────────────
-  // Only load the form(s) we actually need rather than all forms
-  $forms = [];
+  // ── Form metadata ───────────────────────────────────────────────────────────
   if ($form_id_filter) {
     $loaded = entity_get_controller('modularform_form')->load([$form_id_filter]);
     $form = reset($loaded);
-    if ($form) {
-      $forms[$form->id] = $form;
-    }
+    $forms = $form ? [$form->id => $form] : [];
   }
   else {
-    $forms = db_select('modularform_forms', 'f')
-      ->fields('f', ['id', 'title', 'editable', 'anonymous_responses'])
-      ->execute()
-      ->fetchAllAssoc('id');
-  }
+    $visible_ids = _modularform_is_site_admin()
+      ? NULL
+      : array_merge($all_access, $own_only);
 
-  if (empty($forms) && !$form_id_filter) {
-    return '<p>' . t('No forms found.') . '</p>';
+    $q = db_select('modularform_forms', 'f')
+      ->fields('f', ['id', 'title', 'editable', 'anonymous_responses']);
+
+    if ($visible_ids !== NULL) {
+      $q->condition('f.id', $visible_ids, 'IN');
+    }
+
+    $forms = $q->execute()->fetchAllAssoc('id');
   }
 
   $any_editable = FALSE;
@@ -107,22 +141,21 @@ function modularform_response_list_page() {
       break;
     }
   }
+  $show_form_filter = _modularform_is_site_admin() || _modularform_is_form_admin();
+  // ── Pager + fetch ───────────────────────────────────────────────────────────
+  $responses = $query->extend('PagerDefault')->limit(25)->execute()->fetchAll();
 
-  // ── Pager ──────────────────────────────────────────────────────────────────
-  $query = $query->extend('PagerDefault')->limit(25);
-  $responses = $query->execute()->fetchAll();
-
-  // ── Header ─────────────────────────────────────────────────────────────────
+  // ── Header ──────────────────────────────────────────────────────────────────
   $header = [t('Respondent'), t('Form'), t('Submitted')];
   if ($any_editable) {
     $header[] = t('Updated');
   }
   $header[] = t('Operations');
 
-  // ── Rows ───────────────────────────────────────────────────────────────────
+  // ── Rows ────────────────────────────────────────────────────────────────────
   $rows = [];
   foreach ($responses as $response) {
-    $form = isset($forms[$response->form_id]) ? $forms[$response->form_id] : NULL;
+    $form = $forms[$response->form_id] ?? NULL;
     $form_title = $form ? check_plain($form->title) : t('Unknown form');
     $is_anon = $form && $form->anonymous_responses;
     $email = $is_anon ? t('Anonymous response') : check_plain($response->email ?: t('N/A'));
@@ -136,31 +169,17 @@ function modularform_response_list_page() {
         : t('—');
     }
 
-    $links = [
-      'view' => [
-        'title' => t('View'),
-        'href' => 'forms/response/view/' . $response->id,
-      ],
-      'delete' => [
-        'title' => t('Delete'),
-        'href' => 'forms/response/delete/' . $response->id,
-      ],
-    ];
-    if ($any_editable) {
-      $links['edit'] = [
-        'title' => t('Edit'),
-        'href' => 'forms/response/edit/' . $response->id,
-      ];
-    }
-
-    $row[] = $links;
+    $row[] = _modularform_response_links($response->id);
     $rows[] = $row;
   }
+  $show_form_filter = _modularform_is_site_admin() || _modularform_is_form_admin();
 
+  // ── Build ───────────────────────────────────────────────────────────────────
   return [
     '#theme' => 'response_list',
     '#header' => $header,
     '#rows' => $rows,
+    '#show_form_filter' => $show_form_filter,
     '#attached' => [
       'css' => [drupal_get_path('module', 'modularform') . '/css/response.css'],
       'js' => [
@@ -170,12 +189,48 @@ function modularform_response_list_page() {
           'weight' => 10,
         ],
         [
-          'data' => ['modularform_autocomplete_base' => url('modularform')],
+          'data' => [
+            'modularform_autocomplete_base' => url('modularform'),
+            'modularform_show_form_filter' => $show_form_filter,
+          ],
           'type' => 'setting',
         ],
       ],
     ],
   ];
+}
+
+/**
+ * Returns permitted operation links for a response.
+ *
+ * @param int $id Response ID.
+ * @return array
+ */
+function _modularform_response_links($id) {
+  $links = [];
+
+  if (response_view_access($id)) {
+    $links['view'] = [
+      'title' => t('View'),
+      'href'  => 'forms/response/view/' . $id,
+    ];
+  }
+
+  if (response_edit_access($id)) {
+    $links['edit'] = [
+      'title' => t('Edit'),
+      'href'  => 'forms/response/edit/' . $id,
+    ];
+  }
+
+  if (response_delete_access($id)) {
+    $links['delete'] = [
+      'title' => t('Delete'),
+      'href'  => 'forms/response/delete/' . $id,
+    ];
+  }
+
+  return $links;
 }
 
 /**
@@ -369,32 +424,39 @@ function modularform_filter_questions() {
 }
 
 function modularform_filter_form_search() {
-  $term = isset($_GET['term']) ? check_plain($_GET['term']) : '';
-  $form_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+  $term    = isset($_GET['term']) ? check_plain($_GET['term']) : '';
+  $form_id = isset($_GET['id'])   ? (int) $_GET['id']         : 0;
 
-  // Single form lookup — restore from URL on page load
+  // ── Single form lookup (restore from URL on page load) ──────────────────────
   if ($form_id) {
+    if (!form_view_access($form_id)) {
+      drupal_json_output(['results' => []]);
+      drupal_exit();
+    }
+
     $forms = entity_get_controller('modularform_form')->load([$form_id]);
-    $form = reset($forms);
+    $form  = reset($forms);
     if (!$form) {
       drupal_json_output(['results' => []]);
       drupal_exit();
     }
+
     drupal_json_output([
       'results' => [['id' => (int) $form->id, 'label' => $form->title]],
     ]);
     drupal_exit();
   }
 
-  // Title search via Solr
+  // ── Title search via Solr ───────────────────────────────────────────────────
   if (!$term) {
     drupal_json_output(['results' => []]);
     drupal_exit();
   }
+
   module_load_include('inc', 'modularform_search', 'includes/modularform_forms_search');
   $rows = modularform_search_query_forms([
     'search' => $term,
-    'status' => 1,        // published only
+    'status' => 1,
   ]);
 
   if (isset($rows['error'])) {
@@ -402,9 +464,13 @@ function modularform_filter_form_search() {
     drupal_exit();
   }
 
-  $results = array_map(function($row) {
-    return ['id' => (int) $row->id, 'label' => $row->title];
-  }, $rows);
+  // ── Filter to only forms the current user can actually see ──────────────────
+  $results = [];
+  foreach ($rows as $row) {
+    if (form_view_access($row->id)) {
+      $results[] = ['id' => (int) $row->id, 'label' => $row->title];
+    }
+  }
 
   drupal_json_output(['results' => $results]);
   drupal_exit();

@@ -26,7 +26,6 @@ function form_dashboard_page() {
     ],
   ];
 
-  // Initial render — first page, no filters, no PagerDefault needed
   $forms = _modularform_dashboard_sql([], $user, 'created_desc', MODULARFORM_PER_PAGE, 0);
 
   $header = [
@@ -40,39 +39,23 @@ function form_dashboard_page() {
 
   $uids = array_unique(array_column((array) $forms, 'created_by'));
   $users = user_load_multiple($uids);
+  $fids = array_column((array) $forms, 'id');
+  $tokens = _modularform_dashboard_fetch_tokens($fids);
   $rows = [];
 
   foreach ($forms as $form) {
-    $owner = isset($users[$form->created_by])
-      ? format_username($users[$form->created_by]) : t('Unknown');
+    $owner = isset($users[$form->created_by]) ? format_username($users[$form->created_by]) : t('Unknown');
     $status = $form->status ? t('Published') : t('Draft');
     $created = format_date($form->created_at, 'custom', 'M j Y');
 
-    $links = [
-      'settings_edit' => [
-        'title' => t('Edit Settings'),
-        'href' => 'forms/edit/' . $form->id,
-      ],
-      'builder_preview' => [
-        'title' => t('Preview Survey'),
-        'href' => 'forms/' . $form->id . '/builder/preview',
-      ],
-      'builder_edit' => [
-        'title' => t('Edit Survey'),
-        'href' => 'forms/' . $form->id . '/builder/',
-      ],
-      'delete' => [
-        'title' => t('Delete Survey'),
-        'href' => 'forms/delete/' . $form->id,
-      ],
-    ];
+    $links = _modularform_dashboard_links($form->id, $tokens);
 
     $rows[] = [
       check_plain($form->title),
       check_plain($owner),
       $status,
       $created,
-      isset($form->response_count) ? (int) $form->response_count : 0,  // NEW
+      isset($form->response_count) ? (int) $form->response_count : 0,
       $links,
       (int) $form->id,
     ];
@@ -82,15 +65,11 @@ function form_dashboard_page() {
     '#theme' => 'dashboard',
     '#header' => $header,
     '#rows' => $rows,
-    '#pager' => NULL,   // JS renders the pager, not Drupal
+    '#pager' => NULL,
   ];
 
   return $build;
 }
-
-/* ──────────────────────────────────────────────────────────
-   AJAX ENDPOINT  →  forms/ajax/search  (POST)
-   ────────────────────────────────────────────────────────── */
 
 function modularform_dashboard_ajax() {
   $token = isset($_POST['token']) ? $_POST['token'] : '';
@@ -125,14 +104,17 @@ function modularform_dashboard_ajax() {
   $limit = MODULARFORM_PER_PAGE;
   $total = _modularform_dashboard_count($conditions, $user);
   $forms = _modularform_dashboard_fetch($conditions, $user, $sort, $page, $limit);
-
+  $fids = array_column((array) $forms, 'id');
+  $tokens = _modularform_dashboard_fetch_tokens($fids);
   $uids = array_unique(array_column((array) $forms, 'created_by'));
   $users = user_load_multiple($uids);
   $rows = [];
 
   foreach ($forms as $form) {
-    $owner = isset($users[$form->created_by])
-      ? format_username($users[$form->created_by]) : t('Unknown');
+    $owner = isset($users[$form->created_by]) ? format_username($users[$form->created_by]) : t('Unknown');
+
+    $allowed = _modularform_dashboard_links($form->id, $tokens);
+
     $rows[] = [
       'id' => (int) $form->id,
       'title' => check_plain($form->title),
@@ -141,12 +123,8 @@ function modularform_dashboard_ajax() {
       'status_val' => (int) $form->status,
       'created' => format_date($form->created_at, 'custom', 'M j Y'),
       'response_count' => isset($form->response_count) ? (int) $form->response_count : 0,
-      'urls' => [
-        'settings' => url('forms/edit/' . $form->id),
-        'preview' => url('forms/' . $form->id . '/builder/preview'),
-        'edit' => url('forms/' . $form->id . '/builder/'),
-        'delete' => url('forms/delete/' . $form->id),
-      ],
+      // only URLs the current user is allowed to use are included
+      'urls' => $allowed,
     ];
   }
 
@@ -157,6 +135,115 @@ function modularform_dashboard_ajax() {
     'limit' => $limit,
   ]);
   drupal_exit();
+}
+
+/**
+ * Returns permitted operation URLs for a form as pre-built strings.
+ *
+ * @param int $fid
+ * @param int $visibility
+ * @param array $tokens form_id => token
+ *
+ * @return array  keyed by operation name, values are URL strings
+ */
+function _modularform_dashboard_links($fid, array $tokens = []) {
+  $links = [];
+  $token = $tokens[$fid] ?? NULL;
+  $can_fill = modularform_fill_access($fid, $token);
+  $can_view = form_view_access($fid);
+
+  // name link — view takes priority, fill is fallback
+  if ($can_view) {
+    $links['view'] = [
+      'title' => t('View Form'),
+      'href' => 'forms/view/' . $fid,
+    ];
+  }
+  elseif ($can_fill) {
+    $links['name'] = [
+      'title' => t('Fill Form'),
+      'href' => 'forms/' . $fid . '/fill',
+      'query' => $token ? ['token' => $token] : [],
+    ];
+  }
+
+  if (form_edit_access($fid)) {
+    $links['settings'] = [
+      'title' => t('Edit Settings'),
+      'href' => 'forms/edit/' . $fid,
+    ];
+  }
+
+  if (form_preview_access($fid)) {
+    $links['preview'] = [
+      'title' => t('Preview Survey'),
+      'href' => 'forms/' . $fid . '/builder/preview',
+    ];
+  }
+
+  if (form_build_access($fid)) {
+    $links['edit'] = [
+      'title' => t('Edit Survey'),
+      'href' => 'forms/' . $fid . '/builder/',
+    ];
+  }
+
+  if (form_delete_access($fid)) {
+    $links['delete'] = [
+      'title' => t('Delete Survey'),
+      'href' => 'forms/delete/' . $fid,
+    ];
+  }
+
+
+  if ($can_fill && $can_view) {
+    $links['answer'] = [
+      'title' => t('Fill Form'),
+      'href'  => 'forms/' . $fid . '/fill',
+      'query' => $token ? ['token' => $token] : [],
+    ];
+  }
+
+  if (response_list_access()) {
+    $links['responses'] = [
+      'title' => t('Responses'),
+      'href' => 'forms/response/list',
+      'query' => ['form_id' => $fid],
+    ];
+  }
+
+  return $links;
+}
+
+/**
+ * Batch-fetches the current user's invite tokens for a list of form IDs.
+ * Only returns rows where status = 0 (unused/open invite).
+ *
+ * @param array $fids
+ *
+ * @return array  form_id => token
+ */
+function _modularform_dashboard_fetch_tokens(array $fids) {
+  if (empty($fids)) {
+    return [];
+  }
+
+  global $user;
+
+  // site admin and form creators don't need tokens — skip the query
+  if (_modularform_is_site_admin()) {
+    return [];
+  }
+
+  $rows = db_select('modularform_form_members', 'fm')
+    ->fields('fm', ['form_id', 'token'])
+    ->condition('fm.uid', $user->uid)
+    ->condition('fm.form_id', $fids, 'IN')
+    ->condition('fm.status', 0)
+    ->execute()
+    ->fetchAllKeyed(); // form_id => token
+
+  return $rows;
 }
 
 /**
@@ -246,7 +333,14 @@ function _modularform_dashboard_sql(array $conditions, $user, $sort, $limit = 25
   $is_admin = _modularform_is_site_admin();
 
   $query = db_select('modularform_forms', 'f')
-    ->fields('f', ['id', 'title', 'status', 'visibility', 'created_by', 'created_at'])
+    ->fields('f', [
+      'id',
+      'title',
+      'status',
+      'visibility',
+      'created_by',
+      'created_at',
+    ])
     ->isNull('f.deleted_at');
 
   if ($is_admin) {
@@ -295,10 +389,18 @@ function _modularform_dashboard_sql(array $conditions, $user, $sort, $limit = 25
   }
 
   switch ($sort) {
-    case 'title_asc':   $query->orderBy('f.title', 'ASC');       break;
-    case 'title_desc':  $query->orderBy('f.title', 'DESC');      break;
-    case 'created_asc': $query->orderBy('f.created_at', 'ASC');  break;
-    default:            $query->orderBy('f.created_at', 'DESC'); break;
+    case 'title_asc':
+      $query->orderBy('f.title', 'ASC');
+      break;
+    case 'title_desc':
+      $query->orderBy('f.title', 'DESC');
+      break;
+    case 'created_asc':
+      $query->orderBy('f.created_at', 'ASC');
+      break;
+    default:
+      $query->orderBy('f.created_at', 'DESC');
+      break;
   }
 
   $query->range($page * $limit, $limit);
