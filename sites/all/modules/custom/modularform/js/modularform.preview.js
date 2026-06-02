@@ -26,13 +26,11 @@
 
           initSelection: function (element, callback) {
             var val = $hidden.val();
-            console.log(Drupal.settings.modularformDefaultTags);
 
             if (!val) { callback([]); return; }
 
             var qId = $hidden.data('q-id');
             var defaultTags = (settings.modularformDefaultTags && settings.modularformDefaultTags[qId]) || [];
-            console.log(Drupal.settings.modularformDefaultTags);
             var lookup = {};
             $.each(defaultTags, function (i, t) { lookup[String(t.id)] = t.text; });
 
@@ -73,15 +71,16 @@
             }
           },
 
-          formatSelection: function (item, $container, escapeMarkup) {
-            // Render the label then a clickable × that deselects this item
+          formatSelection: function (item) {
             var text = item.text.replace(/\s*\(add new\)\s*$/, '');
-            return escapeMarkup(text) +
-              ' <a class="select2-tag-remove" data-id="' + escapeMarkup(item.id) + '" ' +
-              'style="cursor:pointer;margin-left:4px;color:#999;">&times;</a>';
+            var $text = $('<span>').text(text);
+            var $remove = $('<a>')
+              .addClass('select2-tag-remove')
+              .attr('data-id', item.id)
+              .attr('style', 'cursor:pointer;margin-left:4px;color:#999;')
+              .text('\u00d7');
+            return $('<span>').append($text).append(' ').append($remove).html();
           },
-
-          escapeMarkup: function (m) { return m; },  // allow the <a> tag through
         });
 
         // Sync Select2 value back to the hidden field Drupal will submit
@@ -314,7 +313,7 @@
       function showError($container, message) {
         $container.addClass('preview-question--error');
         $container.find('.preview-inline-error').remove();
-        $container.append('<p class="preview-inline-error">' + message + '</p>');
+        $('<p class="preview-inline-error"></p>').text(message).appendTo($container);
       }
 
       function clearError($container) {
