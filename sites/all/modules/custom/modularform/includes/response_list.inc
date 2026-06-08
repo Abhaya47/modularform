@@ -207,28 +207,25 @@ function modularform_response_list_page() {
  */
 function _modularform_response_links($id) {
   $links = [];
-
   if (response_view_access($id)) {
     $links['view'] = [
       'title' => t('View'),
       'href'  => 'forms/response/view/' . $id,
     ];
   }
-
   if (response_edit_access($id)) {
     $links['edit'] = [
       'title' => t('Edit'),
       'href'  => 'forms/response/edit/' . $id,
     ];
   }
-
   if (response_delete_access($id)) {
     $links['delete'] = [
       'title' => t('Delete'),
       'href'  => 'forms/response/delete/' . $id,
+      'query' => ['token' => drupal_get_token('modularform_response_delete_' . $id)],
     ];
   }
-
   return $links;
 }
 
@@ -270,6 +267,9 @@ function modularform_response_list_ajax() {
 }
 
 function modularform_response_delete($response_id) {
+  if (!drupal_valid_token($_GET['token'] ?? '', 'modularform_response_delete_' . $response_id)) {
+    return drupal_access_denied();
+  }
   $response = db_select('modularform_responses', 'r')
     ->fields('r', ['id'])
     ->condition('r.id', $response_id)

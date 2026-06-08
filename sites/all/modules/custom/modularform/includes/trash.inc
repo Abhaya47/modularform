@@ -66,11 +66,13 @@ function form_deleted_dashboard_page() {
     $links = [
       'restore' => [
         'title' => t('Restore'),
-        'href' => 'forms/restore/' . $form->id,
+        'href'  => 'forms/restore/' . $form->id,
+        'query' => ['token' => drupal_get_token('modularform_restore_' . $form->id)],
       ],
       'permanent_delete' => [
         'title' => t('Delete Permanently'),
-        'href' => 'forms/permanent_delete/' . $form->id,
+        'href'  => 'forms/permanent_delete/' . $form->id,
+        'query' => ['token' => drupal_get_token('modularform_delete_' . $form->id)],
       ],
     ];
 
@@ -98,6 +100,10 @@ function form_deleted_dashboard_page() {
  * Permanently delete a form and all its associated data from the DB.
  */
 function modularform_perma_delete($form_id) {
+  if (!drupal_valid_token($_GET['token'] ?? '', 'modularform_delete_' . $form_id)) {
+    return drupal_access_denied();
+  }
+
   $form = db_select('modularform_forms', 'f')
     ->fields('f')
     ->condition('id', $form_id)
@@ -148,6 +154,9 @@ function modularform_perma_delete($form_id) {
  * Restore a form
  */
 function modularform_restore($form_id) {
+  if (!drupal_valid_token($_GET['token'] ?? '', 'modularform_restore_' . $form_id)) {
+    return drupal_access_denied();
+  }
   $form = db_select('modularform_forms', 'f')
     ->fields('f')
     ->condition('id', $form_id)

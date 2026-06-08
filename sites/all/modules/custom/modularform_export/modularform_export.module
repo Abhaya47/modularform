@@ -215,58 +215,55 @@ function modularform_export_load_openspout() {
  *
  * @param int[] $fids
  */
+const MODULARFORM_EXPORT_CHUNK_SIZE = 10;
+
 function modularform_export_start(array $fids) {
   module_load_include('inc', 'modularform', 'includes/load_response_data');
-
   if (empty($fids)) {
     drupal_set_message(t('No forms selected for export.'), 'warning');
     return;
   }
 
   $operations = [];
-  foreach ($fids as $fid) {
-    $operations[] = ['_modularform_export_process_form', [$fid]];
+  $chunks = array_chunk($fids, MODULARFORM_EXPORT_CHUNK_SIZE);
+  foreach ($chunks as $chunk) {
+    $operations[] = ['_modularform_export_process_chunk', [$chunk]];
   }
   $operations[] = ['_modularform_export_zip', []];
 
   batch_set([
-    'title' => t('Exporting forms'),
-    'init_message' => t('Preparing export...'),
-    'progress_message' => t('Processed @current of @total forms.'),
-    'error_message' => t('An error occurred during export.'),
-    'finished' => '_modularform_export_finished',
-    'operations' => $operations,
-    'file' => drupal_get_path('module', 'modularform_export') . '/includes/modularform_export.batch.inc',
+    'title'            => t('Exporting forms'),
+    'init_message'     => t('Preparing export...'),
+    'progress_message' => t('Processed @current of @total chunks.'),
+    'error_message'    => t('An error occurred during export.'),
+    'finished'         => '_modularform_export_finished',
+    'operations'       => $operations,
+    'file'             => drupal_get_path('module', 'modularform_export') . '/includes/modularform_export.batch.inc',
   ]);
 }
 
-/**
- * Public entry point: export form responses.
- *
- * @param int[] $fids
- */
-function modularform_export_responses_start(array $fids) {
+function modularform_export_responses_start(array $fids): void {
   module_load_include('inc', 'modularform', 'includes/load_response_data');
-
   if (empty($fids)) {
     drupal_set_message(t('No forms selected for export.'), 'warning');
     return;
   }
 
   $operations = [];
-  foreach ($fids as $fid) {
-    $operations[] = ['_modularform_export_responses_process_form', [$fid]];
+  $chunks = array_chunk($fids, MODULARFORM_EXPORT_CHUNK_SIZE);
+  foreach ($chunks as $chunk) {
+    $operations[] = ['_modularform_export_responses_process_chunk', [$chunk]];
   }
   $operations[] = ['_modularform_export_zip', []];
 
   batch_set([
-    'title' => t('Exporting form responses'),
-    'init_message' => t('Preparing export...'),
-    'progress_message' => t('Processed @current of @total forms.'),
-    'error_message' => t('An error occurred during export.'),
-    'finished' => '_modularform_export_finished',
-    'operations' => $operations,
-    'file' => drupal_get_path('module', 'modularform_export') . '/includes/modularform_export_responses.inc',
+    'title'            => t('Exporting form responses'),
+    'init_message'     => t('Preparing export...'),
+    'progress_message' => t('Processed @current of @total chunks.'),
+    'error_message'    => t('An error occurred during export.'),
+    'finished'         => '_modularform_export_finished',
+    'operations'       => $operations,
+    'file'             => drupal_get_path('module', 'modularform_export') . '/includes/modularform_export_responses.inc',
   ]);
 }
 

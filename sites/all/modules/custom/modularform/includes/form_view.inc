@@ -178,14 +178,17 @@ function modularform_view_page($form_id) {
   }
 
   // ── Links ─────────────────────────────────────────────────────────────────
+  $token_delete = drupal_get_token('modularform_delete_' . $form_id);
+  $token_export = drupal_get_token('modularform_export');
+
   $links = [
-    'settings_edit'   => ['title' => t('Edit Settings'),    'href' => 'forms/edit/'    . $form_id],
+    'settings_edit'   => ['title' => t('Edit Settings'),    'href' => 'forms/edit/' . $form_id],
     'builder_preview' => ['title' => t('Preview Survey'),   'href' => 'forms/' . $form_id . '/builder/preview'],
     'builder_edit'    => ['title' => t('Edit Survey'),      'href' => 'forms/' . $form_id . '/builder'],
-    'members'         => ['title' => t('Manage Members'),   'href' => 'forms/edit/'    . $form_id . '#edit-visibility'],
-    'invites'         => ['title' => t('Send Invites'),     'href' => 'forms/edit/'    . $form_id . '#edit-visibility'],
-    'export'          => ['title' => t('Export Responses'), 'href' => 'modularform/export/page?fids=' . $form_id],
-    'delete'          => ['title' => t('Delete Survey'),    'href' => 'forms/delete/'  . $form_id],
+    'members'         => ['title' => t('Manage Members'),   'href' => 'forms/edit/' . $form_id . '#edit-visibility'],
+    'invites'         => ['title' => t('Send Invites'),     'href' => 'forms/edit/' . $form_id . '#edit-visibility'],
+    'export'          => ['title' => t('Export Responses'), 'href' => 'modularform/export/page', 'query' => ['fids' => $form_id, 'token' => $token_export]],
+    'delete'          => ['title' => t('Delete Survey'),    'href' => 'forms/delete/' . $form_id, 'query' => ['token' => $token_delete]],
   ];
 
   // ── Resolved URLs ─────────────────────────────────────────────────────────

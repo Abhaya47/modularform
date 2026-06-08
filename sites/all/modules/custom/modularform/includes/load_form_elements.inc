@@ -3,114 +3,157 @@
 module_load_include('inc', 'modularform', 'modularform.rules');
 
 /**
- * Load all elements for a form from DB into the storage flat-list format.
- * Returns empty array if form has no saved elements (create flow).
+ * Loads ordered questions for a form, keyed by q_id.
+ *
+ * Retrieves elements via _modularform_load_elements() and filters to
+ * questions only, sorted by section weight then question weight — matching
+ * the order a respondent sees in the form.
+ *
+ * @param int $fid
+ *   The form ID.
+ *
+ * @return array
+ *   Associative array keyed by q_id, ordered by section then question weight:
+ *   @code
+ *   [
+ *     $q_id => [
+ *       'label'         => string,
+ *       'question_type' => string,
+ *     ],
+ *     ...
+ *   ]
+ *   @endcode
+ *   Returns an empty array if the form has no elements or questions.
  */
-function _modularform_load_elements($fid) {
-  $cid   = 'modularform:elements:' . $fid;
-  $cache = cache_get($cid, 'cache_modularform');
-  if ($cache && isset($cache->data)) {
-    return $cache->data;
+function _modularform_load_elements($fid): array {
+  $scalar = !is_array($fid);
+  $fids   = array_values(array_unique(array_map('intval', (array) $fid)));
+
+  if (empty($fids)) {
+    return $scalar ? [] : [];
   }
 
-  $elements = [];
-  // Sections
-  $sections = db_select('modularform_sections', 's')
-    ->fields('s', ['sec_id', 'name', 'weight'])
-    ->condition('form_id', $fid)
-    ->orderBy('weight')
-    ->execute()
-    ->fetchAllAssoc('sec_id', PDO::FETCH_ASSOC);
+  // --- Cache check ---
+  // For scalar calls this is a cheap single lookup, same as before.
+  // For array calls we check all, then only query what's missing.
+  $results    = [];
+  $uncached   = [];
 
-  if (empty($sections)) {
-    return [];
-  }
-
-  foreach ($sections as $sec_id => $row) {
-    $elements[$sec_id] = [
-      'type' => 'section',
-      'title' => $row['name'],
-      'weight' => (int) $row['weight'],
-      'parent' => NULL,
-    ];
-  }
-
-  // Questions
-  $questions = db_select('modularform_questions', 'q')
-    ->fields('q', [
-      'q_id',
-      'sec_id',
-      'label',
-      'type',
-      'is_required',
-      'position',
-      'is_filterable',
-    ])
-    ->condition('form_id', $fid)
-    ->orderBy('sec_id')
-    ->orderBy('position')
-    ->execute()
-    ->fetchAllAssoc('q_id', PDO::FETCH_ASSOC);
-
-  foreach ($questions as $q_id => $row) {
-    $elements[$q_id] = [
-      'type' => 'question',
-      'parent' => $row['sec_id'],
-      'label' => $row['label'],
-      'question_type' => modularform_get_type_int_map($row['type']),      'is_required' => (bool) $row['is_required'],
-      'add_validation' => FALSE,  // overridden below if rules exist
-      'weight' => (int) $row['position'],
-    ];
-  }
-
-  // Options
-  $options = db_select('modularform_question_options', 'o')
-    ->fields('o', ['o_id', 'q_id', 'option', 'weight'])
-    ->condition('form_id', $fid)
-    ->orderBy('q_id')
-    ->orderBy('weight')
-    ->execute()
-    ->fetchAllAssoc('o_id', PDO::FETCH_ASSOC);
-
-  foreach ($options as $o_id => $row) {
-    $elements[$o_id] = [
-      'type' => 'option',
-      'parent' => $row['q_id'],
-      'option' => $row['option'],
-      'weight' => (int) $row['weight'],
-    ];
-  }
-
-  // Validation rules
-  $rules = db_select('modularform_validation_rules', 'r')
-    ->fields('r', [
-      'r_id',
-      'q_id',
-      'rule_type',
-      'rule_value',
-      'error_message',
-      'weight',
-    ])
-    ->condition('form_id', $fid)
-    ->orderBy('q_id')
-    ->orderBy('weight')
-    ->execute()
-    ->fetchAllAssoc('r_id', PDO::FETCH_ASSOC);
-
-  foreach ($rules as $r_id => $row) {
-    // Flag the parent question so the rule-builder renders open
-    if (isset($elements[$row['q_id']])) {
-      $elements[$row['q_id']]['add_validation'] = TRUE;
+  foreach ($fids as $f) {
+    $cid   = 'modularform:elements:' . $f;
+    $cache = cache_get($cid, 'cache_modularform');
+    if ($cache && isset($cache->data)) {
+      $results[$f] = $cache->data;
     }
-    $elements[$r_id] = [
-      'type' => 'validation_rule',
-      'parent' => $row['q_id'],
-      'rule_type' => $row['rule_type'],
-      'rule_value' => $row['rule_value'],
-      'error_message' => $row['error_message'],
-      'weight' => (int) $row['weight'],
-    ];
+    else {
+      $uncached[] = $f;
+      $results[$f] = []; // placeholder
+    }
   }
-  cache_set($cid, $elements, 'cache_modularform', CACHE_PERMANENT);
-  return $elements;
+
+  if (!empty($uncached)) {
+    // --- 4 bulk IN queries for all uncached fids ---
+
+    // Sections
+    $sections = db_select('modularform_sections', 's')
+      ->fields('s', ['sec_id', 'form_id', 'name', 'weight'])
+      ->condition('form_id', $uncached, 'IN')
+      ->orderBy('form_id')
+      ->orderBy('weight')
+      ->execute()
+      ->fetchAllAssoc('sec_id', PDO::FETCH_ASSOC);
+
+    // Questions
+    $questions = db_select('modularform_questions', 'q')
+      ->fields('q', ['q_id', 'form_id', 'sec_id', 'label', 'type', 'is_required', 'position', 'is_filterable'])
+      ->condition('form_id', $uncached, 'IN')
+      ->orderBy('form_id')
+      ->orderBy('sec_id')
+      ->orderBy('position')
+      ->execute()
+      ->fetchAllAssoc('q_id', PDO::FETCH_ASSOC);
+
+    // Options
+    $options = db_select('modularform_question_options', 'o')
+      ->fields('o', ['o_id', 'form_id', 'q_id', 'option', 'weight'])
+      ->condition('form_id', $uncached, 'IN')
+      ->orderBy('form_id')
+      ->orderBy('q_id')
+      ->orderBy('weight')
+      ->execute()
+      ->fetchAllAssoc('o_id', PDO::FETCH_ASSOC);
+
+    // Validation rules
+    $rules = db_select('modularform_validation_rules', 'r')
+      ->fields('r', ['r_id', 'form_id', 'q_id', 'rule_type', 'rule_value', 'error_message', 'weight'])
+      ->condition('form_id', $uncached, 'IN')
+      ->orderBy('form_id')
+      ->orderBy('q_id')
+      ->orderBy('weight')
+      ->execute()
+      ->fetchAllAssoc('r_id', PDO::FETCH_ASSOC);
+
+    // --- Split into per-form buckets ---
+
+    // Sections
+    foreach ($sections as $sec_id => $row) {
+      $f = (int) $row['form_id'];
+      $results[$f][$sec_id] = [
+        'type'   => 'section',
+        'title'  => $row['name'],
+        'weight' => (int) $row['weight'],
+        'parent' => NULL,
+      ];
+    }
+
+    // Questions
+    foreach ($questions as $q_id => $row) {
+      $f = (int) $row['form_id'];
+      $results[$f][$q_id] = [
+        'type'          => 'question',
+        'parent'        => $row['sec_id'],
+        'label'         => $row['label'],
+        'question_type' => modularform_get_type_int_map($row['type']),
+        'is_required'   => (bool) $row['is_required'],
+        'add_validation' => FALSE,
+        'weight'        => (int) $row['position'],
+      ];
+    }
+
+    // Options
+    foreach ($options as $o_id => $row) {
+      $f = (int) $row['form_id'];
+      $results[$f][$o_id] = [
+        'type'   => 'option',
+        'parent' => $row['q_id'],
+        'option' => $row['option'],
+        'weight' => (int) $row['weight'],
+      ];
+    }
+
+    // Validation rules — also flag parent question
+    foreach ($rules as $r_id => $row) {
+      $f = (int) $row['form_id'];
+      if (isset($results[$f][$row['q_id']])) {
+        $results[$f][$row['q_id']]['add_validation'] = TRUE;
+      }
+      $results[$f][$r_id] = [
+        'type'          => 'validation_rule',
+        'parent'        => $row['q_id'],
+        'rule_type'     => $row['rule_type'],
+        'rule_value'    => $row['rule_value'],
+        'error_message' => $row['error_message'],
+        'weight'        => (int) $row['weight'],
+      ];
+    }
+
+    // --- Write per-form cache entries ---
+    foreach ($uncached as $f) {
+      if (!empty($results[$f])) {
+        cache_set('modularform:elements:' . $f, $results[$f], 'cache_modularform', CACHE_PERMANENT);
+      }
+    }
+  }
+
+  return $scalar ? ($results[$fids[0]] ?? []) : $results;
 }

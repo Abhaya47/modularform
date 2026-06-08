@@ -191,7 +191,8 @@ function _modularform_dashboard_links($fid, array $tokens = []) {
   if (form_delete_access($fid)) {
     $links['delete'] = [
       'title' => t('Delete Survey'),
-      'href' => 'forms/delete/' . $fid,
+      'href'  => 'forms/delete/' . $fid,
+      'query' => ['token' => drupal_get_token('modularform_delete_' . $fid)],
     ];
   }
 

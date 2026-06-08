@@ -645,7 +645,7 @@ function modularform_schema() {
       ],
       'answer_id' => [
         'description' => t('FK to modularform_answers.id'),
-        'type' => 'int',
+        'type' => 'varchar',
         'unsigned' => TRUE,
         'not null' => TRUE,
       ],

@@ -1,49 +1,83 @@
 <?php
 
 /**
- * Returns raw, fully-hydrated answer data for a response.
- * used by load_defualt and solr document and api call
+ * Returns raw, fully-hydrated answer data for one or more responses.
  *
- * @return array keyed by q_id:
+ * Used by load_default, Solr document builder, and API calls.
+ *
+ * @param int|int[] $response_id
+ *   A single response ID or an array of response IDs.
+ *
+ * @return array
+ *   When called with a single int, returns an array keyed by q_id:
+ *   @code
  *   [
- *     'answer'   => $answer_row,
- *     'type'     => 'checkbox',   // resolved type name
- *     'multi'    => ['o_id1', 'o_id2'],        // raw ids/values
- *     'multi_labels' => ['Label A', 'Label B'], // resolved labels
+ *     $q_id => [
+ *       'answer' => object,   // raw DB row from modularform_answers
+ *       'type'   => string,   // resolved type name e.g. 'checkbox', 'radio'
+ *       'multi'  => [         // empty array for non-multi types
+ *         ['id' => mixed, 'label' => string],
+ *         ...
+ *       ],
+ *       'files'  => [         // empty array for non-file types
+ *         ['fid' => int, 'filename' => string, 'uri' => string,
+ *          'url' => string, 'filemime' => string],
+ *         ...
+ *       ],
+ *     ],
+ *     ...
  *   ]
+ *   @endcode
+ *
+ *   When called with an array of IDs, returns an array keyed by response_id,
+ *   each value having the same q_id-keyed shape described above.
+ *   Response IDs with no answers are present as empty arrays.
  */
 function _modularform_load_response_data($response_id) {
+  $scalar       = !is_array($response_id);
+  $response_ids = array_values(array_unique(array_map('intval', (array) $response_id)));
+
+  if (empty($response_ids)) {
+    return $scalar ? [] : [];
+  }
+
   $type_map     = array_flip(modularform_type_map());
   $datatype_map = modularform_datatype_map();
 
-  $answers = db_select('modularform_answers', 'a')
+  // --- Answers ---
+  $answers_raw = db_select('modularform_answers', 'a')
     ->fields('a')
-    ->condition('a.response_id', $response_id)
+    ->condition('a.response_id', $response_ids, 'IN')
     ->execute()
     ->fetchAllAssoc('id');
 
-  if (empty($answers)) {
-    return [];
+  if (empty($answers_raw)) {
+    if ($scalar) {
+      return [];
+    }
+    return array_fill_keys($response_ids, []);
   }
 
-  // Bulk fetch all multi rows
+  $answer_ids = array_keys($answers_raw);
+
+  // --- Multi rows ---
   $multi_rows = db_select('modularform_answers_multi', 'am')
     ->fields('am', ['answer_id', 'value'])
-    ->condition('am.answer_id', array_keys($answers), 'IN')
+    ->condition('am.answer_id', $answer_ids, 'IN')
     ->execute()
     ->fetchAll();
 
-  // Bulk fetch all file rows
+  // --- File rows ---
   $file_query = db_select('modularform_answer_files', 'af');
   $file_query->join('file_managed', 'fm', 'fm.fid = af.fid');
   $file_rows = $file_query
     ->fields('af', ['answer_id', 'fid'])
     ->fields('fm', ['filename', 'uri', 'filemime'])
-    ->condition('af.answer_id', array_keys($answers), 'IN')
+    ->condition('af.answer_id', $answer_ids, 'IN')
     ->execute()
     ->fetchAll();
 
-  // Group file rows by answer_id
+  // Group files by answer_id
   $files_grouped = [];
   foreach ($file_rows as $row) {
     $files_grouped[$row->answer_id][] = [
@@ -55,11 +89,12 @@ function _modularform_load_response_data($response_id) {
     ];
   }
 
-  // Separate tag ids from option ids (from multi rows)
+  // Collect tag/option IDs to resolve
   $tag_ids = [];
   $opt_ids = [];
+
   foreach ($multi_rows as $row) {
-    $type_name = $type_map[(int) $answers[$row->answer_id]->datatype] ?? NULL;
+    $type_name = $type_map[(int) $answers_raw[$row->answer_id]->datatype] ?? NULL;
     if ($type_name === 'tag') {
       $tag_ids[] = $row->value;
     }
@@ -67,16 +102,14 @@ function _modularform_load_response_data($response_id) {
       $opt_ids[] = $row->value;
     }
   }
-
-  // Also collect radio option ids for label resolution
-  foreach ($answers as $answer) {
+  foreach ($answers_raw as $answer) {
     $type_name = $type_map[(int) $answer->datatype] ?? NULL;
     if ($type_name === 'radio' && !empty($answer->value_varchar)) {
       $opt_ids[] = $answer->value_varchar;
     }
   }
 
-  // Bulk resolve
+  // Bulk resolve labels
   $tags = !empty($tag_ids)
     ? db_select('modularform_tags', 't')
       ->fields('t', ['id', 'title'])
@@ -94,25 +127,25 @@ function _modularform_load_response_data($response_id) {
   // Group multi rows by answer_id
   $multi_grouped = [];
   foreach ($multi_rows as $row) {
-    $type_name = $type_map[(int) $answers[$row->answer_id]->datatype] ?? NULL;
+    $type_name = $type_map[(int) $answers_raw[$row->answer_id]->datatype] ?? NULL;
     $multi_grouped[$row->answer_id]['ids'][]    = $row->value;
     $multi_grouped[$row->answer_id]['labels'][] = $type_name === 'tag'
       ? ($tags[$row->value]->title ?? $row->value)
       : ($options[$row->value]->option ?? $row->value);
   }
 
-  // Build keyed by q_id
-  $result = [];
-  foreach ($answers as $answer) {
+  // Build result keyed by response_id => q_id
+  $results = array_fill_keys($response_ids, []);
+
+  foreach ($answers_raw as $answer) {
     $type_name = $type_map[(int) $answer->datatype] ?? 'text';
     $multi     = $multi_grouped[$answer->id] ?? [];
 
-    // Decorate radio answers with resolved label
     if ($type_name === 'radio' && !empty($answer->value_varchar)) {
       $answer->option_label = $options[$answer->value_varchar]->option ?? NULL;
     }
 
-    $result[$answer->q_id] = [
+    $results[(int) $answer->response_id][$answer->q_id] = [
       'answer' => $answer,
       'type'   => $type_name,
       'multi'  => array_map(
@@ -124,5 +157,5 @@ function _modularform_load_response_data($response_id) {
     ];
   }
 
-  return $result;
+  return $scalar ? ($results[$response_ids[0]] ?? []) : $results;
 }

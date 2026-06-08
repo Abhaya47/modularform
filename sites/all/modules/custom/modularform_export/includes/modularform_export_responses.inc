@@ -10,112 +10,151 @@
  */
 
 /**
- * Batch operation: export all responses for a single form to CSV.
+ * Batch operation: export responses for a chunk of forms to CSV.
  *
- * @param int $fid
- *   The form ID to process.
+ * Loads all elements, response metadata, and answer data for the entire
+ * chunk in a fixed number of queries, then writes one CSV file per form.
+ *
+ * @param int[] $fids
+ *   Array of form IDs to process in this chunk.
  * @param array $context
- *   Batch context.
+ *   Batch API context. On completion, appends to:
+ *   - $context['results']['files']: real filepaths of written CSVs.
+ *   - $context['results']['errors']: translated error strings for any failures.
  */
-function _modularform_export_responses_process_form($fid, &$context) {
+function _modularform_export_responses_process_chunk(array $fids, &$context): void {
   if (!modularform_export_load_openspout()) {
-    $context['results']['errors'][] = t('OpenSpout library not available for form @fid.', ['@fid' => $fid]);
+    foreach ($fids as $fid) {
+      $context['results']['errors'][] = t('OpenSpout library not available for form @fid.', ['@fid' => $fid]);
+    }
     return;
   }
 
-  // 1. Load ordered questions for this form so we can build a stable header.
-  $questions = _modularform_export_responses_load_questions($fid);
+  // One call — 4 queries for all forms in chunk.
+  $all_elements = _modularform_load_elements($fids);
 
-  if (empty($questions)) {
-    watchdog('modularform_export', 'No questions found for form @fid, skipping responses export.', ['@fid' => $fid], WATCHDOG_WARNING);
-    return;
-  }
-
-  // 2. Load all response IDs for this form.
-  $response_ids = db_select('modularform_responses', 'r')
-    ->fields('r', ['id', 'email'])
-    ->condition('r.form_id', $fid)
-    ->orderBy('r.id', 'ASC')
+  // Bulk-fetch all response meta for the entire chunk in one query.
+  $response_rows = db_select('modularform_responses', 'r')
+    ->fields('r', ['id', 'form_id', 'email'])
+    ->condition('r.form_id', $fids, 'IN')
+    ->orderBy('r.form_id')
+    ->orderBy('r.id')
     ->execute()
-    ->fetchAllAssoc('id');
+    ->fetchAll();
 
-  if (empty($response_ids)) {
-    watchdog('modularform_export', 'No responses found for form @fid, skipping.', ['@fid' => $fid], WATCHDOG_WARNING);
+  if (empty($response_rows)) {
+    watchdog('modularform_export', 'No responses found for forms @fids, skipping.', [
+      '@fids' => implode(', ', $fids),
+    ], WATCHDOG_WARNING);
     return;
   }
 
-  // 3. Build header: email + one column per question label.
-  $header = ['response_id', 'email'];
-  foreach ($questions as $q_id => $question) {
-    $header[] = $question['label'];
+  // Group response meta by form_id.
+  $responses_by_form = [];
+  foreach ($response_rows as $row) {
+    $responses_by_form[(int) $row->form_id][$row->id] = $row;
   }
 
-  // 4. Prepare output file.
-  $real_dir = drupal_realpath('private://modularform_exports');
-  $real_filepath = $real_dir . '/responses_form_' . $fid . '.csv';
+  // Bulk-fetch all answer data for every response in this chunk at once.
+  $all_response_ids = array_column($response_rows, 'id');
+  $all_answer_data  = _modularform_load_response_data($all_response_ids);
 
-  try {
-    $writer = new \OpenSpout\Writer\CSV\Writer();
-    $writer->openToFile($real_filepath);
-    $writer->addRow(\OpenSpout\Common\Entity\Row::fromValues($header));
+  // Write one CSV per form.
+  foreach ($fids as $fid) {
+    $elements = $all_elements[$fid] ?? [];
 
-    // 5. One row per response.
-    foreach ($response_ids as $response_id => $response_meta) {
-      $email = !empty($response_meta->email) ? $response_meta->email : t('anonymous');
-
-      // _modularform_load_response_data() returns array keyed by q_id.
-      $answer_data = _modularform_load_response_data($response_id);
-
-      $row = [(int) $response_id, $email];
-      foreach ($questions as $q_id => $question) {
-        $row[] = _modularform_export_responses_format_answer(
-          isset($answer_data[$q_id]) ? $answer_data[$q_id] : NULL
-        );
-      }
-
-      $writer->addRow(\OpenSpout\Common\Entity\Row::fromValues($row));
+    if (empty($elements)) {
+      watchdog('modularform_export', 'No elements found for form @fid, skipping.', ['@fid' => $fid], WATCHDOG_WARNING);
+      continue;
     }
 
-    $writer->close();
+    $questions = _modularform_export_responses_extract_questions($elements);
 
-    $context['results']['files'][] = $real_filepath;
-    $context['message'] = t('Exported responses for form @fid.', ['@fid' => $fid]);
+    if (empty($questions)) {
+      watchdog('modularform_export', 'No questions found for form @fid, skipping.', ['@fid' => $fid], WATCHDOG_WARNING);
+      continue;
+    }
+
+    $form_responses = $responses_by_form[$fid] ?? [];
+
+    if (empty($form_responses)) {
+      watchdog('modularform_export', 'No responses found for form @fid, skipping.', ['@fid' => $fid], WATCHDOG_WARNING);
+      continue;
+    }
+
+    $header = ['response_id', 'email'];
+    foreach ($questions as $q_id => $question) {
+      $header[] = $question['label'];
+    }
+
+    $real_filepath = drupal_realpath('private://modularform_exports') . '/responses_form_' . $fid . '.csv';
+
+    try {
+      $writer = new \OpenSpout\Writer\CSV\Writer();
+      $writer->openToFile($real_filepath);
+      $writer->addRow(\OpenSpout\Common\Entity\Row::fromValues($header));
+
+      foreach ($form_responses as $response_id => $response_meta) {
+        $email       = !empty($response_meta->email) ? $response_meta->email : t('anonymous');
+        $answer_data = $all_answer_data[$response_id] ?? [];
+
+        $row = [(int) $response_id, $email];
+        foreach ($questions as $q_id => $question) {
+          $row[] = _modularform_export_responses_format_answer(
+            $answer_data[$q_id] ?? NULL
+          );
+        }
+
+        $writer->addRow(\OpenSpout\Common\Entity\Row::fromValues($row));
+      }
+
+      $writer->close();
+      $context['results']['files'][] = $real_filepath;
+    }
+    catch (Exception $e) {
+      watchdog('modularform_export', 'Failed to write responses CSV for form @fid: @msg', [
+        '@fid' => $fid,
+        '@msg'  => $e->getMessage(),
+      ], WATCHDOG_ERROR);
+      $context['results']['errors'][] = t('Failed to export responses for form @fid.', ['@fid' => $fid]);
+    }
   }
-  catch (Exception $e) {
-    watchdog('modularform_export', 'Failed to write responses CSV for form @fid: @msg', [
-      '@fid' => $fid,
-      '@msg' => $e->getMessage(),
-    ], WATCHDOG_ERROR);
-    $context['results']['errors'][] = t('Failed to export responses for form @fid.', ['@fid' => $fid]);
-  }
+
+  $context['message'] = t('Exported responses for chunk of @count forms.', ['@count' => count($fids)]);
 }
 
 /**
- * Loads ordered questions for a form, keyed by q_id.
+ * Extracts ordered questions from an already-loaded elements array.
  *
- * Joins sections so we can sort by section position then question position,
- * giving the same column order a respondent sees in the form.
+ * Intended for bulk export paths where _modularform_load_elements() has
+ * already been called for a chunk of forms. Avoids a redundant load by
+ * accepting the elements array directly rather than a form ID.
  *
- * @param int $fid
- *   The form ID.
+ * Sorting matches _modularform_export_responses_load_questions(): section
+ * weight first, then question weight within each section.
+ *
+ * @param array $elements
+ *   Elements array as returned by _modularform_load_elements() for a single
+ *   form ID — keyed by element ID, each entry containing at minimum 'type',
+ *   'parent', 'weight', 'label', and 'question_type'.
  *
  * @return array
- *   Associative array keyed by q_id, each value:
- *   ['label' => string, 'question_type' => string]
- *   Ordered by section weight, question weight.
+ *   Associative array keyed by q_id, ordered by section then question weight:
+ *   @code
+ *   [
+ *     $q_id => [
+ *       'label'         => string,
+ *       'question_type' => string,
+ *     ],
+ *     ...
+ *   ]
+ *   @endcode
+ *   Returns an empty array if no questions are present.
  */
-function _modularform_export_responses_load_questions($fid) {
-  // _modularform_load_elements() returns all elements (sections, questions,
-  // options, rules) for a form. We only need questions here, ordered properly.
-  $elements = _modularform_load_elements($fid);
-
-  if (empty($elements)) {
-    return [];
-  }
-
-  // Separate sections and questions.
+function _modularform_export_responses_extract_questions(array $elements): array {
   $sections  = [];
   $questions = [];
+
   foreach ($elements as $id => $el) {
     if ($el['type'] === 'section') {
       $sections[$id] = $el;
@@ -125,19 +164,15 @@ function _modularform_export_responses_load_questions($fid) {
     }
   }
 
-  // Sort questions by section weight, then question weight.
   uasort($questions, function ($a, $b) use ($sections) {
     $sec_a = isset($sections[$a['parent']]) ? (int) $sections[$a['parent']]['weight'] : 0;
     $sec_b = isset($sections[$b['parent']]) ? (int) $sections[$b['parent']]['weight'] : 0;
-
     if ($sec_a !== $sec_b) {
       return $sec_a - $sec_b;
     }
-
-    return (int) $a['position'] - (int) $b['position'];
+    return (int) $a['weight'] - (int) $b['weight'];
   });
 
-  // Return only what we need for header building and cell lookup.
   $result = [];
   foreach ($questions as $q_id => $q) {
     $result[$q_id] = [
@@ -165,7 +200,7 @@ function _modularform_export_responses_load_questions($fid) {
  * @return string
  *   The formatted cell value.
  */
-function _modularform_export_responses_format_answer($answer_entry) {
+function _modularform_export_responses_format_answer($answer_entry): string {
   if (empty($answer_entry)) {
     return '';
   }

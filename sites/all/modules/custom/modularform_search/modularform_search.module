@@ -43,8 +43,7 @@ function modularform_search_solr_sync($entity, $entity_type) {
   }
   else {
     apachesolr_mark_entity($entity_type, $entity->id);
-    modularform_search_solr_index_now($entity_type);
-  }
+    modularform_search_solr_index_now($entity->id, $entity_type);  }
 }
 
 /**
@@ -61,26 +60,39 @@ function modularform_search_solr_remove($entity_id, $entity_type) {
  * Immediately trigger Solr indexing across all environments.
  * Bypasses cron by invoking the indexer directly.
  */
-function modularform_search_solr_index_now() {
+function modularform_search_solr_index_now($entity, $entity_type) {
   try {
-    $environment = apachesolr_default_environment();
-    $env_id = is_array($environment) ? $environment['env_id'] : $environment;
+    $env_id = apachesolr_default_environment();
+    $env_id = is_array($env_id) ? $env_id['env_id'] : $env_id;
 
-    apachesolr_index_entities($env_id, 50);
 
-    $solr = apachesolr_get_solr($env_id);
-    $solr->commit();
+    if (is_numeric($entity)) {
+      $entities = entity_load($entity_type, [$entity]);
+      $entity = reset($entities);
+    }
+    $row = new stdClass();
+    $row->entity_id = $entity->id;
+    $row->entity_type = $entity_type;
+    $row->changed = $entity->changed ?? REQUEST_TIME;
+    $row->status = 1;
+
+    $documents = apachesolr_index_entities_document($row, $entity_type, $env_id);
+    if (empty($documents)) {
+      return;
+    }
+
+    apachesolr_index_send_to_solr($env_id, $documents);
+    apachesolr_set_last_index_updated($env_id, REQUEST_TIME);
   }
   catch (Exception $e) {
     watchdog(
       'modularform_search',
-      'Solr immediate index failed: @msg',
-      ['@msg' => $e->getMessage()],
+      'Solr index failed for @type @id: @msg',
+      ['@type' => $entity_type, '@id' => $entity->id, '@msg' => $e->getMessage()],
       WATCHDOG_ERROR
     );
   }
 }
-
 
 
 

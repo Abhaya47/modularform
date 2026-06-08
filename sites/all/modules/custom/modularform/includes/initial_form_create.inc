@@ -453,6 +453,9 @@ function _modularform_slug_exists($slug) {
 }
 
 function modularform_soft_delete($form_id) {
+  if (!drupal_valid_token($_GET['token'] ?? '', 'modularform_delete_' . $form_id)) {
+    return drupal_access_denied();
+  }
   $form = db_select('modularform_forms', 'mf')
     ->fields('mf')
     ->condition('id', $form_id)
