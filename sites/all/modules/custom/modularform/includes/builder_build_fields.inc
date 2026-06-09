@@ -149,9 +149,9 @@ function _modularform_build_fields(&$form, $elements, $fid, $mode = 'preview', $
         case 'text':
           $form[$sec_id][$q_id]['answer'] = [
             '#type' => 'textfield',
-            '#title' => $label,
+            '#title' => check_plain($label),
             '#required' => $required,
-            '#default_value' => $defaults[$q_id] ?? NULL,
+            '#default_value' => ($defaults[$q_id]) ?? NULL,
             '#attributes' => ['data-q-id' => $q_id],
           ];
           break;
@@ -159,10 +159,10 @@ function _modularform_build_fields(&$form, $elements, $fid, $mode = 'preview', $
         case 'textarea':
           $form[$sec_id][$q_id]['answer'] = [
             '#type' => 'textarea',
-            '#title' => $label,
+            '#title' => check_plain($label),
             '#rows' => 5,
             '#required' => $required,
-            '#default_value' => $defaults[$q_id] ?? NULL,
+            '#default_value' => ($defaults[$q_id]) ?? NULL,
             '#attributes' => ['data-q-id' => $q_id],
           ];
           break;
@@ -170,10 +170,10 @@ function _modularform_build_fields(&$form, $elements, $fid, $mode = 'preview', $
         case 'richtext':
           $form[$sec_id][$q_id]['answer'] = [
             '#type' => 'textarea',
-            '#title' => $label,
+            '#title' => check_plain($label),
             '#required' => $required,
             '#rows' => 8,
-            '#default_value' => $defaults[$q_id] ?? NULL,
+            '#default_value' => ($defaults[$q_id]) ?? NULL,
             '#attributes' => [
               'class' => ['dfp-text-editor-area'],
               'id' => 'editor-' . $q_id,
@@ -185,7 +185,7 @@ function _modularform_build_fields(&$form, $elements, $fid, $mode = 'preview', $
         case 'date':
           $form[$sec_id][$q_id]['answer'] = [
             '#type' => 'textfield',
-            '#title' => $label,
+            '#title' => check_plain($label),
             '#required' => $required,
             '#default_value' => $defaults[$q_id] ?? NULL,
             '#attributes' => [
@@ -200,7 +200,7 @@ function _modularform_build_fields(&$form, $elements, $fid, $mode = 'preview', $
         case 'time':
           $form[$sec_id][$q_id]['answer'] = [
             '#type' => 'textfield',
-            '#title' => $label,
+            '#title' => check_plain($label),
             '#required' => $required,
             '#default_value' => $defaults[$q_id] ?? NULL,
             '#attributes' => [
@@ -215,7 +215,7 @@ function _modularform_build_fields(&$form, $elements, $fid, $mode = 'preview', $
         case 'boolean':
           $form[$sec_id][$q_id]['answer'] = [
             '#type' => 'radios',
-            '#title' => $label,
+            '#title' => check_plain($label),
             '#options' => ['yes' => t('Yes'), 'no' => t('No')],
             '#required' => $required,
             '#default_value' => $defaults[$q_id] ?? NULL,
@@ -226,7 +226,7 @@ function _modularform_build_fields(&$form, $elements, $fid, $mode = 'preview', $
         case 'radio':
           $form[$sec_id][$q_id]['answer'] = [
             '#type' => 'radios',
-            '#title' => $label,
+            '#title' => check_plain($label),
             '#options' => $options_list,
             '#required' => $required,
             '#default_value' => $defaults[$q_id] ?? NULL,
@@ -238,7 +238,7 @@ function _modularform_build_fields(&$form, $elements, $fid, $mode = 'preview', $
         case 'checkbox':
           $form[$sec_id][$q_id]['answer'] = [
             '#type' => 'checkboxes',
-            '#title' => $label,
+            '#title' => check_plain($label),
             '#options' => $options_list,
             '#required' => $required,
             // checkboxes expects an array of checked keys
@@ -251,7 +251,7 @@ function _modularform_build_fields(&$form, $elements, $fid, $mode = 'preview', $
           $is_multiple = !empty($q['dropdown_multiple']);
           $form[$sec_id][$q_id]['answer'] = [
             '#type' => 'select',
-            '#title' => $label,
+            '#title' => check_plain($label),
             '#options' => $options_list,
             '#empty_option' => $is_multiple ? NULL : t('- Select -'),
             '#required' => $required,
@@ -273,7 +273,7 @@ function _modularform_build_fields(&$form, $elements, $fid, $mode = 'preview', $
 
           $form[$sec_id][$q_id]['answer'] = [
             '#type' => 'textfield',
-            '#title' => $label,
+            '#title' => check_plain($label),
             '#required' => $required,
             '#default_value' => implode(',', $default_ids),
             '#attributes' => [
@@ -310,7 +310,7 @@ function _modularform_build_fields(&$form, $elements, $fid, $mode = 'preview', $
 
           $form[$sec_id][$q_id]['answer'] = [
             '#type' => 'file',
-            '#title' => $label,
+            '#title' => check_plain($label),
             '#required' => $required && empty($existing_files),
             '#name' => 'files[' . $field_name . ($is_multiple ? '][]' : ']'),
             '#attributes' => [
@@ -407,7 +407,7 @@ function modularform_tags_autocomplete() {
     $query->condition('t.title', '%' . db_like($search) . '%', 'LIKE');
   }
   foreach ($query->orderBy('t.title')->range(0, $limit)->execute() as $row) {
-    $results[] = ['id' => $row->id, 'text' => $row->title];
+    $results[] = ['id' => $row->id, 'text' => check_plain($row->title)];
   }
   drupal_json_output(['results' => $results, 'more' => FALSE]);
   drupal_exit();
