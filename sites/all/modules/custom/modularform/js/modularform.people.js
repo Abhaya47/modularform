@@ -1,7 +1,6 @@
 (function ($) {
   Drupal.behaviors.modularformPeople = {
     attach: function (context, settings) {
-      console.log("hello");
       var $list  = $('#modularform-people-existing', context);
       var $count = $('#mf-plist-count', context);
       var $empty = $('#mf-plist-empty', context);

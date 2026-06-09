@@ -425,7 +425,7 @@ function modularform_create_form_submit($form, &$form_state) {
   if ($id) {
     drupal_goto('forms/manage');
   }
-  drupal_goto('forms/' . $form_id . '/builder');
+  drupal_goto('forms/' . $entity->id . '/builder');
 }
 
 /**
@@ -580,7 +580,6 @@ function _modularform_restricted_people_edit($form_id, array $selected_rids, $en
 
   // Remove members no longer in the role set.
   if (!empty($to_remove)) {
-    #TODO make an apology
     db_delete('modularform_form_members')
       ->condition('form_id', $form_id)
       ->condition('uid', $to_remove, 'IN')
@@ -814,7 +813,7 @@ function _modularform_notify_privileged_members($form_id, $entity, array $insert
       continue;
     }
 
-    $form_url = url('forms/' . $entity->slug . '/fill', [
+    $form_url = url('forms/' . $entity->id . '/fill', [
       'absolute' => TRUE,
       'query'    => ['token' => $row['token']],
     ]);
@@ -920,7 +919,7 @@ function _modularform_queue_private_notifications($form_id, $entity, $now) {
         continue;
       }
 
-      $form_url = url('forms/' . $entity->slug . '/fill', [
+      $form_url = url('forms/' . $entity->id . '/fill', [
         'absolute' => TRUE,
         'query' => ['token' => $row['token']],
       ]);
@@ -929,7 +928,7 @@ function _modularform_queue_private_notifications($form_id, $entity, $now) {
         'key' => 'form_notify_user',
         'to' => $account->mail,
         'params' => [
-          'form_id' => $entity->title,
+          'form_id' => $entity->id,
           'uid' => $account->uid,
           'form_url' => $form_url,
         ],

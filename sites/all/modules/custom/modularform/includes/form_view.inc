@@ -123,14 +123,18 @@ function modularform_view_page($form_id) {
 
   $filterable_form = drupal_get_form('modularform_filterable_form', $questions);
 
-  module_load_include('inc', 'modularform_analytics', 'modularform_analytics.wordcloud');
-  $tag_cloud = modularform_analytics_get_tag_counts($form_id);
+  $tag_cloud = [];
 
-  $libraries = module_invoke('modularform_analytics', 'library');
-  if (isset($libraries['wordcloud'])) {
-    drupal_add_library('modularform_analytics', 'wordcloud');
+  if (module_exists('modularform_analytics')) {
+    module_load_include('inc', 'modularform_analytics', 'modularform_analytics.wordcloud');
+    $tag_cloud = modularform_analytics_get_tag_counts($form_id);
+
+    $libraries = module_invoke('modularform_analytics', 'library');
+    if (isset($libraries['wordcloud'])) {
+      drupal_add_library('modularform_analytics', 'wordcloud');
+    }
+    drupal_add_js(['modularformWordCloud' => ['words' => $tag_cloud]], 'setting');
   }
-  drupal_add_js(['modularformWordCloud' => ['words' => $tag_cloud]], 'setting');
 
   // ── Labels / display maps ─────────────────────────────────────────────────
   $status_labels        = ['Drafted', 'Published'];

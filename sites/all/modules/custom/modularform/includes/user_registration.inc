@@ -49,40 +49,54 @@ function modularform_user_insert(&$edit, $account, $category) {
 
   // Assign role directly — safe here because user insert is already done
   $role = user_role_load_by_name('temporary user');
-  if ($role) {
-    db_insert('users_roles')
+  if (!$role) {
+    watchdog('modularform', 'Role "temporary user" not found during invite acceptance for invite !id.', [
+      '!id' => $invite->id,
+    ], WATCHDOG_ERROR);
+    throw new Exception('Required role "temporary user" not found.');
+  }
+  $txn = db_transaction();
+  try {
+    if ($role) {
+      db_insert('users_roles')
+        ->fields([
+          'uid' => $account->uid,
+          'rid' => $role->rid,
+        ])
+        ->execute();
+    }
+
+    db_insert('modularform_form_members')
       ->fields([
+        'form_id' => $invite->form_id,
         'uid' => $account->uid,
-        'rid' => $role->rid,
+        'roles' => 2,
+        'status' => 0,
+        'token' => $token,
+        'notified' => 1,
+        'created_at' => $now,
+        'updated_at' => $now,
       ])
       ->execute();
+
+    db_update('modularform_form_invites')
+      ->fields(['status' => 1, 'updated_at' => $now])
+      ->condition('id', $invite->id)
+      ->execute();
+
+    $_SESSION['pending_invite_form_id'] = $invite->form_id;
+    $_SESSION['pending_invite_token_used'] = $token;
   }
-
-  db_insert('modularform_form_members')
-    ->fields([
-      'form_id' => $invite->form_id,
-      'uid' => $account->uid,
-      'roles' => 2,
-      'status' => 0,
-      'token' => $token,
-      'notified' => 1,
-      'created_at' => $now,
-      'updated_at' => $now,
-    ])
-    ->execute();
-
-  db_update('modularform_form_invites')
-    ->fields([
-      'status' => 1,
-      'updated_at' => $now,
-    ])
-    ->condition('id', $invite->id)
-    ->execute();
-
-  $_SESSION['pending_invite_form_id'] = $invite->form_id;
-  $_SESSION['pending_invite_token_used'] = $token;
+  catch (Exception $e) {
+    $txn->rollback();
+    watchdog('modularform', 'Invite acceptance failed for invite !id: !msg', [
+      '!id' => $invite->id,
+      '!msg' => $e->getMessage(),
+    ], WATCHDOG_ERROR);
+    // re-throw or return an error to the caller as appropriate
+    throw $e;
+  }
 }
-
 
 function modularform_user_presave(&$edit, $account, $category) {
   // Only activate if this is a new account coming via an invite

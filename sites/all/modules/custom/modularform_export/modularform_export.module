@@ -151,6 +151,7 @@ function _modularform_export_load_forms(array $fids) {
   $result = db_select('modularform_forms', 'f')
     ->fields('f', ['id', 'title', 'status', 'created_at'])
     ->condition('f.id', $fids, 'IN')
+    ->isNull('f.deleted_at')
     ->orderBy('f.title', 'ASC')
     ->execute();
 
@@ -162,22 +163,6 @@ function _modularform_export_load_forms(array $fids) {
     }
   }
   return $records;
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// LEGACY TEST CALLBACKS
-// ════════════════════════════════════════════════════════════════════════════
-
-function modularform_export_test() {
-  $fids = [12, 13];
-  modularform_export_start($fids);
-  batch_process('admin');
-}
-
-function modularform_export_responses_test() {
-  $fids = [12, 13, 14];
-  modularform_export_responses_start($fids);
-  batch_process('admin');
 }
 
 // ════════════════════════════════════════════════════════════════════════════

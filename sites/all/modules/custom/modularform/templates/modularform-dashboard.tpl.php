@@ -71,38 +71,39 @@ $recent = array_slice($rows, 0, 4);
         $name = isset($row[0]) ? $row[0] : '';
         $date = isset($row[3]) ? $row[3] : '';
         $links = isset($row[5]) ? $row[5] : [];
-        $edit_href = isset($links['builder_edit']['href']) ? $links['builder_edit']['href'] : '#';
+        $view_href = isset($links['view']['href'])
+          ? url($links['view']['href'], !empty($links['view']['query']) ? ['query' => $links['view']['query']] : [])
+          : '#';
         ?>
-        <a href="<?php print check_url($edit_href); ?>"
-           class="gform-thumb-link">
+        <a href="<?php print check_url($view_href); ?>" class="gform-thumb-link">
           <div class="gform-thumb">
-            <div class="gform-thumb-preview"
-                 style="background:<?php print $color['bg']; ?>;">
-              <svg width="44" height="44" viewBox="0 0 44 44"
-                   xmlns="http://www.w3.org/2000/svg">
-                <rect x="7" y="5" width="30" height="34" rx="3"
-                      fill="<?php print $color['fill']; ?>"/>
-                <rect x="11" y="11" width="22" height="3" rx="1.5"
-                      fill="<?php print $color['line']; ?>"/>
-                <rect x="11" y="17" width="22" height="3" rx="1.5"
-                      fill="<?php print $color['line']; ?>"/>
-                <rect x="11" y="23" width="15" height="3" rx="1.5"
-                      fill="<?php print $color['line']; ?>"/>
-                <rect x="11" y="29" width="18" height="3" rx="1.5"
-                      fill="<?php print $color['line']; ?>" opacity=".5"/>
-              </svg>
-            </div>
-            <div class="gform-thumb-meta">
-              <div class="gform-thumb-info">
+          <div class="gform-thumb-preview"
+               style="background:<?php print $color['bg']; ?>;">
+            <svg width="44" height="44" viewBox="0 0 44 44"
+                 xmlns="http://www.w3.org/2000/svg">
+              <rect x="7" y="5" width="30" height="34" rx="3"
+                    fill="<?php print $color['fill']; ?>"/>
+              <rect x="11" y="11" width="22" height="3" rx="1.5"
+                    fill="<?php print $color['line']; ?>"/>
+              <rect x="11" y="17" width="22" height="3" rx="1.5"
+                    fill="<?php print $color['line']; ?>"/>
+              <rect x="11" y="23" width="15" height="3" rx="1.5"
+                    fill="<?php print $color['line']; ?>"/>
+              <rect x="11" y="29" width="18" height="3" rx="1.5"
+                    fill="<?php print $color['line']; ?>" opacity=".5"/>
+            </svg>
+          </div>
+          <div class="gform-thumb-meta">
+            <div class="gform-thumb-info">
+              <div
+                class="gform-thumb-name"><?php print check_plain($name); ?></div>
+              <?php if ($date): ?>
                 <div
-                  class="gform-thumb-name"><?php print check_plain($name); ?></div>
-                <?php if ($date): ?>
-                  <div
-                    class="gform-thumb-date"><?php print check_plain($date); ?></div>
-                <?php endif; ?>
-              </div>
+                  class="gform-thumb-date"><?php print check_plain($date); ?></div>
+              <?php endif; ?>
             </div>
           </div>
+        </div>
         </a>
       <?php endforeach; ?>
 

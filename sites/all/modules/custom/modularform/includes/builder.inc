@@ -1063,7 +1063,6 @@ function _modularform_build_records($fid, &$form_state) {
     }
 
     $r_vals = $values[$orig_sec][$q_id]['validation']['adv_rules'][$r_id] ?? [];
-    watchdog('modularform_debug', '<pre>@data</pre>', ['@data' => print_r($r_vals, TRUE)]);
     $rule_type = $r_vals['rule_type'] ?? '';
     $rule_value = $r_vals['rule_value_wrapper']['rule_value'] ?? '';
     $error_msg = $r_vals['error_message'] ?? '';

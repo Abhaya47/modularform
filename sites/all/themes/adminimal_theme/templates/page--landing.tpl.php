@@ -280,10 +280,6 @@
     <?php print check_plain($site_name); ?>
   </a>
 
-  <nav class="h-nav">
-    <a href="/user/login" class="ghost">Sign in</a>
-    <a href="/user/register" class="solid">Get started</a>
-  </nav>
 </header>
 
 <!-- Hero + Form -->
@@ -311,8 +307,10 @@
       $login_form = drupal_get_form('user_login');
       print drupal_render($login_form);
       ?>
+      <?php print theme('status_messages'); ?>
     </div>
 
+    <?php print $messages; ?>
     <!-- Register panel -->
     <div class="form-panel" id="panel-register">
       <h2>Create account</h2>

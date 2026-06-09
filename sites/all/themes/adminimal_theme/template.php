@@ -515,9 +515,18 @@ function adminimal_ckeditor_settings_alter(&$settings) {
 
 //alter form
 function adminimal_form_user_login_alter(&$form, &$form_state, $form_id) {
-  $form['#action'] = url('user/login', array('query' => array('destination' => 'forms/manage')));
+  $form['#submit'][] = 'adminimal_user_login_submit';
+}
+
+function adminimal_user_login_submit($form, &$form_state) {
+  unset($_GET['destination']);
+  $form_state['redirect'] = '/forms/manage';
 }
 
 function adminimal_form_user_register_form_alter(&$form, &$form_state, $form_id) {
-  $form['#action'] = url('user/register', array('query' => array('destination' => 'forms/manage')));
+  $form['#submit'][] = 'adminimal_user_register_submit';
+}
+
+function adminimal_user_register_submit($form, &$form_state) {
+  $form_state['redirect'] = 'forms/manage';
 }

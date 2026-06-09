@@ -28,16 +28,38 @@ function modularform_response_list_page() {
         ->condition('fm.uid', $user->uid)
         ->execute()
         ->fetchCol();
-    $all_access = [];
-    $own_only = [];
+    // Grab created_by for all candidates in one shot
+    $forms = db_select('modularform_forms', 'f')
+      ->fields('f', ['id', 'created_by'])
+      ->condition('f.id', $candidate_ids, 'IN')
+      ->execute()
+      ->fetchAllKeyed(); // [fid => created_by]
+
+    // Grab member roles for all candidates in one shot
+    $member_roles = db_select('modularform_form_members', 'fm')
+      ->fields('fm', ['form_id', 'roles'])
+      ->condition('fm.form_id', $candidate_ids, 'IN')
+      ->condition('fm.uid', $user->uid)
+      ->execute()
+      ->fetchAllKeyed(); // [fid => roles]
 
     foreach ($candidate_ids as $fid) {
-      $role = _modularform_form_member_role($fid);
+      $fid = (int) $fid;
+      if ((int) ($forms[$fid] ?? -1) === (int) $user->uid) {
+        $role = 'creator';
+      }
+      elseif (isset($member_roles[$fid])) {
+        $role = (int) $member_roles[$fid];
+      }
+      else {
+        continue; // no access
+      }
+
       if (in_array($role, ['creator', 0, 1], TRUE)) {
-        $all_access[] = (int) $fid;
+        $all_access[] = $fid;
       }
       elseif ($role === 2) {
-        $own_only[] = (int) $fid;
+        $own_only[] = $fid;
       }
     }
 
@@ -94,22 +116,28 @@ function modularform_response_list_page() {
       $fq[] = 'ss_email:"' . addslashes($email_filter) . '"';
     }
 
-    module_load_include('inc', 'modularform_search', 'includes/modularform_forms_search');
-    $docs = _modularform_search_solr_query('*:*', [
-      'fq' => $fq,
-      'fl' => 'entity_id',
-      'rows' => 500,
-    ]);
-
-    if ($docs === NULL) {
-      drupal_set_message(t('Filter service temporarily unavailable. Showing unfiltered results.'), 'warning');
-    }
-    elseif (empty($docs)) {
-      $query->condition('r.id', [0], 'IN');
+    if (!module_exists('modularform_search')) {
+      drupal_set_message(t('Search filters are unavailable: the search module is not enabled.'), 'warning');
+      // skip the filter block entirely, fall through to unfiltered results
     }
     else {
-      $ids = array_map(fn($doc) => (int) $doc->entity_id, $docs);
-      $query->condition('r.id', $ids, 'IN');
+      module_load_include('inc', 'modularform_search', 'includes/modularform_forms_search');
+      $docs = _modularform_search_solr_query('*:*', [
+        'fq' => $fq,
+        'fl' => 'entity_id',
+        'rows' => 500,
+      ]);
+
+      if ($docs === NULL) {
+        drupal_set_message(t('Filter service temporarily unavailable. Showing unfiltered results.'), 'warning');
+      }
+      elseif (empty($docs)) {
+        $query->condition('r.id', [0], 'IN');
+      }
+      else {
+        $ids = array_map(fn($doc) => (int) $doc->entity_id, $docs);
+        $query->condition('r.id', $ids, 'IN');
+      }
     }
   }
 
@@ -455,6 +483,10 @@ function modularform_filter_form_search() {
     drupal_exit();
   }
 
+  if (!module_exists('modularform_search')) {
+    drupal_json_output(['error' => 'solr_unavailable']);
+    drupal_exit();
+  }
   module_load_include('inc', 'modularform_search', 'includes/modularform_forms_search');
   $rows = modularform_search_query_forms([
     'search' => $term,
