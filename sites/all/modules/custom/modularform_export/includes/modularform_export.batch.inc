@@ -13,51 +13,51 @@
  * @param array $context
  *   Batch context.
  */
-function _modularform_export_process_form($fid, &$context) {
+function _modularform_export_process_form(array $chunk, &$context) {
   if (!modularform_export_load_openspout()) {
-    $context['results']['errors'][] = t('OpenSpout library not available for form @fid.', ['@fid' => $fid]);
+    foreach ($chunk as $fid) {
+      $context['results']['errors'][] = t('OpenSpout library not available for form @fid.', ['@fid' => $fid]);
+    }
     return;
   }
 
-  $elements = _modularform_load_elements($fid);
+  $elements = _modularform_load_elements($chunk); // returns [$fid => [...], ...]
 
-  if (empty($elements)) {
-    watchdog('modularform_export', 'No elements found for form @fid, skipping.', ['@fid' => $fid], WATCHDOG_WARNING);
-    return;
-  }
+  foreach ($chunk as $fid) {
+    $form_elements = $elements[$fid] ?? [];
 
-  $rows = _modularform_export_flatten($fid, $elements);
-
-  if (empty($rows)) {
-    watchdog('modularform_export', 'No rows generated for form @fid, skipping.', ['@fid' => $fid], WATCHDOG_WARNING);
-    return;
-  }
-
-  $filepath = 'private://modularform_exports/form_' . $fid . '.csv';
-  $real_filepath = drupal_realpath('private://modularform_exports') . '/form_' . $fid . '.csv';
-
-  try {
-    $writer = new \OpenSpout\Writer\CSV\Writer();
-    $writer->openToFile($real_filepath);
-
-    // Write header row on first form only — or per file since one CSV per form.
-    $writer->addRow(\OpenSpout\Common\Entity\Row::fromValues(_modularform_export_csv_headers()));
-
-    foreach ($rows as $row) {
-      $writer->addRow(\OpenSpout\Common\Entity\Row::fromValues($row));
+    if (empty($form_elements)) {
+      watchdog('modularform_export', 'No elements found for form @fid, skipping.', ['@fid' => $fid], WATCHDOG_WARNING);
+      continue;
     }
 
-    $writer->close();
+    $rows = _modularform_export_flatten($fid, $form_elements); // flat elements for one form
 
-    $context['results']['files'][] = $real_filepath;
-    $context['message'] = t('Exported form @fid.', ['@fid' => $fid]);
-  }
-  catch (Exception $e) {
-    watchdog('modularform_export', 'Failed to write CSV for form @fid: @msg', [
-      '@fid' => $fid,
-      '@msg' => $e->getMessage(),
-    ], WATCHDOG_ERROR);
-    $context['results']['errors'][] = t('Failed to export form @fid.', ['@fid' => $fid]);
+    if (empty($rows)) {
+      watchdog('modularform_export', 'No rows generated for form @fid, skipping.', ['@fid' => $fid], WATCHDOG_WARNING);
+      continue;
+    }
+
+    $real_filepath = drupal_realpath('private://modularform_exports') . '/form_' . $fid . '.csv';
+
+    try {
+      $writer = new \OpenSpout\Writer\CSV\Writer();
+      $writer->openToFile($real_filepath);
+      $writer->addRow(\OpenSpout\Common\Entity\Row::fromValues(_modularform_export_csv_headers()));
+      foreach ($rows as $row) {
+        $writer->addRow(\OpenSpout\Common\Entity\Row::fromValues($row));
+      }
+      $writer->close();
+      $context['results']['files'][] = $real_filepath;
+      $context['message'] = t('Exported form @fid.', ['@fid' => $fid]);
+    }
+    catch (Exception $e) {
+      watchdog('modularform_export', 'Failed to write CSV for form @fid: @msg', [
+        '@fid' => $fid,
+        '@msg' => $e->getMessage(),
+      ], WATCHDOG_ERROR);
+      $context['results']['errors'][] = t('Failed to export form @fid.', ['@fid' => $fid]);
+    }
   }
 }
 
@@ -146,7 +146,7 @@ function _modularform_export_flatten($fid, array $elements) {
     $base = [
       'form_id'        => $fid,
       'section_id'     => $sec_id,
-      'section_title'  => isset($section['title']) ? $section['title'] : '',
+      'section_title'  => isset($section['title'])  ? $section['title']  : '',
       'section_weight' => isset($section['weight']) ? $section['weight'] : '',
       'question_id'    => $q_id,
       'question_label' => $question['label'],

@@ -4,7 +4,8 @@
     <div class="gform-header">
       <div class="gform-header-icon">
         <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="3" y="2" width="16" height="18" rx="2" fill="white" opacity=".9"/>
+          <rect x="3" y="2" width="16" height="18" rx="2" fill="white"
+                opacity=".9"/>
           <rect x="6" y="6" width="10" height="2" rx="1" fill="#673ab7"/>
           <rect x="6" y="10" width="10" height="2" rx="1" fill="#673ab7"/>
           <rect x="6" y="14" width="6" height="2" rx="1" fill="#673ab7"/>
@@ -20,7 +21,7 @@
       <?php if (!empty($rows) && !isset($rows[0]['data'])): ?>
         <div class="gform-table-toolbar">
           <span class="gform-table-count">
-            <?php print count($rows); ?> <?php print t('forms'); ?>
+            <?php print count($rows); ?><?php print t('forms'); ?>
           </span>
         </div>
       <?php endif; ?>
@@ -50,10 +51,11 @@
                 <td class="gform-td-name">
                   <div class="gform-name-inner">
                     <span class="gform-form-icon gform-form-icon--deleted">
-                      <svg viewBox="0 0 13 13" fill="white" xmlns="http://www.w3.org/2000/svg">
-                        <rect x="1.5" y="2"   width="10" height="1.8" rx=".9"/>
+                      <svg viewBox="0 0 13 13" fill="white"
+                           xmlns="http://www.w3.org/2000/svg">
+                        <rect x="1.5" y="2" width="10" height="1.8" rx=".9"/>
                         <rect x="1.5" y="5.5" width="10" height="1.8" rx=".9"/>
-                        <rect x="1.5" y="9"   width="7"  height="1.8" rx=".9"/>
+                        <rect x="1.5" y="9" width="7" height="1.8" rx=".9"/>
                       </svg>
                     </span>
                     <span class="gform-name-text"><?php print $row[0]; ?></span>
@@ -63,7 +65,8 @@
                 <td><?php print $row[2]; ?></td>
                 <td><?php print $row[3]; ?></td>
                 <td>
-                  <span class="gform-deleted-date"><?php print $row[4]; ?></span>
+                  <span
+                    class="gform-deleted-date"><?php print $row[4]; ?></span>
                 </td>
                 <td class="gform-td-ops">
                   <div class="action-dropdown">
@@ -77,7 +80,10 @@
                           if ($key === 'permanent_delete') {
                             $attributes['class'][] = 'gform-link--danger';
                           }
-                          print l($link['title'], $link['href'], ['attributes' => $attributes]);
+                          print l($link['title'], $link['href'], [
+                            'attributes' => $attributes,
+                            'query' => isset($link['query']) ? $link['query'] : [],
+                          ]);
                         endforeach;
                       endif;
                       ?>
@@ -90,11 +96,17 @@
             <tr class="gform-empty-row">
               <td colspan="6">
                 <div class="gform-empty-state">
-                  <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" width="48" height="48">
-                    <rect x="8" y="6" width="32" height="36" rx="4" fill="#f3e5f5" opacity=".8"/>
-                    <rect x="14" y="14" width="20" height="3" rx="1.5" fill="#ce93d8"/>
-                    <rect x="14" y="21" width="20" height="3" rx="1.5" fill="#ce93d8"/>
-                    <rect x="14" y="28" width="13" height="3" rx="1.5" fill="#ce93d8" opacity=".5"/>
+                  <svg viewBox="0 0 48 48" fill="none"
+                       xmlns="http://www.w3.org/2000/svg" width="48"
+                       height="48">
+                    <rect x="8" y="6" width="32" height="36" rx="4"
+                          fill="#f3e5f5" opacity=".8"/>
+                    <rect x="14" y="14" width="20" height="3" rx="1.5"
+                          fill="#ce93d8"/>
+                    <rect x="14" y="21" width="20" height="3" rx="1.5"
+                          fill="#ce93d8"/>
+                    <rect x="14" y="28" width="13" height="3" rx="1.5"
+                          fill="#ce93d8" opacity=".5"/>
                   </svg>
                   <p><?php print t('No deleted forms found.'); ?></p>
                 </div>

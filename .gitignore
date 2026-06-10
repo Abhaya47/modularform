@@ -19,3 +19,5 @@ sites/*/files/js/
 *.tmp
 *.cache
 *.pid
+.env
+*.env

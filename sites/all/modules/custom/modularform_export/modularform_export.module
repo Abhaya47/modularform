@@ -212,7 +212,7 @@ function modularform_export_start(array $fids) {
   $operations = [];
   $chunks = array_chunk($fids, MODULARFORM_EXPORT_CHUNK_SIZE);
   foreach ($chunks as $chunk) {
-    $operations[] = ['_modularform_export_process_chunk', [$chunk]];
+    $operations[] = ['_modularform_export_process_form', [$chunk]];
   }
   $operations[] = ['_modularform_export_zip', []];
 
