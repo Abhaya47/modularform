@@ -5,6 +5,18 @@ module_load_include('inc', 'modularform', 'modularform.rules');
 module_load_include('inc', 'modularform', 'includes/load_response_data');
 
 function modularform_answer_form($form, &$form_state, $fid) {
+  $fid = (int) $fid;
+  if (!$fid) {
+    drupal_not_found();
+    drupal_exit();
+  }
+
+  $form_record = _modularform_get_form($fid);
+  if (!$form_record) {
+    drupal_not_found();
+    drupal_exit();
+  }
+
   $elements = _modularform_load_elements($fid);
   _modularform_build_fields($form, $elements, $fid, 'submit');
 
@@ -17,6 +29,7 @@ function modularform_answer_form($form, &$form_state, $fid) {
   return $form;
 }
 
+//helper function for file upload validation
 function modularform_answer_form_submit($form, &$form_state) {
   global $user;
   $values = $form_state['values'];
@@ -119,7 +132,7 @@ function modularform_answer_form_submit($form, &$form_state) {
           ->fields($answer_row)
           ->execute();
 
-        $uploaded = _modularform_save_answer_files($q_id, $is_multiple, $response_id, $answer_id, $now);
+        $uploaded = _modularform_save_answer_files($q_id, $is_multiple, $response_id, $elements);
         foreach ($uploaded as $file) {
           $file_inserts[] = [
             'answer_id' => $answer_id,
@@ -211,9 +224,298 @@ function modularform_answer_form_submit($form, &$form_state) {
     }
     $query->execute();
   }
+  drupal_set_message('response saved');
+  drupal_goto('/forms/manage');
+}
+
+function _modularform_validate_file_question($q_id, array $elements) {
+  $file_rules = _modularform_file_validators($q_id, $elements);
+  $validators = $file_rules['drupal'];
+  $min_files  = $file_rules['min_files'];
+  $max_files  = $file_rules['max_files'];
+  $upload_key = 'file_' . $q_id;
+
+  $file_names = $_FILES['files']['name'][$upload_key] ?? [];
+  $file_names = is_array($file_names) ? $file_names : [$file_names];
+  $file_names = array_filter($file_names, fn($n) => $n !== '');
+  $count      = count($file_names);
+
+  if ($min_files !== NULL && $count < $min_files) {
+    form_set_error('files][' . $upload_key, t('Upload at least @min file(s).', ['@min' => $min_files]));
+    return;
+  }
+  if ($max_files !== NULL && $count > $max_files) {
+    form_set_error('files][' . $upload_key, t('Upload at most @max file(s).', ['@max' => $max_files]));
+    return;
+  }
+
+  if (isset($validators['file_validate_size'])) {
+    $max_bytes  = $validators['file_validate_size'][0];
+    $file_sizes = $_FILES['files']['size'][$upload_key] ?? [];
+    $file_sizes = is_array($file_sizes) ? $file_sizes : [$file_sizes];
+    foreach ($file_sizes as $size) {
+      if ((int) $size > $max_bytes) {
+        form_set_error('files][' . $upload_key, t('File exceeds maximum size of @mb MB.', ['@mb' => $max_bytes / 1024 / 1024]));
+        return;
+      }
+    }
+  }
+
+  if (isset($validators['file_validate_extensions'])) {
+    $allowed = explode(' ', $validators['file_validate_extensions'][0]);
+    foreach ($file_names as $name) {
+      $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+      if (!in_array($ext, $allowed)) {
+        form_set_error('files][' . $upload_key, t('File type .@ext is not allowed.', ['@ext' => $ext]));
+        return;
+      }
+    }
+  }
+}
+
+function modularform_answer_form_validate($form, &$form_state) {
+  $fid = $form_state['build_info']['args'][0];
+  $elements = _modularform_load_elements($fid);
+  $values = $form_state['values'];
+
+  $questions = array_filter($elements, fn($el) => $el['type'] === 'question');
+  $sections = array_filter($elements, fn($el) => $el['type'] === 'section');
+
+  // Group rules by parent question ID.
+  $rules_by_question = [];
+  foreach ($elements as $el) {
+    if ($el['type'] === 'validation_rule' && $el['rule_type'] !== 'is_multiple') {
+      $rules_by_question[$el['parent']][] = $el;
+    }
+  }
+
+  foreach ($sections as $sec_id => $sec) {
+    foreach ($questions as $q_id => $q) {
+      if ($q['parent'] !== $sec_id) {
+        continue;
+      }
+
+      $q_type = $q['question_type'];
+      $rules = $rules_by_question[$q_id] ?? [];
+      $raw = $values[$sec_id][$q_id]['answer'] ?? NULL;
+
+      if ($q_type === 'file') {
+        _modularform_validate_file_question($q_id, $elements);
+        continue;
+      }
+
+      // Required check.
+      if (!empty($q['is_required'])) {
+        $empty = FALSE;
+        if (is_array($raw)) {
+          $filtered = array_filter($raw, fn($v) => $v !== '' && $v !== NULL && $v !== 0 && $v !== FALSE && $v !== '0');
+          $empty = empty($filtered);
+        }
+        else {
+          $empty = ($raw === NULL || $raw === '');
+        }
+        if ($empty) {
+          form_set_error(
+            $sec_id . '][' . $q_id . '][answer',
+            t('This field is required.')
+          );
+          continue; // no point running rules on empty required field
+        }
+      }
+
+      // Skip rule validation if no rules or value is empty.
+      if (empty($rules) || $raw === NULL || $raw === '') {
+        continue;
+      }
+
+      foreach ($rules as $rule) {
+        $error = _modularform_validate_answer($q_type, $raw, $rule);
+        if ($error !== NULL) {
+          form_set_error($sec_id . '][' . $q_id . '][answer', $error);
+          break; // one error per question is enough
+        }
+      }
+    }
+  }
+}
+
+function _modularform_validate_answer($q_type, $raw, $rule) {
+  $rule_type = $rule['rule_type'];
+  $rule_value = $rule['rule_value'];
+  $custom_msg = !empty($rule['error_message']) ? $rule['error_message'] : NULL;
+
+  $err = fn($default) => $custom_msg ?? t($default);
+
+  switch ($q_type) {
+    case 'text':
+      $val = (string) $raw;
+      $len = mb_strlen($val);
+      switch ($rule_type) {
+        case 'min_length':
+          return $len < (int) $rule_value ? $err('Must be at least ' . (int) $rule_value . ' characters.') : NULL;
+        case 'max_length':
+          return $len > (int) $rule_value ? $err('Must be at most ' . (int) $rule_value . ' characters.') : NULL;
+        case 'exact_length':
+          return $len !== (int) $rule_value ? $err('Must be exactly ' . (int) $rule_value . ' characters.') : NULL;
+        case 'is_email':
+          return !filter_var($val, FILTER_VALIDATE_EMAIL) ? $err('Must be a valid email address.') : NULL;
+        case 'is_url':
+          return !filter_var($val, FILTER_VALIDATE_URL) ? $err('Must be a valid URL.') : NULL;
+        case 'is_numeric':
+          return !is_numeric($val) ? $err('Must contain numbers only.') : NULL;
+        case 'is_alpha':
+          return !ctype_alpha($val) ? $err('Must contain letters only.') : NULL;
+        case 'starts_with':
+          return strpos($val, $rule_value) !== 0 ? $err('Must start with "' . $rule_value . '".') : NULL;
+        case 'ends_with':
+          return substr($val, -mb_strlen($rule_value)) !== $rule_value ? $err('Must end with "' . $rule_value . '".') : NULL;
+        case 'contains':
+          return strpos($val, $rule_value) === FALSE ? $err('Must contain "' . $rule_value . '".') : NULL;
+        case 'regex':
+          return !preg_match($rule_value, $val) ? $err('Invalid format.') : NULL;
+      }
+      break;
+
+    case 'textarea':
+      $val = (string) $raw;
+      $len = mb_strlen($val);
+      $words = str_word_count(strip_tags($val));
+      switch ($rule_type) {
+        case 'min_length':
+          return $len < (int) $rule_value ? $err('Must be at least ' . (int) $rule_value . ' characters.') : NULL;
+        case 'max_length':
+          return $len > (int) $rule_value ? $err('Must be at most ' . (int) $rule_value . ' characters.') : NULL;
+        case 'min_words':
+          return $words < (int) $rule_value ? $err('Must contain at least ' . (int) $rule_value . ' words.') : NULL;
+        case 'max_words':
+          return $words > (int) $rule_value ? $err('Must contain at most ' . (int) $rule_value . ' words.') : NULL;
+        case 'contains':
+          return strpos($val, $rule_value) === FALSE ? $err('Must contain "' . $rule_value . '".') : NULL;
+        case 'regex':
+          return !preg_match($rule_value, $val) ? $err('Invalid format.') : NULL;
+      }
+      break;
+
+    case 'richtext':
+      $plain = strip_tags((string) $raw);
+      $words = str_word_count($plain);
+      switch ($rule_type) {
+        case 'min_words':
+          return $words < (int) $rule_value ? $err('Must contain at least ' . (int) $rule_value . ' words.') : NULL;
+        case 'max_words':
+          return $words > (int) $rule_value ? $err('Must contain at most ' . (int) $rule_value . ' words.') : NULL;
+        case 'contains':
+          return strpos($plain, $rule_value) === FALSE ? $err('Must contain "' . $rule_value . '".') : NULL;
+      }
+      break;
+
+    case 'date':
+      $raw_str = trim((string) $raw);
+      $d = DateTime::createFromFormat('Y-m-d', $raw_str);
+      if (!$d || $d->format('Y-m-d') !== $raw_str) {
+        return $err('Invalid date. Use YYYY-MM-DD format.');
+      }
+      $parsed = $d->getTimestamp();
+      switch ($rule_type) {
+        case 'date_min':
+          $min = DateTime::createFromFormat('Y-m-d', $rule_value);
+          return ($min && $parsed < $min->getTimestamp()) ? $err('Date must be on or after ' . $rule_value . '.') : NULL;
+        case 'date_max':
+          $max = DateTime::createFromFormat('Y-m-d', $rule_value);
+          return ($max && $parsed > $max->getTimestamp()) ? $err('Date must be on or before ' . $rule_value . '.') : NULL;
+        case 'date_format':
+          $d2 = DateTime::createFromFormat($rule_value, $raw_str);
+          return (!$d2 || $d2->format($rule_value) !== $raw_str) ? $err('Date must be in format: ' . $rule_value . '.') : NULL;
+      }
+      break;
+
+    case 'time':
+      // Expect HH:MM
+      if (!preg_match('/^\d{2}:\d{2}$/', (string) $raw)) {
+        return $err('Invalid time format. Use HH:MM.');
+      }
+      switch ($rule_type) {
+        case 'time_min':
+          return (strcmp((string) $raw, $rule_value) < 0) ? $err('Time must be at or after ' . $rule_value . '.') : NULL;
+        case 'time_max':
+          return (strcmp((string) $raw, $rule_value) > 0) ? $err('Time must be at or before ' . $rule_value . '.') : NULL;
+      }
+      break;
+
+    case 'boolean':
+      switch ($rule_type) {
+        case 'must_be_true':
+          return ($raw !== 'yes' && $raw != 1) ? $err('Must be Yes.') : NULL;
+        case 'must_be_false':
+          return ($raw !== 'no' && $raw != 0) ? $err('Must be No.') : NULL;
+      }
+      break;
+
+    case 'radio':
+      switch ($rule_type) {
+        case 'disallow_value':
+          return ((string) $raw === (string) $rule_value) ? $err('"' . $rule_value . '" is not allowed.') : NULL;
+      }
+      break;
+
+    case 'list':
+    case 'checkbox':
+      $selected = is_array($raw)
+        ? array_filter($raw, fn($v) => $v !== 0 && $v !== FALSE && $v !== '0')
+        : [];
+      $count = count($selected);
+      switch ($rule_type) {
+        case 'min_selections':
+          return $count < (int) $rule_value ? $err('Select at least ' . (int) $rule_value . ' option(s).') : NULL;
+        case 'max_selections':
+          return $count > (int) $rule_value ? $err('Select at most ' . (int) $rule_value . ' option(s).') : NULL;
+        case 'exact_count':
+          return $count !== (int) $rule_value ? $err('Select exactly ' . (int) $rule_value . ' option(s).') : NULL;
+        case 'disallow_value':
+          return isset($selected[$rule_value]) ? $err('"' . $rule_value . '" is not allowed.') : NULL;
+      }
+      break;
+
+    case 'dropdown':
+      $selected = is_array($raw) ? array_filter($raw, fn($v) => $v !== '' && $v !== NULL) : [$raw];
+      $count = count($selected);
+      switch ($rule_type) {
+        case 'min_selections':
+          return $count < (int) $rule_value ? $err('Select at least ' . (int) $rule_value . ' option(s).') : NULL;
+        case 'max_selections':
+          return $count > (int) $rule_value ? $err('Select at most ' . (int) $rule_value . ' option(s).') : NULL;
+        case 'disallow_value':
+          return in_array((string) $rule_value, array_map('strval', $selected)) ? $err('"' . $rule_value . '" is not allowed.') : NULL;
+      }
+      break;
+
+    case 'tag':
+      // Raw is a comma-separated string of IDs and/or "new:label" entries.
+      $parts = is_array($raw)
+        ? array_filter($raw, fn($v) => $v !== '' && $v !== NULL)
+        : array_filter(array_map('trim', explode(',', (string) $raw)), fn($v) => $v !== '');
+      $count = count($parts);
+      switch ($rule_type) {
+        case 'min_tags':
+          return $count < (int) $rule_value ? $err('Add at least ' . (int) $rule_value . ' tag(s).') : NULL;
+        case 'max_tags':
+          return $count > (int) $rule_value ? $err('Add at most ' . (int) $rule_value . ' tag(s).') : NULL;
+        case 'exact_tags':
+          return $count !== (int) $rule_value ? $err('Add exactly ' . (int) $rule_value . ' tag(s).') : NULL;
+      }
+      break;
+  }
+
+  return NULL;
 }
 
 function modularform_response_edit_form($form, &$form_state, $response_id) {
+  $response_id = (int) $response_id;
+  if (!$response_id) {
+    drupal_not_found();
+    drupal_exit();
+  }
+
   $response = db_select('modularform_responses', 'r')
     ->fields('r')
     ->condition('r.id', $response_id)
@@ -253,6 +555,58 @@ function modularform_response_edit_form($form, &$form_state, $response_id) {
     '#value' => t('Save changes'),
   ];
   return $form;
+}
+
+
+function modularform_response_edit_form_validate($form, &$form_state) {
+  $fid = $form_state['storage']['form_id'];
+  $elements = _modularform_load_elements($fid);
+  $values = $form_state['values'];
+
+  $questions = array_filter($elements, fn($el) => $el['type'] === 'question');
+  $sections = array_filter($elements, fn($el) => $el['type'] === 'section');
+
+  $rules_by_question = [];
+  foreach ($elements as $el) {
+    if ($el['type'] === 'validation_rule' && $el['rule_type'] !== 'is_multiple') {
+      $rules_by_question[$el['parent']][] = $el;
+    }
+  }
+
+  foreach ($sections as $sec_id => $sec) {
+    foreach ($questions as $q_id => $q) {
+      if ($q['parent'] !== $sec_id) {
+        continue;
+      }
+
+      $q_type = $q['question_type'];
+      $rules = $rules_by_question[$q_id] ?? [];
+      $raw = $values[$sec_id][$q_id]['answer'] ?? NULL;
+
+      if ($q_type === 'file') {
+        _modularform_validate_file_question($q_id, $elements);
+        continue;
+      }
+      // In edit mode empty = "unchanged", so we only validate if something
+      // was actually submitted. Required is not re-enforced on edit since
+      // the answer already exists in the DB.
+      if ($raw === NULL || $raw === '') {
+        continue;
+      }
+
+      if (empty($rules)) {
+        continue;
+      }
+
+      foreach ($rules as $rule) {
+        $error = _modularform_validate_answer($q_type, $raw, $rule);
+        if ($error !== NULL) {
+          form_set_error($sec_id . '][' . $q_id . '][answer', $error);
+          break;
+        }
+      }
+    }
+  }
 }
 
 function modularform_response_edit_form_submit($form, &$form_state) {
@@ -360,7 +714,7 @@ function modularform_response_edit_form_submit($form, &$form_state) {
               ->condition('answer_id', $answer_id)
               ->execute();
 
-            $uploaded = _modularform_save_answer_files($q_id, $is_multiple, $response_id, $answer_id, $now);
+            $uploaded = _modularform_save_answer_files($q_id, $is_multiple, $response_id, $elements);
 
             foreach ($uploaded as $file) {
               db_insert('modularform_answer_files')
@@ -550,18 +904,18 @@ function _modularform_map_answer_value($q_type, $raw) {
  * @param int $answer_id Answer row ID to attach files to.
  * @param int $now Timestamp.
  */
-function _modularform_save_answer_files($q_id, $is_multiple, $response_id, $answer_id, $now) {
+function _modularform_save_answer_files($q_id, $is_multiple, $response_id, $elements) {
   $upload_key = 'file_' . $q_id;
-  $destination = 'private://modularform/responses/' . $response_id;
-  $validators = _modularform_file_validators($q_id); // replaces hardcoded array
+  $destination = 'private://modularform/responses/' . (int) $response_id;
+  $file_rules = _modularform_file_validators($q_id, $elements); // needs $elements passed in
+  $validators = $file_rules['drupal'];
+  $min_files = $file_rules['min_files'];
+  $max_files = $file_rules['max_files'];
   $uploads = [];
 
   file_prepare_directory($destination, FILE_CREATE_DIRECTORY | FILE_MODIFY_PERMISSIONS);
+
   if ($is_multiple) {
-    // file_save_upload only reads $_FILES by a flat key, so for a multi-file
-    // input we need to reconstruct the $_FILES entries one at a time and call
-    // it per file. We do that by temporarily rewriting $_FILES['files'] to
-    // look like a single-file upload for each index.
     $file_names = $_FILES['files']['name'][$upload_key] ?? [];
     $file_tmps = $_FILES['files']['tmp_name'][$upload_key] ?? [];
     $file_errors = $_FILES['files']['error'][$upload_key] ?? [];
@@ -573,28 +927,29 @@ function _modularform_save_answer_files($q_id, $is_multiple, $response_id, $answ
         continue;
       }
 
-      // Temporarily splice this index into $_FILES as a single-file entry
-      // so file_save_upload can process it normally.
-      $_FILES['files']['name'][$upload_key] = $filename;
-      $_FILES['files']['tmp_name'][$upload_key] = $file_tmps[$i];
-      $_FILES['files']['error'][$upload_key] = $file_errors[$i];
-      $_FILES['files']['type'][$upload_key] = $file_types[$i];
-      $_FILES['files']['size'][$upload_key] = $file_sizes[$i];
+      try {
+        $_FILES['files']['name'][$upload_key] = $filename;
+        $_FILES['files']['tmp_name'][$upload_key] = $file_tmps[$i];
+        $_FILES['files']['error'][$upload_key] = $file_errors[$i];
+        $_FILES['files']['type'][$upload_key] = $file_types[$i];
+        $_FILES['files']['size'][$upload_key] = $file_sizes[$i];
 
-      $file = file_save_upload($upload_key, $validators, $destination, FILE_EXISTS_RENAME);
-      if ($file) {
-        $file->status = FILE_STATUS_PERMANENT;
-        file_save($file);
-        $uploads[] = $file;
+        $file = file_save_upload($upload_key, $validators, $destination, FILE_EXISTS_RENAME);
+        if ($file) {
+          $file->status = FILE_STATUS_PERMANENT;
+          file_save($file);
+          $uploads[] = $file;
+        }
+      }
+      finally {
+        // Always restore original structure even if file_save_upload throws
+        $_FILES['files']['name'][$upload_key] = $file_names;
+        $_FILES['files']['tmp_name'][$upload_key] = $file_tmps;
+        $_FILES['files']['error'][$upload_key] = $file_errors;
+        $_FILES['files']['type'][$upload_key] = $file_types;
+        $_FILES['files']['size'][$upload_key] = $file_sizes;
       }
     }
-
-    // Restore the original array structure in case anything downstream reads it.
-    $_FILES['files']['name'][$upload_key] = $file_names;
-    $_FILES['files']['tmp_name'][$upload_key] = $file_tmps;
-    $_FILES['files']['error'][$upload_key] = $file_errors;
-    $_FILES['files']['type'][$upload_key] = $file_types;
-    $_FILES['files']['size'][$upload_key] = $file_sizes;
   }
   else {
     $file = file_save_upload($upload_key, $validators, $destination, FILE_EXISTS_RENAME);
@@ -603,6 +958,25 @@ function _modularform_save_answer_files($q_id, $is_multiple, $response_id, $answ
       file_save($file);
       $uploads[] = $file;
     }
+  }
+
+  $count = count($uploads);
+
+  if ($min_files !== NULL && $count < $min_files) {
+    form_set_error('file_' . $q_id, t('Upload at least @min file(s).', ['@min' => $min_files]));
+    // clean up any files already saved
+    foreach ($uploads as $file) {
+      file_delete($file);
+    }
+    return [];
+  }
+
+  if ($max_files !== NULL && $count > $max_files) {
+    form_set_error('file_' . $q_id, t('Upload at most @max file(s).', ['@max' => $max_files]));
+    foreach ($uploads as $file) {
+      file_delete($file);
+    }
+    return [];
   }
 
   foreach ($uploads as $file) {
@@ -626,7 +1000,7 @@ function _modularform_save_answer_files($q_id, $is_multiple, $response_id, $answ
  *
  * @return array Drupal file validators array.
  */
-function _modularform_file_validators($q_id) {
+function _modularform_file_validators($q_id, array $elements) {
   $type_map = [
     'image' => 'jpg jpeg png gif webp',
     'document' => 'pdf doc docx odt',
@@ -635,27 +1009,30 @@ function _modularform_file_validators($q_id) {
     'archive' => 'zip tar gz',
   ];
 
-  $rules = db_select('modularform_validation_rules', 'vr')
-    ->fields('vr', ['rule_type', 'rule_value'])
-    ->condition('vr.q_id', $q_id)
-    ->condition('vr.rule_type', ['max_filesize', 'allowed_types'], 'IN')
-    ->orderBy('rule_type')
-    ->range(0, 2)
-    ->execute()
-    ->fetchAllKeyed();
+  $rules = [];
+  foreach ($elements as $el) {
+    if ($el['type'] === 'validation_rule'
+      && $el['parent'] === $q_id
+      && in_array($el['rule_type'], [
+        'max_filesize',
+        'allowed_types',
+        'min_files',
+        'max_files',
+      ])
+    ) {
+      $rules[$el['rule_type']] = $el['rule_value'];
+    }
+  }
 
   $validators = [];
 
-  // max_filesize — stored in MB, Drupal wants bytes
   if (isset($rules['max_filesize']) && is_numeric($rules['max_filesize'])) {
     $validators['file_validate_size'] = [(int) $rules['max_filesize'] * 1024 * 1024];
   }
   else {
-    $validators['file_validate_size'] = [25 * 1024 * 1024];
+    $validators['file_validate_size'] = [5 * 1024 * 1024];
   }
 
-  // allowed_types — expand group to extensions
-  // 'any' = no restriction, skip validator entirely
   if (isset($rules['allowed_types'])) {
     $group = $rules['allowed_types'];
     if ($group !== 'any' && isset($type_map[$group])) {
@@ -663,13 +1040,16 @@ function _modularform_file_validators($q_id) {
     }
   }
   else {
-    // safe default
     $validators['file_validate_extensions'] = ['pdf doc docx png jpg jpeg gif zip txt'];
   }
 
   $validators['file_validate_name_length'] = [];
 
-  return $validators;
+  return [
+    'drupal' => $validators,
+    'min_files' => isset($rules['min_files']) ? (int) $rules['min_files'] : NULL,
+    'max_files' => isset($rules['max_files']) ? (int) $rules['max_files'] : NULL,
+  ];
 }
 
 /**

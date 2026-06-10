@@ -21,13 +21,30 @@ function modularform_response_list_page() {
 
   // ── Role-based visibility ───────────────────────────────────────────────────
   if (!_modularform_is_site_admin()) {
-    $candidate_ids = $form_id_filter
+    $member_ids = $form_id_filter
       ? [$form_id_filter]
       : db_select('modularform_form_members', 'fm')
         ->fields('fm', ['form_id'])
         ->condition('fm.uid', $user->uid)
         ->execute()
         ->fetchCol();
+
+    $created_ids = $form_id_filter
+      ? []
+      : db_select('modularform_forms', 'f')
+        ->fields('f', ['id'])
+        ->condition('f.created_by', $user->uid)
+        ->execute()
+        ->fetchCol();
+
+    $candidate_ids = array_values(array_unique(array_merge(
+      array_map('intval', $member_ids),
+      array_map('intval', $created_ids),
+    )));
+
+    if (empty($candidate_ids)) {
+      return '<p>' . t('You do not have permission to view any responses.') . '</p>';
+    }
     // Grab created_by for all candidates in one shot
     $forms = db_select('modularform_forms', 'f')
       ->fields('f', ['id', 'created_by'])
@@ -43,6 +60,8 @@ function modularform_response_list_page() {
       ->execute()
       ->fetchAllKeyed(); // [fid => roles]
 
+    $all_access = [];
+    $own_only = [];
     foreach ($candidate_ids as $fid) {
       $fid = (int) $fid;
       if ((int) ($forms[$fid] ?? -1) === (int) $user->uid) {
@@ -231,6 +250,7 @@ function modularform_response_list_page() {
  * Returns permitted operation links for a response.
  *
  * @param int $id Response ID.
+ *
  * @return array
  */
 function _modularform_response_links($id) {
@@ -238,19 +258,19 @@ function _modularform_response_links($id) {
   if (response_view_access($id)) {
     $links['view'] = [
       'title' => t('View'),
-      'href'  => 'forms/response/view/' . $id,
+      'href' => 'forms/response/view/' . $id,
     ];
   }
   if (response_edit_access($id)) {
     $links['edit'] = [
       'title' => t('Edit'),
-      'href'  => 'forms/response/edit/' . $id,
+      'href' => 'forms/response/edit/' . $id,
     ];
   }
   if (response_delete_access($id)) {
     $links['delete'] = [
       'title' => t('Delete'),
-      'href'  => 'forms/response/delete/' . $id,
+      'href' => 'forms/response/delete/' . $id,
       'query' => ['token' => drupal_get_token('modularform_response_delete_' . $id)],
     ];
   }
@@ -283,14 +303,14 @@ function modularform_response_list_ajax() {
   $build = modularform_response_list_page();
 
   // Render only the table theme + pager — no page wrapper, no filter bar.
-  $output = theme('response_list', array(
+  $output = theme('response_list', [
     'header' => $build['#header'],
-    'rows'   => $build['#rows'],
-  ));
+    'rows' => $build['#rows'],
+  ]);
 
   $output .= theme('pager');
 
-  drupal_json_output(array('html' => $output));
+  drupal_json_output(['html' => $output]);
   drupal_exit();
 }
 
@@ -443,8 +463,8 @@ function modularform_filter_questions() {
       continue;
     }
     $results[] = [
-      'id'       => $prefix . '_' . $row->q_id,
-      'label'    => $row->label,
+      'id' => $prefix . '_' . $row->q_id,
+      'label' => $row->label,
       'datatype' => $type_name,
     ];
   }
@@ -454,8 +474,8 @@ function modularform_filter_questions() {
 }
 
 function modularform_filter_form_search() {
-  $term    = isset($_GET['term']) ? check_plain($_GET['term']) : '';
-  $form_id = isset($_GET['id'])   ? (int) $_GET['id']         : 0;
+  $term = isset($_GET['term']) ? check_plain($_GET['term']) : '';
+  $form_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
   // ── Single form lookup (restore from URL on page load) ──────────────────────
   if ($form_id) {
@@ -465,7 +485,7 @@ function modularform_filter_form_search() {
     }
 
     $forms = entity_get_controller('modularform_form')->load([$form_id]);
-    $form  = reset($forms);
+    $form = reset($forms);
     if (!$form) {
       drupal_json_output(['results' => []]);
       drupal_exit();

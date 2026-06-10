@@ -4,14 +4,25 @@ module_load_include('inc', 'modularform', 'modularform.rules');
 
 #TODO sepeate sections into pages
 function modularform_builder_form($form, &$form_state, $fid) {
-  $form['#tree'] = TRUE;
-  $form_state['storage']['fid'] = $fid;
+  $fid = (int) $fid;
+  if (!$fid) {
+    drupal_not_found();
+    drupal_exit();
+  }
 
   $form_name = db_select('modularform_forms', 'f')
     ->fields('f', ['title', 'description'])
     ->condition('id', $fid)
     ->execute()
     ->fetchAssoc();
+
+  if (!$form_name) {
+    drupal_not_found();
+    drupal_exit();
+  }
+
+  $form['#tree'] = TRUE;
+  $form_state['storage']['fid'] = $fid;
 
   $form['form_header'] = [
     '#type' => 'item',
@@ -1325,8 +1336,17 @@ function _modularform_bulk_upsert($table, array $records, array $update_cols) {
     }
   }
 
-  $stmt = $connection->prepare($sql);
-  $stmt->execute($args);
+  try {
+    $stmt = $connection->prepare($sql);
+    $stmt->execute($args);
+  }
+  catch (Exception $e) {
+    watchdog('modularform', 'Bulk upsert failed on @table: @msg', [
+      '@table' => $table,
+      '@msg' => $e->getMessage(),
+    ], WATCHDOG_ERROR);
+    drupal_set_message(t('An error occurred while saving. Please try again.'), 'error');
+  }
 }
 
 function _modularform_resolve_edit_state($fid) {

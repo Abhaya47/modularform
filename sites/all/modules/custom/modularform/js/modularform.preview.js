@@ -27,7 +27,10 @@
           initSelection: function (element, callback) {
             var val = $hidden.val();
 
-            if (!val) { callback([]); return; }
+            if (!val) {
+              callback([]);
+              return;
+            }
 
             var qId = $hidden.data('q-id');
             var defaultTags = (settings.modularformDefaultTags && settings.modularformDefaultTags[qId]) || [];
@@ -129,9 +132,17 @@
 
       // ── Client-side validation ─────────────────────────────────────────────
       $.each(rules, function (q_id, q_rules) {
-        var $field = $('[data-q-id="' + q_id + '"]', context);
+        var $field = $('input[data-q-id="' + q_id + '"], textarea[data-q-id="' + q_id + '"], select[data-q-id="' + q_id + '"]', context).first();
+        var $container = $field.closest('.preview-question');
+        var q_type = $container.data('q-type');
 
+        // Standard fields
         $field.on('change blur', function () {
+          validateField(q_id, q_rules, $field);
+        });
+
+        // File inputs — no data-q-id, bind via container
+        $container.find('input[type="file"]').on('change', function () {
           validateField(q_id, q_rules, $field);
         });
       });
@@ -192,6 +203,13 @@
               return [];
             }
             return tagVal.split(',').filter(Boolean);
+
+          case 'file':
+            var $fileInput = $container.find('input[type="file"]');
+            if (!$fileInput[0] || !$fileInput[0].files) {
+              return [];
+            }
+            return Array.from($fileInput[0].files);
 
           default:
             return '';
@@ -262,14 +280,48 @@
             return count > parseInt(rv) ? msg : null;
           case 'exact_tags':
             return count > 0 && count !== parseInt(rv) ? msg : null;
-          case 'max_filesize':
+          case 'max_filesize': {
+            var $fileInput = $container.find('input[type="file"]');
+            if (!$fileInput[0] || !$fileInput[0].files || !$fileInput[0].files.length) {
+              return null;
+            }
+            var maxBytes = parseFloat(rv) * 1024 * 1024;
+            for (var f = 0; f < $fileInput[0].files.length; f++) {
+              if ($fileInput[0].files[f].size > maxBytes) {
+                return msg;
+              }
+            }
             return null;
+          }
           case 'min_files':
             return count > 0 && count < parseInt(rv) ? msg : null;
           case 'max_files':
             return count > parseInt(rv) ? msg : null;
-          case 'allowed_types':
+
+          case 'allowed_types': {
+            var $fileInput = $container.find('input[type="file"]');
+            if (!$fileInput[0] || !$fileInput[0].files || !$fileInput[0].files.length) {
+              return null;
+            }
+            var extMap = {
+              image: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+              document: ['pdf', 'doc', 'docx', 'odt'],
+              video: ['mp4', 'mov', 'avi'],
+              audio: ['mp3', 'wav', 'ogg'],
+              archive: ['zip', 'tar', 'gz'],
+            };
+            if (rv === 'any') {
+              return null;
+            }
+            var allowed = extMap[rv] || [];
+            for (var f = 0; f < $fileInput[0].files.length; f++) {
+              var ext = $fileInput[0].files[f].name.split('.').pop().toLowerCase();
+              if (allowed.indexOf(ext) === -1) {
+                return msg;
+              }
+            }
             return null;
+          }
 
           default:
             return null;

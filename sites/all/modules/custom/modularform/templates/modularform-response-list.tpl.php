@@ -183,7 +183,10 @@
                           if ($key === 'delete') {
                             $attributes['class'][] = 'gform-link--danger';
                           }
-                          print l($link['title'], $link['href'], ['attributes' => $attributes]);
+                          print l($link['title'], $link['href'], [
+                            'attributes' => $attributes,
+                            'query' => isset($link['query']) ? $link['query'] : [],
+                          ]);
                         endforeach;
                       endif;
                       ?>
