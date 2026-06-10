@@ -181,28 +181,9 @@ function modularform_view_page($form_id) {
     if ($m['kind'] === 'invite') $invite_count++;
   }
 
-  // ── Links ─────────────────────────────────────────────────────────────────
+  // ── Resolved URLs ─────────────────────────────────────────────────────────
   $token_delete = drupal_get_token('modularform_delete_' . $form_id);
   $token_export = drupal_get_token('modularform_export');
-
-  $links = [
-    'settings_edit'   => ['title' => t('Edit Settings'),    'href' => 'forms/edit/' . $form_id],
-    'builder_preview' => ['title' => t('Preview Survey'),   'href' => 'forms/' . $form_id . '/builder/preview'],
-    'builder_edit'    => ['title' => t('Edit Survey'),      'href' => 'forms/' . $form_id . '/builder'],
-    'members'         => ['title' => t('Manage Members'),   'href' => 'forms/edit/' . $form_id . '#edit-visibility'],
-    'invites'         => ['title' => t('Send Invites'),     'href' => 'forms/edit/' . $form_id . '#edit-visibility'],
-    'export'          => ['title' => t('Export Responses'), 'href' => 'modularform/export/page', 'query' => ['fids' => $form_id, 'token' => $token_export]],
-    'delete'          => ['title' => t('Delete Survey'),    'href' => 'forms/delete/' . $form_id, 'query' => ['token' => $token_delete]],
-  ];
-
-  // ── Resolved URLs ─────────────────────────────────────────────────────────
-  $url_preview  = url($links['builder_preview']['href']);
-  $url_edit     = url($links['builder_edit']['href']);
-  $url_settings = url($links['settings_edit']['href']);
-  $url_members  = url($links['members']['href']);
-  $url_invites  = url($links['invites']['href']);
-  $url_export   = url($links['export']['href']);
-  $url_delete   = url($links['delete']['href']);
 
   return theme('modularform_view_page', [
     'form'            => $form,
@@ -245,13 +226,13 @@ function modularform_view_page($form_id) {
     ],
 
     'urls' => [
-      'preview'  => $url_preview,
-      'edit'     => $url_edit,
-      'settings' => $url_settings,
-      'members'  => $url_members,
-      'invites'  => $url_invites,
-      'export'   => $url_export,
-      'delete'   => $url_delete,
+      'preview'  => url('forms/' . $form_id . '/builder/preview'),
+      'edit'     => url('forms/' . $form_id . '/builder'),
+      'settings' => url('forms/edit/' . $form_id),
+      'members'  => url('forms/edit/' . $form_id, ['fragment' => 'edit-visibility']),
+      'invites'  => url('forms/edit/' . $form_id, ['fragment' => 'edit-visibility']),
+      'export'   => url('modularform/export/page', ['query' => ['fids' => $form_id, 'token' => $token_export]]),
+      'delete'   => url('forms/delete/' . $form_id, ['query' => ['token' => $token_delete]]),
     ],
   ]);
 }
@@ -297,7 +278,6 @@ function _modularform_view_get_stats($form_id, array $form, array $members) {
     'pending' => $total - $submitted,
     'notified' => $notified,
     'last_submitted_at' => $agg['last_submitted_at'] ?: NULL,
-    'avg_time_seconds' => $agg['avg_seconds'] ? (int) round($agg['avg_seconds']) : 0,
     'days_left' => $days_left,
   ];
 }
