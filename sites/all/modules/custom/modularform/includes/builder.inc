@@ -283,7 +283,10 @@ function _modularform_sync_question(&$form_state, $id, &$el, &$elements, $values
     }
 
     // sync rule_value so select/text inputs survive AJAX rebuilds
-    $submitted_rule_value = drupal_array_get_nested_value($values, array_merge($r_base, ['rule_value_wrapper', 'rule_value']));
+    $submitted_rule_value = drupal_array_get_nested_value($values, array_merge($r_base, [
+      'rule_value_wrapper',
+      'rule_value',
+    ]));
     if (isset($submitted_rule_value)) {
       $elements[$r_id]['rule_value'] = $submitted_rule_value;
     }
@@ -430,8 +433,9 @@ function _modularform_render_question_type(&$form, &$form_state, $sec_id, $q_id,
       ];
 
       // Only seed the rule if it doesn't already exist in storage
-      $r_id = 'rule_' . $q_id . '_is_multiple';
-      if (!isset($form_state['storage']['elements'][$r_id])) {
+      $existing_r_id = _modularform_find_rule_id($form_state['storage']['elements'], $q_id, 'is_multiple');
+      if (!$existing_r_id) {
+        $r_id = 'r_' . $form_state['storage']['fid'] . '_' . uniqid();
         $form_state['storage']['elements'][$r_id] = [
           'type' => 'validation_rule',
           'parent' => $q_id,
@@ -496,8 +500,9 @@ function _modularform_render_options(&$form, &$form_state, $sec_id, $q_id, $q_ty
     ];
 
     // Only seed the rule if it doesn't already exist in storage
-    $r_id = 'rule_' . $q_id . '_is_multiple';
-    if (!isset($form_state['storage']['elements'][$r_id])) {
+    $existing_r_id = _modularform_find_rule_id($form_state['storage']['elements'], $q_id, 'is_multiple');
+    if (!$existing_r_id) {
+      $r_id = 'r_' . $form_state['storage']['fid'] . '_' . uniqid();
       $form_state['storage']['elements'][$r_id] = [
         'type' => 'validation_rule',
         'parent' => $q_id,
@@ -613,12 +618,12 @@ function _modularform_render_adv_rules(&$form, $sec_id, $q_id, $q_type, $q_val_r
 
       case 'select':
         $form['elements_container'][$sec_id][$q_id]['validation']['adv_rules'][$r_id]['rule_value_wrapper']['rule_value'] = [
-          '#type'          => 'select',
-          '#title'         => t('Value'),
-          '#options'       => _modularform_rule_value_options($q_type, $current_rule_type),
+          '#type' => 'select',
+          '#title' => t('Value'),
+          '#options' => _modularform_rule_value_options($q_type, $current_rule_type),
           '#default_value' => $r_el['rule_value'] ?? '',
-          '#empty_value'   => '',
-          '#empty_option'  => t('- Select -'),
+          '#empty_value' => '',
+          '#empty_option' => t('- Select -'),
         ];
         break;
 
@@ -674,6 +679,17 @@ function _modularform_get_is_multiple($q_id, $val_rules) {
     }
   }
   return 0;
+}
+
+function _modularform_find_rule_id($elements, $q_id, $rule_type) {
+  foreach ($elements as $r_id => $el) {
+    if ($el['type'] === 'validation_rule'
+      && $el['parent'] === $q_id
+      && $el['rule_type'] === $rule_type) {
+      return $r_id;
+    }
+  }
+  return NULL;
 }
 
 /**
@@ -1045,7 +1061,7 @@ function _modularform_build_records($fid, &$form_state) {
     $orig_sec = $questions[$q_id]['original_parent'] ?? $sec_id;
     $q_type = $questions[$q_id]['question_type'] ?? '';
 
-    if (str_ends_with($r_id, '_is_multiple')) {
+    if ($r_el['rule_type'] === 'is_multiple') {
       $is_multiple = match ($q_type) {
         'dropdown' => (int) ($values[$orig_sec][$q_id]['dropdown_multiple'] ?? 0),
         'file' => (int) ($values[$orig_sec][$q_id]['file_settings']['multiple'] ?? 0),
