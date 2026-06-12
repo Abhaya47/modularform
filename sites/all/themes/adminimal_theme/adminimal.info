@@ -2,7 +2,6 @@ name = Adminimal
 description = Minimalist administration theme.
 core = 7.x
 
-base theme = bootstrap
 stylesheets[all][] = css/style.css
 
 scripts[] = js/jrespond.js

@@ -938,3 +938,24 @@ function modularform_update_7014() {
     ]);
   }
 }
+
+/**
+ * Implements hook_enable().
+ */
+function modularform_enable() {
+  // Make sure Adminimal is enabled.
+  if (function_exists('theme_enable')) {
+    theme_enable(array('adminimal'));
+  }
+
+//  // Set Adminimal as the default site theme.
+//  variable_set('theme_default', 'adminimal');
+//
+//  // Optional: also set Adminimal as the admin theme.
+//  variable_set('admin_theme', 'adminimal');
+//
+//  // Optional: use admin theme for node add/edit pages.
+//  variable_set('node_admin_theme', TRUE);
+
+  drupal_flush_all_caches();
+}

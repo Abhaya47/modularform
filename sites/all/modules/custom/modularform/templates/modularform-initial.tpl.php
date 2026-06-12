@@ -1,5 +1,3 @@
-<h2 class="sr-only"><?php print $form_title; ?></h2>
-
 <div class="mf-create-page">
 
   <div class="mf-page-header">
