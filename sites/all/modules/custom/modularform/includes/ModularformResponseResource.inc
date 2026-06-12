@@ -110,7 +110,14 @@ class ModularformResponseResource extends RestWSEntityResourceController {
   public function access($op, $id) {
     $headers = getallheaders();
     $auth = isset($headers['Authorization']) ? $headers['Authorization'] : '';
+    $ip = ip_address();
 
+    if (!flood_is_allowed('modularform_api_ip_pre_auth', 100, 3600, $ip)) {
+      drupal_add_http_header('Status', '429 Too Many Requests');
+      drupal_json_output(['error' => 'Rate limit exceeded']);
+      drupal_exit();
+    }
+    flood_register_event('modularform_api_ip_pre_auth', 3600, $ip);
     if (strpos($auth, 'Bearer ') === 0) {
       $token = substr($auth, 7);
       $decoded = modularform_jwt_verify($token);
@@ -129,7 +136,6 @@ class ModularformResponseResource extends RestWSEntityResourceController {
       flood_register_event('modularform_api_access', 3600, $identifier);
 
       // Also rate limit per IP as a second layer
-      $ip = ip_address();
       if (!flood_is_allowed('modularform_api_access_ip', 200, 3600, $ip)) {
         drupal_add_http_header('Status', '429 Too Many Requests');
         drupal_json_output(['error' => 'Rate limit exceeded']);
