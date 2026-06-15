@@ -69,7 +69,7 @@ class ModularformResponseResource extends RestWSEntityResourceController {
     switch ($type) {
       case 'radio':
         return [
-          'id' => $answer->value_varchar,
+          'id' => $answer->value_int,
           'label' => $answer->option_label,
         ];
 

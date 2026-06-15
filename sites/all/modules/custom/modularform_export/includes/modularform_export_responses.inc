@@ -223,7 +223,7 @@ function _modularform_export_responses_format_answer($answer_entry): string {
 
   // Single-select: radio — use the resolved option label.
   if ($type === 'radio') {
-    return $answer->option_label ?? $answer->value_varchar ?? '';
+    return $answer->option_label ?? $answer->value_int ?? '';
   }
 
   // Date type.

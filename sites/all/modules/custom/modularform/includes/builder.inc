@@ -273,7 +273,11 @@ function _modularform_sync_question(&$form_state, $id, &$el, &$elements, $values
   }
 
   // Rule types
-  $q_val_rules = array_filter($elements, fn($el) => $el['type'] === 'validation_rule' && $el['parent'] === $id);
+  // in _modularform_sync_question
+  $q_val_rules = array_filter($elements, fn($el) => $el['type'] === 'validation_rule'
+    && $el['parent'] === $id
+    && ($el['rule_type'] ?? '') !== 'is_multiple'
+  );
   foreach ($q_val_rules as $r_id => $r_el) {
     $r_base = [$sec_id, $id, 'validation', 'adv_rules', $r_id];
 
@@ -542,8 +546,10 @@ function _modularform_render_question_validation(&$form, &$form_state, $sec_id, 
     ],
   ];
 
+  // in _modularform_render_question_validation
   if ($show_adv_val) {
-    $q_val_rules = array_filter($val_rules, fn($el) => $el['parent'] === $q_id);
+    $q_val_rules = array_filter($val_rules, fn($el) => $el['parent'] === $q_id && ($el['rule_type'] ?? '') !== 'is_multiple'
+    );
     _modularform_render_adv_rules($form, $sec_id, $q_id, $q_type, $q_val_rules);
   }
 
@@ -693,6 +699,13 @@ function _modularform_find_rule_id($elements, $q_id, $rule_type) {
 }
 
 /**
+ * @throws \Random\RandomException
+ */
+function _modularform_new_id(): string {
+  return bin2hex(random_bytes(8));
+}
+
+/**
  * add Elements. This is where the form ends
  */
 function modularform_add_element_submit($form, &$form_state) {
@@ -700,7 +713,7 @@ function modularform_add_element_submit($form, &$form_state) {
   $fid = $form_state['storage']['fid'];
 
   if ($trigger === 'add_section') {
-    $new_id = 'sec_' . $fid . '_' . uniqid();
+    $new_id = 'sec_' . $fid . '_' . _modularform_new_id();
     $siblings = array_filter($form_state['storage']['elements'], fn($el) => $el['type'] === 'section');
     $sec_count = count($siblings);
     $form_state['storage']['elements'][$new_id] = [
@@ -711,7 +724,7 @@ function modularform_add_element_submit($form, &$form_state) {
     ];
   }
   elseif (strpos($trigger, 'add_q_') === 0) {
-    $new_id = 'q_' . $fid . '_' . uniqid();
+    $new_id = 'q_' . $fid . '_' . _modularform_new_id();
     $parent_id = str_replace('add_q_', '', $trigger);
     $siblings = array_filter($form_state['storage']['elements'], fn($el) => $el['type'] === 'question' && $el['parent'] === $parent_id);
     $form_state['storage']['elements'][$new_id] = [
@@ -722,7 +735,7 @@ function modularform_add_element_submit($form, &$form_state) {
     ];
   }
   elseif (strpos($trigger, 'add_opt_') === 0) {
-    $new_id = 'opt_' . $fid . '_' . uniqid();
+    $new_id = 'opt_' . $fid . '_' . _modularform_new_id();
     $parent_id = str_replace('add_opt_', '', $trigger);
     $siblings = array_filter($form_state['storage']['elements'], fn($el) => $el['type'] === 'option' && $el['parent'] === $parent_id);
     $form_state['storage']['elements'][$new_id] = [
@@ -732,7 +745,7 @@ function modularform_add_element_submit($form, &$form_state) {
     ];
   }
   elseif (strpos($trigger, 'add_rule_') === 0) {
-    $new_id = 'r_' . $fid . '_' . uniqid();
+    $new_id = 'r_' . $fid . '_' . _modularform_new_id();
     $q_id = substr($trigger, strlen('add_rule_'));
     $siblings = array_filter($form_state['storage']['elements'], fn($el) => $el['type'] === 'validation_rule' && $el['parent'] === $q_id);
     $form_state['storage']['elements'][$new_id] = [
@@ -957,7 +970,9 @@ function _modularform_build_records($fid, &$form_state) {
   // Pre-index which question IDs have at least one rule — needed for add_validation
   $q_ids_with_rules = [];
   foreach ($val_rules as $r_id => $r_el) {
-    $q_ids_with_rules[$r_el['parent']] = TRUE;
+    if (($r_el['rule_type'] ?? '') !== 'is_multiple') {
+      $q_ids_with_rules[$r_el['parent']] = TRUE;
+    }
   }
 
   // ── Section records + cache elements ──────────────────────────────────────

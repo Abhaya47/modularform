@@ -104,9 +104,13 @@ function modularform_schema() {
   ];
 
   $schema['modularform_sections'] = [
-    # TODO create section description
     'description' => t('Sections'),
     'fields' => [
+      'id' => [
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
       'sec_id' => [
         'description' => t('Unique section key (sec_{fid}_{uniqid})'),
         'type' => 'varchar',
@@ -140,15 +144,23 @@ function modularform_schema() {
         'default' => 0,
       ],
     ],
-    'primary key' => ['sec_id'],
+    'primary key' => ['id'],
     'indexes' => [
       'form_id' => ['form_id'],
+    ],
+    'unique keys' => [
+      'sec_id' => ['sec_id'],
     ],
   ];
 
   $schema['modularform_questions'] = [
     'description' => t('Questions'),
     'fields' => [
+      'id' => [
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
       'q_id' => [
         'description' => t('Unique question key (q_{fid}_{uniqid})'),
         'type' => 'varchar',
@@ -162,7 +174,7 @@ function modularform_schema() {
         'not null' => TRUE,
       ],
       'sec_id' => [
-        'description' => t('Section foreign key'),
+        'description' => t('Section foreign key modularform_sections.sec_id'),
         'type' => 'varchar',
         'length' => 64,
         'not null' => TRUE,
@@ -228,16 +240,24 @@ function modularform_schema() {
         'default' => 0,
       ],
     ],
-    'primary key' => ['q_id'],
+    'primary key' => ['id'],
     'indexes' => [
       'section_id' => ['sec_id'],
       'form_id' => ['form_id'],
+    ],
+    'unique keys' => [
+      'q_id' => ['q_id'],
     ],
   ];
 
   $schema['modularform_validation_rules'] = [
     'description' => t('Validation rules per question'),
     'fields' => [
+      'id' => [
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
       'r_id' => [
         'description' => t('Unique rule key (r_{fid}_{uniqid})'),
         'type' => 'varchar',
@@ -288,16 +308,24 @@ function modularform_schema() {
         'default' => 0,
       ],
     ],
-    'primary key' => ['r_id'],
+    'primary key' => ['id'],
     'indexes' => [
       'q_id' => ['q_id'],
       'form_id' => ['form_id'],
+    ],
+    'unique keys' => [
+      'r_id' => ['r_id'],
     ],
   ];
 
   $schema['modularform_question_options'] = [
     'description' => t('Question options'),
     'fields' => [
+      'id' => [
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ],
       'o_id' => [
         'description' => t('Unique option key (opt_{fid}_{uniqid})'),
         'type' => 'varchar',
@@ -337,10 +365,13 @@ function modularform_schema() {
         'default' => 0,
       ],
     ],
-    'primary key' => ['o_id'],
+    'primary key' => ['id'],
     'indexes' => [
       'question_id' => ['q_id'],
       'form_id' => ['form_id'],
+    ],
+    'unique keys' => [
+      'o_id' => ['o_id'],
     ],
   ];
 
@@ -498,6 +529,13 @@ function modularform_schema() {
       ],
     ],
     'primary key' => ['id'],
+    'unique keys' => [
+      'title' => ['title'],
+    ],
+    'indexes' => [
+      'id' => ['id'],
+      'tag' => ['title'],
+    ],
   ];
 
   $schema['modularform_responses'] = [
@@ -567,9 +605,9 @@ function modularform_schema() {
         'not null' => TRUE,
       ],
       'q_id' => [
-        'description' => t('Question FK (varchar natural key)'),
-        'type' => 'varchar',
-        'length' => 64,
+        'description' => t('Question FK (modularform_questions.id)'),
+        'type' => 'int',
+        'unsigned' => TRUE,
         'not null' => TRUE,
       ],
       'datatype' => [
@@ -633,6 +671,9 @@ function modularform_schema() {
       'response_id' => ['response_id'],
       'q_id' => ['q_id'],
     ],
+    'unique keys' => [
+      'answer' => ['response_id', 'q_id'],
+    ],
   ];
 
   $schema['modularform_answers_multi'] = [
@@ -645,7 +686,7 @@ function modularform_schema() {
       ],
       'answer_id' => [
         'description' => t('FK to modularform_answers.id'),
-        'type' => 'varchar',
+        'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
       ],
@@ -940,22 +981,40 @@ function modularform_update_7014() {
 }
 
 /**
+ * Add serial id PKs to structural tables; demote varchar keys to UNIQUE.
+ */
+function modularform_update_7015() {
+  $tables = [
+    'modularform_sections' => 'sec_id',
+    'modularform_questions' => 'q_id',
+    'modularform_question_options' => 'o_id',
+    'modularform_validation_rules' => 'r_id',
+  ];
+
+  foreach ($tables as $table => $varchar_col) {
+    db_query('ALTER TABLE {' . $table . '} DROP PRIMARY KEY');
+    db_query('ALTER TABLE {' . $table . '} ADD COLUMN id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST');
+    db_query('ALTER TABLE {' . $table . '} ADD UNIQUE KEY ' . $varchar_col . '_unique (' . $varchar_col . ')');
+  }
+}
+
+/**
  * Implements hook_enable().
  */
 function modularform_enable() {
   // Make sure Adminimal is enabled.
   if (function_exists('theme_enable')) {
-    theme_enable(array('adminimal'));
+    theme_enable(['adminimal']);
   }
 
-//  // Set Adminimal as the default site theme.
-//  variable_set('theme_default', 'adminimal');
-//
-//  // Optional: also set Adminimal as the admin theme.
-//  variable_set('admin_theme', 'adminimal');
-//
-//  // Optional: use admin theme for node add/edit pages.
-//  variable_set('node_admin_theme', TRUE);
+  //  // Set Adminimal as the default site theme.
+  //  variable_set('theme_default', 'adminimal');
+  //
+  //  // Optional: also set Adminimal as the admin theme.
+  //  variable_set('admin_theme', 'adminimal');
+  //
+  //  // Optional: use admin theme for node add/edit pages.
+  //  variable_set('node_admin_theme', TRUE);
 
   drupal_flush_all_caches();
 }

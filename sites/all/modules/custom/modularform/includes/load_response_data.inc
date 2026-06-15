@@ -104,8 +104,8 @@ function _modularform_load_response_data($response_id) {
   }
   foreach ($answers_raw as $answer) {
     $type_name = $type_map[(int) $answer->datatype] ?? NULL;
-    if ($type_name === 'radio' && !empty($answer->value_varchar)) {
-      $opt_ids[] = $answer->value_varchar;
+    if ($type_name === 'radio' && !empty($answer->value_int)) {
+      $opt_ids[] = $answer->value_int;
     }
   }
 
@@ -119,8 +119,8 @@ function _modularform_load_response_data($response_id) {
 
   $options = !empty($opt_ids)
     ? db_select('modularform_question_options', 'o')
-      ->fields('o', ['o_id', 'option'])
-      ->condition('o.o_id', array_unique($opt_ids), 'IN')
+      ->fields('o', ['id', 'option'])
+      ->condition('o.id', array_unique($opt_ids), 'IN')
       ->execute()->fetchAllAssoc('o_id')
     : [];
 
@@ -138,11 +138,11 @@ function _modularform_load_response_data($response_id) {
   $results = array_fill_keys($response_ids, []);
 
   foreach ($answers_raw as $answer) {
-    $type_name = $type_map[(int) $answer->datatype] ?? 'text';
+    $type_name = $type_map[(int) $answer->datatype] ?? '0';
     $multi     = $multi_grouped[$answer->id] ?? [];
 
-    if ($type_name === 'radio' && !empty($answer->value_varchar)) {
-      $answer->option_label = $options[$answer->value_varchar]->option ?? NULL;
+    if ($type_name === 'radio' && !empty($answer->value_int)) {
+      $answer->option_label = $options[$answer->value_int]->option ?? NULL;
     }
 
     $results[(int) $answer->response_id][$answer->q_id] = [

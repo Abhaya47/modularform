@@ -33,6 +33,9 @@ function _modularform_filter_get_answer_values($solr_key, $form_id, $term = '') 
       'rows'          => 0,        // docs not needed, facets only
       'fl'            => 'id',     // minimal field list since rows=0
     ];
+//    if ($term) {
+//      $params['facet.prefix'] = $term;
+//    }
 
     $response = $solr->search('*:*', $params);
 

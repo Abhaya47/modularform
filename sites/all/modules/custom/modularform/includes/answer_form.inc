@@ -78,7 +78,12 @@ function modularform_answer_form_submit($form, &$form_state) {
     throw $e;
   }
 
-  $datatype_map = modularform_datatype_map();
+  $elements_by_int_id = [];
+  foreach ($elements as $varchar_key => $el) {
+    if ($el['type'] === 'question') {
+      $elements_by_int_id[$el['id']] = ['varchar_key' => $varchar_key] + $el;
+    }
+  }
 
   // Pre-build multi question lookup from validation rules.
   $multi_question_ids = [];
@@ -102,22 +107,23 @@ function modularform_answer_form_submit($form, &$form_state) {
       continue;
     }
 
-    foreach ($section as $q_id => $q_data) {
-      if (!isset($elements[$q_id])) {
+    foreach ($section as $q_int_id => $q_data) {
+      $q = $elements_by_int_id[$q_int_id] ?? NULL;
+      if (!$q) {
         continue;
       }
 
-      $q_type = $elements[$q_id]['question_type'];
+      $q_type = $q['question_type'];
       $storage = $datatype_map[$q_type] ?? 'varchar';
       $is_multi = $storage === 'multi';
 
       // --- File questions ---
       if ($q_type === 'file') {
-        $is_multiple = !empty($multi_question_ids[$q_id]);
+        $is_multiple = !empty($multi_question_ids[$q['varchar_key']]);
 
         $answer_row = [
           'response_id' => $response_id,
-          'q_id' => $q_id,
+          'q_id' => $q_int_id,
           'datatype' => $type_map[$q_type],
           'value_varchar' => NULL,
           'value_text' => NULL,
@@ -132,7 +138,7 @@ function modularform_answer_form_submit($form, &$form_state) {
           ->fields($answer_row)
           ->execute();
 
-        $uploaded = _modularform_save_answer_files($q_id, $is_multiple, $response_id, $elements);
+        $uploaded = _modularform_save_answer_files($q['varchar_key'], $is_multiple, $response_id, $elements);
         foreach ($uploaded as $file) {
           $file_inserts[] = [
             'answer_id' => $answer_id,
@@ -147,7 +153,7 @@ function modularform_answer_form_submit($form, &$form_state) {
 
       $answer_row = [
         'response_id' => $response_id,
-        'q_id' => $q_id,
+        'q_id' => $q_int_id,
         'datatype' => modularform_type_map()[$q_type],
         'value_varchar' => NULL,
         'value_text' => NULL,
@@ -177,7 +183,7 @@ function modularform_answer_form_submit($form, &$form_state) {
           if ($q_type === 'tag') {
             if (strpos($part, 'new:') === 0) {
               $tag_labels = explode(',', substr($part, 4));
-              $resolved_ids = _modularform_insert_new_tags($q_id, $tag_labels, $now);
+              $resolved_ids = _modularform_insert_new_tags($tag_labels, $now);
               foreach ($resolved_ids as $tag_id) {
                 $multi_inserts[] = [
                   'answer_id' => $answer_id,
@@ -231,14 +237,14 @@ function modularform_answer_form_submit($form, &$form_state) {
 function _modularform_validate_file_question($q_id, array $elements) {
   $file_rules = _modularform_file_validators($q_id, $elements);
   $validators = $file_rules['drupal'];
-  $min_files  = $file_rules['min_files'];
-  $max_files  = $file_rules['max_files'];
+  $min_files = $file_rules['min_files'];
+  $max_files = $file_rules['max_files'];
   $upload_key = 'file_' . $q_id;
 
   $file_names = $_FILES['files']['name'][$upload_key] ?? [];
   $file_names = is_array($file_names) ? $file_names : [$file_names];
   $file_names = array_filter($file_names, fn($n) => $n !== '');
-  $count      = count($file_names);
+  $count = count($file_names);
 
   if ($min_files !== NULL && $count < $min_files) {
     form_set_error('files][' . $upload_key, t('Upload at least @min file(s).', ['@min' => $min_files]));
@@ -250,7 +256,7 @@ function _modularform_validate_file_question($q_id, array $elements) {
   }
 
   if (isset($validators['file_validate_size'])) {
-    $max_bytes  = $validators['file_validate_size'][0];
+    $max_bytes = $validators['file_validate_size'][0];
     $file_sizes = $_FILES['files']['size'][$upload_key] ?? [];
     $file_sizes = is_array($file_sizes) ? $file_sizes : [$file_sizes];
     foreach ($file_sizes as $size) {
@@ -297,10 +303,10 @@ function modularform_answer_form_validate($form, &$form_state) {
 
       $q_type = $q['question_type'];
       $rules = $rules_by_question[$q_id] ?? [];
-      $raw = $values[$sec_id][$q_id]['answer'] ?? NULL;
+      $raw = $values[$sec['id']][$q['id']]['answer'] ?? NULL;
 
       if ($q_type === 'file') {
-        _modularform_validate_file_question($q_id, $elements);
+        _modularform_validate_file_question($q['id'], $elements);
         continue;
       }
 
@@ -315,10 +321,7 @@ function modularform_answer_form_validate($form, &$form_state) {
           $empty = ($raw === NULL || $raw === '');
         }
         if ($empty) {
-          form_set_error(
-            $sec_id . '][' . $q_id . '][answer',
-            t('This field is required.')
-          );
+          form_set_error($sec['id'] . '][' . $q['id'] . '][answer', t('This field is required.'));
           continue; // no point running rules on empty required field
         }
       }
@@ -331,7 +334,7 @@ function modularform_answer_form_validate($form, &$form_state) {
       foreach ($rules as $rule) {
         $error = _modularform_validate_answer($q_type, $raw, $rule);
         if ($error !== NULL) {
-          form_set_error($sec_id . '][' . $q_id . '][answer', $error);
+          form_set_error($sec['id'] . '][' . $q['id'] . '][answer', $error);
           break; // one error per question is enough
         }
       }
@@ -557,7 +560,6 @@ function modularform_response_edit_form($form, &$form_state, $response_id) {
   return $form;
 }
 
-
 function modularform_response_edit_form_validate($form, &$form_state) {
   $fid = $form_state['storage']['form_id'];
   $elements = _modularform_load_elements($fid);
@@ -581,12 +583,13 @@ function modularform_response_edit_form_validate($form, &$form_state) {
 
       $q_type = $q['question_type'];
       $rules = $rules_by_question[$q_id] ?? [];
-      $raw = $values[$sec_id][$q_id]['answer'] ?? NULL;
+      $raw = $values[$sec['id']][$q['id']]['answer'] ?? NULL;
 
       if ($q_type === 'file') {
-        _modularform_validate_file_question($q_id, $elements);
+        _modularform_validate_file_question($q['id'], $elements);
         continue;
       }
+
       // In edit mode empty = "unchanged", so we only validate if something
       // was actually submitted. Required is not re-enforced on edit since
       // the answer already exists in the DB.
@@ -601,7 +604,7 @@ function modularform_response_edit_form_validate($form, &$form_state) {
       foreach ($rules as $rule) {
         $error = _modularform_validate_answer($q_type, $raw, $rule);
         if ($error !== NULL) {
-          form_set_error($sec_id . '][' . $q_id . '][answer', $error);
+          form_set_error($sec['id'] . '][' . $q['id'] . '][answer', $error);
           break;
         }
       }
@@ -622,6 +625,8 @@ function modularform_response_edit_form_submit($form, &$form_state) {
   $type_map = modularform_type_map();
 
   // Pre-build multi question lookup from validation rules.
+  // 'parent' on validation_rule elements is the question's varchar key,
+  // matching the array keys in $questions — not $q['id'].
   $multi_question_ids = [];
   foreach ($elements as $el) {
     if ($el['type'] === 'validation_rule'
@@ -632,21 +637,17 @@ function modularform_response_edit_form_submit($form, &$form_state) {
     }
   }
 
-  // Fetch all existing answer ids for this response in one query.
-  // This avoids doing db_merge() and then db_select() per question.
+  // Fetch all existing answer ids for this response in one query, keyed by
+  // the integer q_id now used in modularform_answers.
   $answer_ids = [];
-  $question_ids = array_keys($questions);
 
-  if (!empty($question_ids)) {
-    $existing_answers = db_select('modularform_answers', 'a')
-      ->fields('a', ['id', 'q_id'])
-      ->condition('a.response_id', $response_id)
-      ->condition('a.q_id', $question_ids, 'IN')
-      ->execute();
+  $existing_answers = db_select('modularform_answers', 'a')
+    ->fields('a', ['id', 'q_id'])
+    ->condition('a.response_id', $response_id)
+    ->execute();
 
-    foreach ($existing_answers as $row) {
-      $answer_ids[(int) $row->q_id] = (int) $row->id;
-    }
+  foreach ($existing_answers as $row) {
+    $answer_ids[(int) $row->q_id] = (int) $row->id;
   }
 
   $transaction = db_transaction();
@@ -658,26 +659,27 @@ function modularform_response_edit_form_submit($form, &$form_state) {
       foreach ($sec_questions as $q_id => $q) {
         $q_type = $q['question_type'];
         $storage = $datatype_map[$q_type] ?? 'varchar';
+        $q_int_id = $q['id'];
 
         // --- File questions ---
         if ($q_type === 'file') {
           $is_multiple = !empty($multi_question_ids[$q_id]);
 
-          if (!empty($answer_ids[$q_id])) {
+          if (!empty($answer_ids[$q_int_id])) {
             db_update('modularform_answers')
               ->fields([
                 'updated_at' => $now,
               ])
-              ->condition('id', $answer_ids[$q_id])
+              ->condition('id', $answer_ids[$q_int_id])
               ->execute();
 
-            $answer_id = $answer_ids[$q_id];
+            $answer_id = $answer_ids[$q_int_id];
           }
           else {
             $answer_id = db_insert('modularform_answers')
               ->fields([
                 'response_id' => $response_id,
-                'q_id' => $q_id,
+                'q_id' => $q_int_id,
                 'datatype' => $type_map[$q_type],
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -689,10 +691,10 @@ function modularform_response_edit_form_submit($form, &$form_state) {
               ])
               ->execute();
 
-            $answer_ids[$q_id] = $answer_id;
+            $answer_ids[$q_int_id] = $answer_id;
           }
 
-          $upload_key = 'file_' . $q_id;
+          $upload_key = 'file_' . $q_int_id;
           $has_upload = !empty($_FILES['files']['name'][$upload_key]);
 
           if ($has_upload) {
@@ -714,7 +716,7 @@ function modularform_response_edit_form_submit($form, &$form_state) {
               ->condition('answer_id', $answer_id)
               ->execute();
 
-            $uploaded = _modularform_save_answer_files($q_id, $is_multiple, $response_id, $elements);
+            $uploaded = _modularform_save_answer_files($q_int_id, $is_multiple, $response_id, $elements);
 
             foreach ($uploaded as $file) {
               db_insert('modularform_answer_files')
@@ -731,36 +733,36 @@ function modularform_response_edit_form_submit($form, &$form_state) {
         }
 
         // --- Non-file questions ---
-        if (!isset($values[$sec_id][$q_id]['answer'])) {
+        if (!isset($values[$sec['id']][$q_int_id]['answer'])) {
           continue;
         }
 
-        $raw = $values[$sec_id][$q_id]['answer'];
+        $raw = $values[$sec['id']][$q_int_id]['answer'];
 
         $update = array_merge(
           ['updated_at' => $now],
           _modularform_map_answer_value($q_type, $raw)
         );
 
-        if (!empty($answer_ids[$q_id])) {
+        if (!empty($answer_ids[$q_int_id])) {
           db_update('modularform_answers')
             ->fields($update)
-            ->condition('id', $answer_ids[$q_id])
+            ->condition('id', $answer_ids[$q_int_id])
             ->execute();
 
-          $answer_id = $answer_ids[$q_id];
+          $answer_id = $answer_ids[$q_int_id];
         }
         else {
           $answer_id = db_insert('modularform_answers')
             ->fields([
                 'response_id' => $response_id,
-                'q_id' => $q_id,
+                'q_id' => $q_int_id,
                 'datatype' => $type_map[$q_type],
                 'created_at' => $now,
               ] + $update)
             ->execute();
 
-          $answer_ids[$q_id] = $answer_id;
+          $answer_ids[$q_int_id] = $answer_id;
         }
 
         if ($storage === 'multi') {
@@ -784,7 +786,7 @@ function modularform_response_edit_form_submit($form, &$form_state) {
             }
 
             $new_ids = !empty($new_tags)
-              ? _modularform_insert_new_tags($q_id, $new_tags, $now)
+              ? _modularform_insert_new_tags($new_tags, $now)
               : [];
 
             // Normalise new ids to strings for diff.
@@ -873,7 +875,7 @@ function _modularform_map_answer_value($q_type, $raw) {
       break;
 
     case 'radio':
-      $result['value_varchar'] = $raw;
+      $result['value_int'] = (int) $raw;
       break;
 
     case 'boolean':
@@ -1067,9 +1069,12 @@ function _modularform_load_defaults($response_id) {
     $answer = $entry['answer'];
 
     switch ($entry['type']) {
-      case 'radio':
       case 'text':
         $defaults[$q_id] = $answer->value_varchar;
+        break;
+
+      case 'radio':
+        $defaults[$q_id] = $answer->value_int;
         break;
 
       case 'list':
@@ -1117,22 +1122,35 @@ function _modularform_load_defaults($response_id) {
 }
 
 // Helper now correctly accepts an array
-function _modularform_insert_new_tags($q_id, array $labels, $now) {
+function _modularform_insert_new_tags(array $labels, $now) {
   $ids = [];
   foreach ($labels as $label) {
     $label = trim($label);
     if ($label === '') {
       continue;
     }
-    $id = db_insert('modularform_tags')
-      ->fields([
-        'title' => $label,
-        'created_at' => $now,
-      ])
-      ->execute(); // returns last insert ID (int) in Drupal 7
-
-    if ($id) {
+    try {
+      $id = db_insert('modularform_tags')
+        ->fields([
+          'title' => $label,
+          'created_at' => $now,
+        ])
+        ->execute();
       $ids[] = (int) $id;
+    }
+    catch (PDOException $e) {
+      if ($e->getCode() === '23000') {
+        $id = db_select('modularform_tags', 't')
+          ->fields('t', ['id'])
+          ->condition('t.title', $label)
+          ->execute()
+          ->fetchField();
+        if ($id) {
+          $ids[] = (int) $id;
+        }
+        continue;
+      }
+      throw $e;
     }
   }
   return $ids;

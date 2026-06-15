@@ -56,7 +56,7 @@ function _modularform_load_elements($fid): array {
 
     // Sections
     $sections = db_select('modularform_sections', 's')
-      ->fields('s', ['sec_id', 'form_id', 'name', 'weight'])
+      ->fields('s', ['id', 'sec_id', 'form_id', 'name', 'weight'])
       ->condition('form_id', $uncached, 'IN')
       ->orderBy('form_id')
       ->orderBy('weight')
@@ -65,7 +65,17 @@ function _modularform_load_elements($fid): array {
 
     // Questions
     $questions = db_select('modularform_questions', 'q')
-      ->fields('q', ['q_id', 'form_id', 'sec_id', 'label', 'type', 'is_required', 'position', 'is_filterable'])
+      ->fields('q', [
+        'id',
+        'q_id',
+        'form_id',
+        'sec_id',
+        'label',
+        'type',
+        'is_required',
+        'position',
+        'is_filterable',
+      ])
       ->condition('form_id', $uncached, 'IN')
       ->orderBy('form_id')
       ->orderBy('sec_id')
@@ -75,7 +85,7 @@ function _modularform_load_elements($fid): array {
 
     // Options
     $options = db_select('modularform_question_options', 'o')
-      ->fields('o', ['o_id', 'form_id', 'q_id', 'option', 'weight'])
+      ->fields('o', ['id', 'o_id', 'form_id', 'q_id', 'option', 'weight'])
       ->condition('form_id', $uncached, 'IN')
       ->orderBy('form_id')
       ->orderBy('q_id')
@@ -85,7 +95,16 @@ function _modularform_load_elements($fid): array {
 
     // Validation rules
     $rules = db_select('modularform_validation_rules', 'r')
-      ->fields('r', ['r_id', 'form_id', 'q_id', 'rule_type', 'rule_value', 'error_message', 'weight'])
+      ->fields('r', [
+        'id',
+        'r_id',
+        'form_id',
+        'q_id',
+        'rule_type',
+        'rule_value',
+        'error_message',
+        'weight',
+      ])
       ->condition('form_id', $uncached, 'IN')
       ->orderBy('form_id')
       ->orderBy('q_id')
@@ -99,8 +118,9 @@ function _modularform_load_elements($fid): array {
     foreach ($sections as $sec_id => $row) {
       $f = (int) $row['form_id'];
       $results[$f][$sec_id] = [
-        'type'   => 'section',
-        'title'  => $row['name'],
+        'type' => 'section',
+        'id' => (int) $row['id'],
+        'title' => $row['name'],
         'weight' => (int) $row['weight'],
         'parent' => NULL,
       ];
@@ -110,13 +130,15 @@ function _modularform_load_elements($fid): array {
     foreach ($questions as $q_id => $row) {
       $f = (int) $row['form_id'];
       $results[$f][$q_id] = [
-        'type'          => 'question',
-        'parent'        => $row['sec_id'],
-        'label'         => $row['label'],
+        'id' => (int) $row['id'],
+        'type' => 'question',
+        'parent' => $row['sec_id'],
+        'label' => $row['label'],
         'question_type' => modularform_get_type_int_map($row['type']),
-        'is_required'   => (bool) $row['is_required'],
+        'is_required' => (bool) $row['is_required'],
+        'is_filterable'  => (bool) $row['is_filterable'],
         'add_validation' => FALSE,
-        'weight'        => (int) $row['position'],
+        'weight' => (int) $row['position'],
       ];
     }
 
@@ -124,7 +146,8 @@ function _modularform_load_elements($fid): array {
     foreach ($options as $o_id => $row) {
       $f = (int) $row['form_id'];
       $results[$f][$o_id] = [
-        'type'   => 'option',
+        'id' => (int) $row['id'],
+        'type' => 'option',
         'parent' => $row['q_id'],
         'option' => $row['option'],
         'weight' => (int) $row['weight'],
@@ -138,12 +161,12 @@ function _modularform_load_elements($fid): array {
         $results[$f][$row['q_id']]['add_validation'] = TRUE;
       }
       $results[$f][$r_id] = [
-        'type'          => 'validation_rule',
-        'parent'        => $row['q_id'],
-        'rule_type'     => $row['rule_type'],
-        'rule_value'    => $row['rule_value'],
+        'type' => 'validation_rule',
+        'parent' => $row['q_id'],
+        'rule_type' => $row['rule_type'],
+        'rule_value' => $row['rule_value'],
         'error_message' => $row['error_message'],
-        'weight'        => (int) $row['weight'],
+        'weight' => (int) $row['weight'],
       ];
     }
 

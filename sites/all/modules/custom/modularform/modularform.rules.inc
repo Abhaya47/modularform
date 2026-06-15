@@ -273,7 +273,7 @@ function modularform_datatype_map(): array {
     'text'      => 'varchar',
     'textarea'  => 'text',
     'richtext'  => 'text',
-    'radio'     => 'varchar',
+    'radio'     => 'int',
     'boolean'   => 'bool',
     'checkbox'  => 'multi',
     'tag'       => 'multi',
