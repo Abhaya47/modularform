@@ -1152,8 +1152,7 @@ function _modularform_create($fid, array $records) {
   foreach ($records['validation_rules'] as $row) {
     db_insert('modularform_validation_rules')->fields($row)->execute();
   }
-  $cid = 'modularform:elements:' . $fid;
-  cache_set($cid, $records['cache_elements'], 'cache_modularform', CACHE_PERMANENT);
+  cache_clear_all('modularform:elements:' . $fid, 'cache_modularform');
 }
 
 function _modularform_edit($fid, array $records, array $rules = []) {
@@ -1238,111 +1237,7 @@ function _modularform_edit($fid, array $records, array $rules = []) {
   // We can't blindly overwrite with $records['cache_elements'] because rules
   // may have locked certain fields. Load the existing cached (or DB) state and
   // apply only what the rules actually allowed to change in the DB.
-  $cid = 'modularform:elements:' . $fid;
-  $existing = cache_get($cid, 'cache_modularform');
-  $cached = ($existing && isset($existing->data)) ? $existing->data : _modularform_load_elements($fid);
-
-  $new_cache = $records['cache_elements'];  // fully computed, all fields present
-
-  foreach ($new_cache as $id => $new_el) {
-    if (!isset($cached[$id])) {
-      // Brand-new element — always add regardless of rules
-      $cached[$id] = $new_el;
-      continue;
-    }
-
-    $old = $cached[$id];
-
-    switch ($new_el['type']) {
-      case 'section':
-        $old['weight'] = $new_el['weight'];   // always (reorder gate only hits DB col name, weight is always written)
-        if ($rules['rename_label'] ?? TRUE) {
-          $old['title'] = $new_el['title'];
-        }
-        $cached[$id] = $old;
-        break;
-
-      case 'question':
-        $old['weight'] = $new_el['weight'];   // position/reorder always written
-        $old['is_filterable'] = $new_el['is_filterable'] ?? FALSE; // always writable
-        if ($rules['rename_label'] ?? TRUE) {
-          $old['label'] = $new_el['label'];
-        }
-        if ($rules['reorder'] ?? TRUE) {
-          $old['parent'] = $new_el['parent'];
-        }
-        if ($rules['change_required'] ?? TRUE) {
-          $old['is_required'] = $new_el['is_required'];
-        }
-        if ($rules['change_type'] ?? TRUE) {
-          $old['question_type'] = $new_el['question_type'];
-        }
-        // add_validation reflects whether rules exist — always recompute from new state
-        $old['add_validation'] = $new_el['add_validation'];
-        $cached[$id] = $old;
-        break;
-
-      case 'option':
-        if ($rules['edit_options'] ?? TRUE) {
-          $old['option'] = $new_el['option'];
-        }
-        if ($rules['reorder'] ?? TRUE) {
-          $old['weight'] = $new_el['weight'];
-        }
-        $cached[$id] = $old;
-        break;
-
-      case 'validation_rule':
-        if ($rules['change_required'] ?? TRUE) {
-          $old['rule_type'] = $new_el['rule_type'];
-          $old['rule_value'] = $new_el['rule_value'];
-          $old['error_message'] = $new_el['error_message'];
-          $old['weight'] = $new_el['weight'];
-        }
-        $cached[$id] = $old;
-        break;
-    }
-  }
-
-  // Remove orphaned elements that were deleted from DB
-  if ($rules['delete_section'] ?? TRUE) {
-    foreach (array_keys($cached) as $id) {
-      if (isset($cached[$id]) && $cached[$id]['type'] === 'section' && !isset($new_cache[$id])) {
-        unset($cached[$id]);
-      }
-    }
-  }
-  if ($rules['delete_question'] ?? TRUE) {
-    foreach (array_keys($cached) as $id) {
-      if (!isset($cached[$id])) {
-        continue;
-      }
-      $type = $cached[$id]['type'];
-      if (in_array($type, [
-          'question',
-          'option',
-          'validation_rule',
-        ]) && !isset($new_cache[$id])) {
-        unset($cached[$id]);
-      }
-    }
-  }
-  elseif ($rules['delete_option'] ?? TRUE) {
-    foreach (array_keys($cached) as $id) {
-      if (!isset($cached[$id])) {
-        continue;
-      }
-      $type = $cached[$id]['type'];
-      if (in_array($type, [
-          'option',
-          'validation_rule',
-        ]) && !isset($new_cache[$id])) {
-        unset($cached[$id]);
-      }
-    }
-  }
-
-  cache_set($cid, $cached, 'cache_modularform', CACHE_PERMANENT);
+  cache_clear_all('modularform:elements:' . $fid, 'cache_modularform');
 }
 
 function _modularform_bulk_upsert($table, array $records, array $update_cols) {
